@@ -7,7 +7,7 @@ type ProjectCardProps = { project: Project; current?: boolean };
 
 export function ProjectCard({ project, current }: ProjectCardProps) {
   return (
-    <Link href={`/workspace/${project.slug}`} className="group block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Link href={`/workspace/${project.id}`} className="group block rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <Card className={cn("h-full min-h-[240px] gap-0 rounded-lg p-6 shadow-none transition-colors group-hover:border-neutral-300")}>
         <CardHeader className="p-0">
           <CardTitle className="text-[17px] leading-snug font-medium break-words">{project.name}</CardTitle>
