@@ -1,4 +1,7 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import { Account } from "@/components/account";
+import { AccountAvatar } from "@/components/account-menu";
 import { AppHeader } from "@/components/app-header";
 import { AppShell } from "@/components/app-shell";
 import { SAMPLE_PROJECTS } from "@/lib/projects";
@@ -18,7 +21,7 @@ export default async function WorkspacePage({ params }: WorkspacePageProps) {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <AppHeader page={project.name} />
+      <AppHeader page={project.name} account={<Suspense fallback={<AccountAvatar />}><Account /></Suspense>} />
       <AppShell />
     </div>
   );

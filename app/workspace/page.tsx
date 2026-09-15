@@ -1,3 +1,6 @@
+import { Suspense } from "react";
+import { Account } from "@/components/account";
+import { AccountAvatar } from "@/components/account-menu";
 import { AppHeader } from "@/components/app-header";
 import { ProjectCard } from "@/components/project-card";
 import { plural, SAMPLE_PROJECTS } from "@/lib/projects";
@@ -5,7 +8,7 @@ import { plural, SAMPLE_PROJECTS } from "@/lib/projects";
 export default function ProjectsPage() {
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <AppHeader />
+      <AppHeader account={<Suspense fallback={<AccountAvatar />}><Account /></Suspense>} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[1200px] px-10 pt-11 pb-14">
           <div className="flex items-end justify-between gap-4">

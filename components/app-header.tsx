@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, LogIn, LogOut, X } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -12,12 +11,11 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-type AppHeaderProps = { project?: string; page?: string };
+type AppHeaderProps = { project?: string; page?: string; account?: ReactNode };
 
-export function AppHeader({ project = "Engelbart", page }: AppHeaderProps) {
+export function AppHeader({ project = "Engelbart", page, account }: AppHeaderProps) {
   const [notifOpen, setNotifOpen] = useState(false);
 
   return (
@@ -58,34 +56,7 @@ export function AppHeader({ project = "Engelbart", page }: AppHeaderProps) {
           </PopoverContent>
         </Popover>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button type="button" aria-label="Account" className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <Avatar className="size-8">
-                <AvatarImage src="/avatar.png" alt="" />
-                <AvatarFallback className="bg-zinc-700 text-white">
-                  <svg viewBox="0 0 26 26" className="size-full" aria-hidden="true">
-                    <clipPath id="avatar-clip"><circle cx="13" cy="13" r="13" /></clipPath>
-                    <g fill="currentColor" clipPath="url(#avatar-clip)">
-                      <circle cx="13" cy="10" r="4.4" />
-                      <path d="M3.6 26.5a9.4 8.4 0 0 1 18.8 0z" />
-                    </g>
-                  </svg>
-                </AvatarFallback>
-              </Avatar>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={8} className="w-60 rounded-xl p-1.5">
-            <DropdownMenuItem className="h-[38px] gap-3 rounded-lg px-2.5 text-sm font-medium">
-              <LogIn className="size-4 text-muted-foreground" />
-              Sign in
-            </DropdownMenuItem>
-            <DropdownMenuItem className="h-[38px] gap-3 rounded-lg px-2.5 text-sm font-medium">
-              <LogOut className="size-4 text-muted-foreground" />
-              Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {account}
       </div>
     </header>
   );
