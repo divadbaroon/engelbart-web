@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { usePanelRef } from "react-resizable-panels";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { BartPanel } from "@/components/bart-panel";
@@ -13,12 +13,18 @@ export function CenterPanel({ tabs, children }: CenterPanelProps) {
   const bartRef = usePanelRef();
   const [bartOpen, setBartOpen] = useState(true);
 
+  // Bart starts open. The layout can settle collapsed after hydration, so
+  // expand it once on mount rather than trusting defaultSize alone.
+  useEffect(() => {
+    if (bartRef.current?.isCollapsed()) bartRef.current.expand();
+  }, [bartRef]);
+
   return (
     <main className="flex h-full min-w-0 flex-col bg-background px-6 pt-4 pb-5">
       {tabs}
       <div className="mt-5 flex min-h-0 flex-1 overflow-hidden rounded-lg border">
         <ResizablePanelGroup orientation="horizontal" id="engelbart-workspace">
-          <ResizablePanel defaultSize={65} minSize={35}>
+          <ResizablePanel defaultSize="65" minSize="35">
             {children}
           </ResizablePanel>
           <ResizableHandle />
