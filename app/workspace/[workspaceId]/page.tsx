@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app-shell";
 import { isUuid } from "@/lib/projects";
 import { getProject } from "@/lib/projects-server";
 import { loadPlan } from "@/lib/plan-server";
+import { listRepos } from "@/lib/repos-server";
 
 type WorkspacePageProps = { params: Promise<{ workspaceId: string }> };
 
@@ -25,13 +26,13 @@ export default function WorkspacePage({ params }: WorkspacePageProps) {
 async function Workspace({ params }: WorkspacePageProps) {
   const { workspaceId } = await params;
   if (!isUuid(workspaceId)) notFound();
-  const [project, plan] = await Promise.all([getProject(workspaceId), loadPlan(workspaceId)]);
+  const [project, plan, repos] = await Promise.all([getProject(workspaceId), loadPlan(workspaceId), listRepos(workspaceId)]);
   if (!project) notFound();
 
   return (
     <>
       <AppHeader page={project.name} account={<Suspense fallback={<AccountAvatar />}><Account /></Suspense>} />
-      <AppShell projectId={project.id} plan={plan} />
+      <AppShell projectId={project.id} plan={plan} repos={repos} />
     </>
   );
 }

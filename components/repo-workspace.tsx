@@ -25,9 +25,9 @@ export function RepoTabs({ repo, tab, onTabChange, ready, onClose }: RepoTabsPro
   return (
     <Tabs value={tab} onValueChange={(v) => onTabChange(v as RepoTab)}>
       <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b bg-transparent p-0">
-        <div className="flex min-w-0 items-center gap-2 pt-2 pb-2.5 text-[13px] text-muted-foreground">
+        <div className="flex shrink-0 items-center gap-2 pt-2 pb-2.5 text-[13px] text-muted-foreground">
           <GitBranch className="size-3.5 shrink-0" />
-          <span className="truncate font-medium text-foreground">{repo.name}</span>
+          <span className="max-w-[200px] truncate font-medium text-foreground" title={repo.fullName}>{repo.fullName}</span>
           <Button
             variant="ghost"
             size="icon"
@@ -51,15 +51,20 @@ export function RepoTabs({ repo, tab, onTabChange, ready, onClose }: RepoTabsPro
   );
 }
 
-type RepoContentProps = { repo: Repo; tab: RepoTab; progress: number | undefined };
+// `readme` is undefined while it loads, null when the repo has none GitHub can serve.
+type RepoContentProps = { repo: Repo; tab: RepoTab; progress: number | undefined; readme: string | null | undefined };
 
-export function RepoContent({ repo, tab, progress }: RepoContentProps) {
+export function RepoContent({ repo, tab, progress, readme }: RepoContentProps) {
   const ready = isReadyStep(progress);
 
   if (tab === "readme") {
     return (
       <section aria-label="README" className="h-full overflow-y-auto">
-        <Markdown source={repo.readme ?? `# ${repo.name}\n\nThis repository has no README.`} />
+        {readme === undefined ? (
+          <p className="p-8 text-[13px] text-muted-foreground">Loading README…</p>
+        ) : (
+          <Markdown source={readme ?? `# \n\nNo README could be read from GitHub. It may be missing, or the repository may be private.`} />
+        )}
       </section>
     );
   }
@@ -80,7 +85,7 @@ export function RepoContent({ repo, tab, progress }: RepoContentProps) {
           </>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-1.5 p-6 text-center">
-            <span className="text-[13px] text-muted-foreground">Preparing {repo.name}…</span>
+            <span className="text-[13px] text-muted-foreground">Preparing {repo.fullName}…</span>
             <span className="max-w-[320px] text-xs leading-normal text-muted-foreground/70">
               Installing dependencies and starting the dev server. You can keep reading the README meanwhile.
             </span>

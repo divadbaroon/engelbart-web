@@ -2,11 +2,10 @@
 
 import { PanelLeft } from "lucide-react";
 import type { Paper } from "@/lib/papers";
-import type { Repo } from "@/lib/repos";
 import { Button } from "@/components/ui/button";
 import type { SidebarMode } from "@/components/nav-rail";
 import { PlanGoals, type PlanActions } from "@/components/plan-goals";
-import { RepoList, type RepoStatus } from "@/components/repo-list";
+import { RepoList, type RepoListActions } from "@/components/repo-list";
 import { PaperList } from "@/components/paper-list";
 
 const TITLES: Record<SidebarMode, string> = { plan: "Plan", github: "GitHub", papers: "Papers" };
@@ -25,7 +24,7 @@ type ProjectSidebarProps = {
   onCollapse: () => void;
   plan: PlanActions;
   papers: ListActions<Paper>;
-  repos: ListActions<Repo> & { statusOf: (id: string) => RepoStatus };
+  repos: RepoListActions;
 };
 
 export function ProjectSidebar({ mode, onCollapse, plan, papers, repos }: ProjectSidebarProps) {
@@ -45,17 +44,7 @@ export function ProjectSidebar({ mode, onCollapse, plan, papers, repos }: Projec
         </Button>
       </div>
       {mode === "plan" && <PlanGoals {...plan} />}
-      {mode === "github" && (
-        <RepoList
-          repos={repos.items}
-          activeId={repos.activeId}
-          statusOf={repos.statusOf}
-          onOpen={repos.onOpen}
-          onAdd={repos.onAdd}
-          onRename={repos.onRename}
-          onCommit={repos.onCommit}
-        />
-      )}
+      {mode === "github" && <RepoList {...repos} />}
       {mode === "papers" && (
         <PaperList
           papers={papers.items}

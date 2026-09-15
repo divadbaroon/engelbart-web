@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { addSubgoal, findGoal, isDone, patchGoal, type Goal, type Plan } from "@/lib/plan";
 import { createGoal, updateGoal } from "@/app/workspace/[workspaceId]/actions";
+import { addRepo, fetchReadme, removeRepo } from "@/app/workspace/[workspaceId]/repo-actions";
 import { usePanelRef } from "react-resizable-panels";
 import { isPaperTab, paperTabValue, SAMPLE_PAPERS, type Paper } from "@/lib/papers";
-import { isReadyStep, SAMPLE_REPOS, type Repo } from "@/lib/repos";
+import { isReadyStep, type Repo } from "@/lib/repos";
 import { useRepoPrep } from "@/hooks/use-repo-prep";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -32,9 +33,9 @@ function useEditableList<T extends Named>(initial: T[], blank: (id: string) => T
   return { items, add, rename, commit };
 }
 
-type AppShellProps = { projectId: string; plan: Plan };
+type AppShellProps = { projectId: string; plan: Plan; repos: Repo[] };
 
-export function AppShell({ projectId, plan }: AppShellProps) {
+export function AppShell({ projectId, plan, repos: initialRepos }: AppShellProps) {
   const sidebarRef = usePanelRef();
   const [mode, setMode] = useState<SidebarMode>("plan");
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -45,7 +46,12 @@ export function AppShell({ projectId, plan }: AppShellProps) {
   const { progress, prepare } = useRepoPrep();
 
   const papers = useEditableList<Paper>(SAMPLE_PAPERS, (id) => ({ id, name: "", meta: "", isNew: true }));
-  const repos = useEditableList<Repo>(SAMPLE_REPOS, (id) => ({ id, name: "", meta: "", isNew: true }));
+  // Repositories: rows from the database, added by pasting a GitHub URL.
+  const [repos, setRepos] = useState<Repo[]>(initialRepos);
+  const [repoDraft, setRepoDraft] = useState<string | null>(null);
+  const [repoAdding, setRepoAdding] = useState(false);
+  const [repoError, setRepoError] = useState<string | null>(null);
+  const [readmes, setReadmes] = useState<Record<string, string | null>>({});
   const [openPaperIds, setOpenPaperIds] = useState<string[]>([]);
 
   // The plan: goals from the database, edited in place and written back
@@ -105,9 +111,36 @@ export function AppShell({ projectId, plan }: AppShellProps) {
     setCenter({ kind: "repo", id });
     setRepoTabs((t) => (t[id] ? t : { ...t, [id]: "readme" }));
     prepare(id);
+    const target = repos.find((r) => r.id === id);
+    if (target && !(id in readmes)) {
+      fetchReadme(target.owner, target.name).then((text) => setReadmes((all) => ({ ...all, [id]: text })));
+    }
   }
 
-  const repo = center.kind === "repo" ? repos.items.find((r) => r.id === center.id) : undefined;
+  async function commitRepoAdd() {
+    const input = (repoDraft ?? "").trim();
+    if (!input) { setRepoDraft(null); return; }
+    setRepoAdding(true);
+    setRepoError(null);
+    const result = await addRepo(projectId, input);
+    setRepoAdding(false);
+    if (result.ok) {
+      setRepos((rs) => [...rs, result.repo]);
+      setRepoDraft(null);
+    } else {
+      setRepoError(result.error);
+    }
+  }
+
+  async function removeRepoRow(id: string) {
+    setRepoError(null);
+    const result = await removeRepo(id);
+    if (!result.ok) { setRepoError(result.error); return; }
+    setRepos((rs) => rs.filter((r) => r.id !== id));
+    if (center.kind === "repo" && center.id === id) setCenter({ kind: "project" });
+  }
+
+  const repo = center.kind === "repo" ? repos.find((r) => r.id === center.id) : undefined;
   const openPapers = openPaperIds.map((id) => papers.items.find((p) => p.id === id)).filter((p): p is Paper => !!p);
   const activePaperId = center.kind === "project" && isPaperTab(tab) ? tab.slice("paper:".length) : null;
   const statusOf = (id: string): RepoStatus =>
@@ -129,7 +162,12 @@ export function AppShell({ projectId, plan }: AppShellProps) {
               onCollapse={() => sidebarRef.current?.collapse()}
               plan={{ goals, selectedId: selectedGoalId, onSelect: setSelectedGoalId, onToggleDone: toggleGoalDone, onAddSubgoal: addGoalUnder, error: planError }}
               papers={{ items: papers.items, activeId: activePaperId, onOpen: openPaper, onAdd: papers.add, onRename: papers.rename, onCommit: papers.commit }}
-              repos={{ items: repos.items, activeId: repo?.id ?? null, statusOf, onOpen: openRepo, onAdd: repos.add, onRename: repos.rename, onCommit: repos.commit }}
+              repos={{
+                repos, activeId: repo?.id ?? null, statusOf, onOpen: openRepo, onRemove: removeRepoRow,
+                draft: repoDraft, adding: repoAdding, error: repoError,
+                onDraftChange: setRepoDraft, onStartAdd: () => { setRepoError(null); setRepoDraft(""); },
+                onCommitAdd: commitRepoAdd, onCancelAdd: () => { setRepoDraft(null); setRepoError(null); },
+              }}
             />
           </ResizablePanel>
           <ResizableHandle />
@@ -150,7 +188,7 @@ export function AppShell({ projectId, plan }: AppShellProps) {
               }
             >
               {repo ? (
-                <RepoContent repo={repo} tab={repoTabs[repo.id] ?? "readme"} progress={progress[repo.id]} />
+                <RepoContent repo={repo} tab={repoTabs[repo.id] ?? "readme"} progress={progress[repo.id]} readme={readmes[repo.id]} />
               ) : (
                 <ProjectContent tab={tab} openPapers={openPapers} notesGoal={selectedGoal} onNotesSaved={noteSaved} />
               )}
