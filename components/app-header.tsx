@@ -25,7 +25,7 @@ export function AppHeader({ project = "Engelbart", page }: AppHeaderProps) {
       <Breadcrumb>
         <BreadcrumbList className="gap-2.5 text-[15px] sm:gap-2.5">
           <BreadcrumbItem>
-            <BreadcrumbLink href="/" title="All projects" className="text-base font-semibold text-foreground">
+            <BreadcrumbLink href="/workspace" title="All projects" className="text-base font-semibold text-foreground">
               {project}
             </BreadcrumbLink>
           </BreadcrumbItem>
