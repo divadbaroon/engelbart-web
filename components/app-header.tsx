@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, LogIn, LogOut, User, X } from "lucide-react";
+import { Bell, LogIn, LogOut, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -64,7 +64,13 @@ export function AppHeader({ project = "Engelbart", page }: AppHeaderProps) {
               <Avatar className="size-8">
                 <AvatarImage src="/avatar.png" alt="" />
                 <AvatarFallback className="bg-zinc-700 text-white">
-                  <User className="size-4" />
+                  <svg viewBox="0 0 26 26" className="size-full" aria-hidden="true">
+                    <clipPath id="avatar-clip"><circle cx="13" cy="13" r="13" /></clipPath>
+                    <g fill="currentColor" clipPath="url(#avatar-clip)">
+                      <circle cx="13" cy="10" r="4.4" />
+                      <path d="M3.6 26.5a9.4 8.4 0 0 1 18.8 0z" />
+                    </g>
+                  </svg>
                 </AvatarFallback>
               </Avatar>
             </button>
