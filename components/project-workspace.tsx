@@ -2,6 +2,7 @@
 
 import { FileText, X } from "lucide-react";
 import { isPaperTab, paperTabValue, type Paper } from "@/lib/papers";
+import type { Goal } from "@/lib/plan";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NotesPad } from "@/components/notes-pad";
@@ -53,9 +54,14 @@ export function ProjectTabs({ tab, onTabChange, openPapers, onClosePaper }: Proj
   );
 }
 
-type ProjectContentProps = { tab: string; openPapers: Paper[] };
+type ProjectContentProps = {
+  tab: string;
+  openPapers: Paper[];
+  notesGoal: Goal | null;
+  onNotesSaved: (goalId: string, notes: string, updatedAt: string) => void;
+};
 
-export function ProjectContent({ tab, openPapers }: ProjectContentProps) {
+export function ProjectContent({ tab, openPapers, notesGoal, onNotesSaved }: ProjectContentProps) {
   const activePaper = isPaperTab(tab) ? openPapers.find((p) => paperTabValue(p.id) === tab) : undefined;
 
   if (activePaper) {
@@ -73,7 +79,7 @@ export function ProjectContent({ tab, openPapers }: ProjectContentProps) {
     );
   }
 
-  if (tab === "notes") return <NotesPad />;
+  if (tab === "notes") return <NotesPad goal={notesGoal} onSaved={onNotesSaved} />;
 
   const label = PROJECT_TABS.find((t) => t.value === tab)?.label ?? "";
   return (

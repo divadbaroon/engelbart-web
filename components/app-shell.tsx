@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { addSubgoal, findGoal, isDone, patchGoal, type Goal, type Plan } from "@/lib/plan";
+import { createGoal, updateGoal } from "@/app/workspace/[workspaceId]/actions";
 import { usePanelRef } from "react-resizable-panels";
 import { isPaperTab, paperTabValue, SAMPLE_PAPERS, type Paper } from "@/lib/papers";
 import { isReadyStep, SAMPLE_REPOS, type Repo } from "@/lib/repos";
@@ -30,7 +32,9 @@ function useEditableList<T extends Named>(initial: T[], blank: (id: string) => T
   return { items, add, rename, commit };
 }
 
-export function AppShell() {
+type AppShellProps = { projectId: string; plan: Plan };
+
+export function AppShell({ projectId, plan }: AppShellProps) {
   const sidebarRef = usePanelRef();
   const [mode, setMode] = useState<SidebarMode>("plan");
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -43,6 +47,37 @@ export function AppShell() {
   const papers = useEditableList<Paper>(SAMPLE_PAPERS, (id) => ({ id, name: "", meta: "", isNew: true }));
   const repos = useEditableList<Repo>(SAMPLE_REPOS, (id) => ({ id, name: "", meta: "", isNew: true }));
   const [openPaperIds, setOpenPaperIds] = useState<string[]>([]);
+
+  // The plan: goals from the database, edited in place and written back
+  // through the same functions the CLI uses.
+  const [goals, setGoals] = useState<Goal[]>(plan.goals);
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(plan.goals[0]?.id ?? null);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const selectedGoal = selectedGoalId ? findGoal(goals, selectedGoalId) : null;
+
+  async function toggleGoalDone(goal: Goal) {
+    const status = isDone(goal) ? "active" : "completed";
+    setPlanError(null);
+    const result = await updateGoal(goal.id, goal.updatedAt, { status });
+    if (result.ok) {
+      setGoals((gs) => patchGoal(gs, goal.id, { status, updatedAt: result.updatedAt }));
+    } else if (result.conflict && result.current) {
+      const theirs = result.current;
+      setGoals((gs) => patchGoal(gs, goal.id, theirs));
+    } else {
+      setPlanError(result.error);
+    }
+  }
+
+  async function addGoalUnder(parentId: string, title: string) {
+    setPlanError(null);
+    const result = await createGoal(projectId, title, parentId);
+    if (result.ok) setGoals((gs) => addSubgoal(gs, parentId, result.goal));
+    else setPlanError(result.error);
+  }
+
+  const noteSaved = (goalId: string, notes: string, updatedAt: string) =>
+    setGoals((gs) => patchGoal(gs, goalId, { notes, updatedAt }));
 
   // Clicking the active rail icon toggles the sidebar; any other icon switches mode and opens it.
   function select(next: SidebarMode) {
@@ -92,6 +127,7 @@ export function AppShell() {
             <ProjectSidebar
               mode={mode}
               onCollapse={() => sidebarRef.current?.collapse()}
+              plan={{ goals, selectedId: selectedGoalId, onSelect: setSelectedGoalId, onToggleDone: toggleGoalDone, onAddSubgoal: addGoalUnder, error: planError }}
               papers={{ items: papers.items, activeId: activePaperId, onOpen: openPaper, onAdd: papers.add, onRename: papers.rename, onCommit: papers.commit }}
               repos={{ items: repos.items, activeId: repo?.id ?? null, statusOf, onOpen: openRepo, onAdd: repos.add, onRename: repos.rename, onCommit: repos.commit }}
             />
@@ -116,7 +152,7 @@ export function AppShell() {
               {repo ? (
                 <RepoContent repo={repo} tab={repoTabs[repo.id] ?? "readme"} progress={progress[repo.id]} />
               ) : (
-                <ProjectContent tab={tab} openPapers={openPapers} />
+                <ProjectContent tab={tab} openPapers={openPapers} notesGoal={selectedGoal} onNotesSaved={noteSaved} />
               )}
             </CenterPanel>
           </ResizablePanel>

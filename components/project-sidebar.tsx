@@ -5,7 +5,7 @@ import type { Paper } from "@/lib/papers";
 import type { Repo } from "@/lib/repos";
 import { Button } from "@/components/ui/button";
 import type { SidebarMode } from "@/components/nav-rail";
-import { PlanGoals } from "@/components/plan-goals";
+import { PlanGoals, type PlanActions } from "@/components/plan-goals";
 import { RepoList, type RepoStatus } from "@/components/repo-list";
 import { PaperList } from "@/components/paper-list";
 
@@ -23,11 +23,12 @@ export type ListActions<T> = {
 type ProjectSidebarProps = {
   mode: SidebarMode;
   onCollapse: () => void;
+  plan: PlanActions;
   papers: ListActions<Paper>;
   repos: ListActions<Repo> & { statusOf: (id: string) => RepoStatus };
 };
 
-export function ProjectSidebar({ mode, onCollapse, papers, repos }: ProjectSidebarProps) {
+export function ProjectSidebar({ mode, onCollapse, plan, papers, repos }: ProjectSidebarProps) {
   return (
     <aside className="flex h-full min-w-0 flex-col gap-[18px] overflow-y-auto bg-[#f6f6f6] px-4 pt-4 pb-6">
       <div className="flex h-7 shrink-0 items-center justify-between">
@@ -43,7 +44,7 @@ export function ProjectSidebar({ mode, onCollapse, papers, repos }: ProjectSideb
           <PanelLeft className="size-4" />
         </Button>
       </div>
-      {mode === "plan" && <PlanGoals />}
+      {mode === "plan" && <PlanGoals {...plan} />}
       {mode === "github" && (
         <RepoList
           repos={repos.items}
