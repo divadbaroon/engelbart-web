@@ -44,3 +44,6 @@ next-env.d.ts
 # staged hc source for the E2B template build
 sandbox/.hc/
 __pycache__/
+
+# benchmark screenshots
+bench/results/*/

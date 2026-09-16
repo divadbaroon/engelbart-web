@@ -18,7 +18,7 @@ export function ProjectCard({ project, current }: ProjectCardProps) {
           )}
         </CardHeader>
         <CardContent className="mt-auto p-0 pt-6">
-          <p className="text-xs leading-normal break-all text-muted-foreground">{project.path}</p>
+          {project.path && <p className="text-xs leading-normal break-all text-muted-foreground">{project.path}</p>}
         </CardContent>
         <CardFooter className="mt-3.5 gap-4 p-0 text-[13px] font-semibold">
           <span>{plural(project.goals, "goal")}</span>
