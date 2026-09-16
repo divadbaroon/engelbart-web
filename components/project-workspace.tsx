@@ -6,7 +6,7 @@ import type { Goal } from "@/lib/plan";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NotesPad } from "@/components/notes-pad";
-import { TAB_TRIGGER } from "@/components/repo-workspace";
+import { TAB_LIST, TAB_TRIGGER } from "@/components/repo-workspace";
 
 export const PROJECT_TABS = [
   { value: "preview", label: "Live preview" },
@@ -25,7 +25,7 @@ type ProjectTabsProps = {
 export function ProjectTabs({ tab, onTabChange, openPapers, onClosePaper }: ProjectTabsProps) {
   return (
     <Tabs value={tab} onValueChange={onTabChange}>
-      <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b bg-transparent p-0">
+      <TabsList className={TAB_LIST}>
         {PROJECT_TABS.map((t) => (
           <TabsTrigger key={t.value} value={t.value} className={TAB_TRIGGER}>
             {t.label}

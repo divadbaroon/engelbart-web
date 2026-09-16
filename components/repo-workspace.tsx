@@ -14,6 +14,13 @@ import { NotesPad } from "@/components/notes-pad";
 
 export type RepoTab = "readme" | "code" | "preview" | "terminal" | "notes";
 
+// The shadcn list fixes its height under an orientation variant, which a
+// plain `h-auto` cannot override; the tabs are taller than that, so their
+// underline drifted below the bar's border. Everything sits on the
+// bottom edge so the active underline lands on the border line.
+export const TAB_LIST =
+  "group-data-[orientation=horizontal]/tabs:h-auto h-auto w-full items-end justify-start gap-6 rounded-none border-b bg-transparent p-0";
+
 export const TAB_TRIGGER =
   "-mb-px h-auto flex-none rounded-none border-0 border-b-2 border-transparent px-0 pt-2.5 pb-3 font-normal text-muted-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none";
 
@@ -32,7 +39,7 @@ const dotClass = (run: SandboxRun | undefined) =>
 export function RepoTabs({ repo, tab, onTabChange, run, onClose }: RepoTabsProps) {
   return (
     <Tabs value={tab} onValueChange={(v) => onTabChange(v as RepoTab)}>
-      <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b bg-transparent p-0">
+      <TabsList className={TAB_LIST}>
         <div className="flex shrink-0 items-center gap-2 pt-2 pb-2.5 text-[13px] text-muted-foreground">
           <GitBranch className="size-3.5 shrink-0" />
           <span className="max-w-[200px] truncate font-medium text-foreground" title={repo.fullName}>{repo.fullName}</span>
