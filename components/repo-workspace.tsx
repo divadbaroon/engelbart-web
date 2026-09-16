@@ -109,7 +109,12 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   const lines = useMemo(() => terminalLines(events), [events]);
   const livePatch = run && patchFromEvents(events, run.id);
   const patch: RepoPatch | null = livePatch
-    ? { ...livePatch, worked: run.status === "running" ? true : run.status === "failed" ? false : null }
+    ? {
+        ...livePatch,
+        worked: run.status === "running" ? true : run.status === "failed" ? false : null,
+        // Where a replayed patch came from is known to the worker, not the log.
+        origin: repo.patch?.runId === run.id ? repo.patch.origin ?? null : null,
+      }
     : repo.patch;
   if (tab === "code") return <CodeBrowser repo={repo} run={run} onSaved={onFileSaved} />;
   if (tab === "notes") return <NotesPad goal={notesGoal} onSaved={onNotesSaved} />;

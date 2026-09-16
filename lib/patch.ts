@@ -3,6 +3,10 @@
 // desktop app can share it.
 import type { SandboxEvent } from "@/lib/sandbox";
 
+// Where a patch that was applied again came from: the run that first
+// made it, in this project or another one.
+export type PatchOrigin = { commit: string | null; at: string; shared: boolean };
+
 export type RepoPatch = {
   summary: string;
   reason: string;
@@ -13,6 +17,8 @@ export type RepoPatch = {
   runId: string;
   at: string;
   worked: boolean | null;   // did the run reach running after this? null while unknown
+  replayed: boolean;        // re-applied from a saved recipe rather than made in this run
+  origin?: PatchOrigin | null;
 };
 
 export function toPatch(ev: Record<string, unknown>, runId: string, at: string): RepoPatch | null {
@@ -25,6 +31,7 @@ export function toPatch(ev: Record<string, unknown>, runId: string, at: string):
     truncated: !!ev.truncated,
     attempt: typeof ev.attempt === "number" ? ev.attempt : 1,
     runId, at, worked: null,
+    replayed: ev.status === "replayed",
   };
 }
 

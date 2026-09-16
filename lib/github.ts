@@ -19,3 +19,16 @@ export async function listRepoPaths(owner: string, name: string, branch: string)
     return null;
   }
 }
+
+// Whether the repository is public. Null when GitHub would not say, which
+// callers treat as private.
+export async function isPublicRepo(owner: string, name: string): Promise<boolean | null> {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${owner}/${name}`, { headers: GITHUB_HEADERS });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { private?: boolean };
+    return typeof body.private === "boolean" ? !body.private : null;
+  } catch {
+    return null;
+  }
+}

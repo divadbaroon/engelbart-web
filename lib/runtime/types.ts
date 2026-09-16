@@ -22,6 +22,7 @@ export type RunFields = {
   port: number;
   services: PreviewService[];
   template: string;   // which runner image the sandbox came from
+  commit: string | null;   // what the clone checked out
 };
 
 // Docker means the larger runner image with Docker, Compose and the
@@ -29,7 +30,7 @@ export type RunFields = {
 export type PrepareOptions = { docker?: boolean };
 
 export type PrepareOutcome =
-  | { ok: true; sandboxId: string; workdir: string }
+  | { ok: true; sandboxId: string; workdir: string; commit: string | null }
   | { ok: false; kind: string; message: string };
 
 // A launch recipe is the pipeline's validated plan from a run that worked,

@@ -24,6 +24,7 @@ export type SandboxRun = {
   repoId: string;
   sandboxId: string | null;
   template: string;
+  commit: string | null;   // what the clone checked out
   status: RunStatus;
   workdir: string | null;
   errorKind: string | null;
@@ -50,6 +51,7 @@ export type RunRow = {
   repo_id: string;
   sandbox_id: string | null;
   template: string;
+  commit_sha: string | null;
   status: RunStatus;
   workdir: string | null;
   error_kind: string | null;
@@ -71,11 +73,11 @@ export type EventRow = {
   data: Record<string, unknown> | null;
 };
 
-export const RUN_COLUMNS = "id, repo_id, sandbox_id, template, status, workdir, error_kind, error, port, preview_url, services, started_at, finished_at";
+export const RUN_COLUMNS = "id, repo_id, sandbox_id, template, commit_sha, status, workdir, error_kind, error, port, preview_url, services, started_at, finished_at";
 export const EVENT_COLUMNS = "id, run_id, seq, at, kind, text, data";
 
 export const toRun = (r: RunRow): SandboxRun => ({
-  id: r.id, repoId: r.repo_id, sandboxId: r.sandbox_id, template: r.template, status: r.status, workdir: r.workdir,
+  id: r.id, repoId: r.repo_id, sandboxId: r.sandbox_id, template: r.template, commit: r.commit_sha, status: r.status, workdir: r.workdir,
   errorKind: r.error_kind, error: r.error, port: r.port, previewUrl: r.preview_url, services: r.services, startedAt: r.started_at, finishedAt: r.finished_at,
 });
 

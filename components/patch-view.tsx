@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { diffLines, type RepoPatch } from "@/lib/patch";
+import { diffLines, type PatchOrigin, type RepoPatch } from "@/lib/patch";
 import { Button } from "@/components/ui/button";
 
 type Props = {
@@ -28,6 +28,11 @@ export function PatchView({ patch, onBack, onRunWithoutPatch }: Props) {
             {patch.files.length} file{patch.files.length === 1 ? "" : "s"} in the sandbox copy only. GitHub is unchanged.
             {patch.truncated && " The diff was cut at the storage limit."}
           </span>
+          {patch.origin && (
+            <span className="text-xs text-muted-foreground/70">
+              {describeOrigin(patch.origin)}
+            </span>
+          )}
         </div>
         <div className="flex shrink-0 gap-1.5">
           {onRunWithoutPatch && (
@@ -56,4 +61,12 @@ export function PatchView({ patch, onBack, onRunWithoutPatch }: Props) {
       </pre>
     </section>
   );
+}
+
+// "Made in an earlier run on Sep 16 at commit a1b2c3d, applied again here."
+function describeOrigin(origin: PatchOrigin): string {
+  const when = origin.at ? ` on ${new Date(origin.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : "";
+  const where = origin.shared ? "in another project" : "in an earlier run";
+  const commit = origin.commit ? ` at commit ${origin.commit.slice(0, 7)}` : "";
+  return `Made ${where}${when}${commit}, applied again here.`;
 }

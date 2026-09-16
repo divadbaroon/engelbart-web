@@ -71,8 +71,9 @@ export const e2bRuntime: Runtime = {
       record.event("command", `ls -A ${workdir}`);
       record.event("stdout", listing.stdout);
       await recordMetrics(sandbox, record);
-      await record.status("cloned");
-      return { ok: true, sandboxId: sandbox.sandboxId, workdir };
+      const commit = await headCommit(sandbox, workdir);
+      await record.status("cloned", { commit });
+      return { ok: true, sandboxId: sandbox.sandboxId, workdir, commit };
     } catch (err) {
       const kind = errorKind(err);
       const message = err instanceof CommandExitError ? cloneFailure(err) : errorMessage(err);
@@ -428,4 +429,16 @@ function cloneFailure(err: CommandExitError) {
     return "GitHub refused the clone. The repository may be private or no longer exist.";
   }
   return `git exited with ${err.exitCode}: ${lastLine(err.stderr)}`;
+}
+
+// The commit the clone checked out, for tying a recipe to the code it
+// was captured on. Null when git will not say; nothing depends on it.
+async function headCommit(sandbox: Sandbox, workdir: string): Promise<string | null> {
+  try {
+    const result = await sandbox.commands.run(`git -C ${shellQuote(workdir)} rev-parse HEAD`, { timeoutMs: 10_000 });
+    const sha = result.stdout.trim();
+    return /^[0-9a-f]{40}$/.test(sha) ? sha : null;
+  } catch {
+    return null;
+  }
 }
