@@ -68,13 +68,15 @@ export const toEvent = (e: EventRow): SandboxEvent => ({
   id: e.id, runId: e.run_id, seq: e.seq, at: e.at, kind: e.kind, text: e.text, data: e.data,
 });
 
-// Still doing something: creating the sandbox, cloning, or bringing the app up.
+// Still doing something: waiting for the worker, creating the sandbox,
+// cloning, or bringing the app up. "cloned" is in here because the worker
+// launches straight after the clone; the page must keep listening through it.
 export const isRunActive = (run: SandboxRun | undefined) =>
-  !!run && (run.status === "queued" || run.status === "creating" || run.status === "cloning" || run.status === "launching");
+  !!run && (run.status === "queued" || run.status === "creating" || run.status === "cloning" || run.status === "cloned" || run.status === "launching");
 
-// The repository is in a sandbox, waiting to be launched.
-export const isRunCloned = (run: SandboxRun | undefined) =>
-  !!run && (run.status === "cloned" || run.status === "paused");
+// The repository is in a paused sandbox from before runs launched on their
+// own; it can be asked to launch.
+export const isRunCloned = (run: SandboxRun | undefined) => !!run && run.status === "paused";
 
 // The application is up and has a preview URL.
 export const isRunRunning = (run: SandboxRun | undefined) => !!run && run.status === "running" && !!run.previewUrl;
@@ -106,7 +108,7 @@ export const STATUS_LABEL: Record<RunStatus, string> = {
   queued: "Waiting for a runner…",
   creating: "Creating sandbox…",
   cloning: "Cloning…",
-  cloned: "Cloned",
+  cloned: "Cloned. Starting the application…",
   paused: "Cloned, sandbox paused",
   launching: "Starting the application…",
   running: "Running",
