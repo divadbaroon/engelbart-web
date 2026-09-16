@@ -53,6 +53,8 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   const [repoAdding, setRepoAdding] = useState(false);
   const [repoError, setRepoError] = useState<string | null>(null);
   const [readmes, setReadmes] = useState<Record<string, string | null>>({});
+  // Per repo, how many files were saved into its sandbox; the preview reloads on each.
+  const [previewVersions, setPreviewVersions] = useState<Record<string, number>>({});
   const [openPaperIds, setOpenPaperIds] = useState<string[]>([]);
 
   // The plan: goals from the database, edited in place and written back
@@ -204,6 +206,10 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
                   events={sandbox.events[sandbox.runs[repo.id]?.id ?? ""] ?? []}
                   error={sandbox.errors[repo.id]}
                   readme={readmes[repo.id]}
+                  notesGoal={selectedGoal}
+                  onNotesSaved={noteSaved}
+                  previewVersion={previewVersions[repo.id] ?? 0}
+                  onFileSaved={() => setPreviewVersions((v) => ({ ...v, [repo.id]: (v[repo.id] ?? 0) + 1 }))}
                   onPrepare={() => sandbox.prepare(repo.id)}
                   onLaunch={(runId) => sandbox.launch(runId, repo.id)}
                   onStop={(runId) => sandbox.stop(runId, repo.id)}

@@ -1,14 +1,18 @@
 "use client";
 
-import { GitBranch, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { GitBranch, RotateCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
+import type { Goal } from "@/lib/plan";
 import { isRunActive, isRunCloned, isRunRunning, STATUS_LABEL, terminalLines, type SandboxEvent, type SandboxRun, type TermLine } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Markdown } from "@/components/markdown";
+import { CodeBrowser } from "@/components/code-browser";
+import { NotesPad } from "@/components/notes-pad";
 
-export type RepoTab = "readme" | "preview" | "terminal";
+export type RepoTab = "readme" | "code" | "preview" | "terminal" | "notes";
 
 export const TAB_TRIGGER =
   "-mb-px h-auto flex-none rounded-none border-0 border-b-2 border-transparent px-0 pt-2.5 pb-3 font-normal text-muted-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none";
@@ -24,7 +28,7 @@ type RepoTabsProps = {
 const dotClass = (run: SandboxRun | undefined) =>
   isRunRunning(run) ? "bg-green-500" : run?.status === "failed" ? "bg-red-500" : isRunActive(run) ? "animate-pulse bg-neutral-400" : isRunCloned(run) ? "bg-neutral-400" : "bg-neutral-300";
 
-// Tab bar for the selected repo: repo chip + README / Live preview (status dot) / Terminal.
+// Tab bar for the selected repo: repo chip + README / Code / Live preview (status dot) / Terminal / Notes.
 export function RepoTabs({ repo, tab, onTabChange, run, onClose }: RepoTabsProps) {
   return (
     <Tabs value={tab} onValueChange={(v) => onTabChange(v as RepoTab)}>
@@ -45,11 +49,13 @@ export function RepoTabs({ repo, tab, onTabChange, run, onClose }: RepoTabsProps
           <span className="ml-1 h-4 w-px bg-border" />
         </div>
         <TabsTrigger value="readme" className={TAB_TRIGGER}>README</TabsTrigger>
+        <TabsTrigger value="code" className={TAB_TRIGGER}>Code</TabsTrigger>
         <TabsTrigger value="preview" title={run ? STATUS_LABEL[run.status] : "Not prepared"} className={cn(TAB_TRIGGER, "gap-[7px]")}>
           Live preview
           <span aria-hidden className={cn("size-1.5 rounded-full", dotClass(run))} />
         </TabsTrigger>
         <TabsTrigger value="terminal" className={TAB_TRIGGER}>Terminal</TabsTrigger>
+        <TabsTrigger value="notes" className={TAB_TRIGGER}>Notes</TabsTrigger>
       </TabsList>
     </Tabs>
   );
@@ -69,9 +75,18 @@ type RepoContentProps = RunControls & {
   events: SandboxEvent[];
   error: string | undefined;
   readme: string | null | undefined;
+  // Notes belong to the goal selected in Plan, the same as on the project tabs.
+  notesGoal: Goal | null;
+  onNotesSaved: (goalId: string, notes: string, updatedAt: string) => void;
+  // Bumped each time a file is saved into the sandbox; the preview reloads on it.
+  previewVersion: number;
+  onFileSaved: () => void;
 };
 
-export function RepoContent({ repo, tab, run, events, error, readme, onPrepare, onLaunch, onStop }: RepoContentProps) {
+export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, onPrepare, onLaunch, onStop }: RepoContentProps) {
+  if (tab === "code") return <CodeBrowser repo={repo} run={run} onSaved={onFileSaved} />;
+  if (tab === "notes") return <NotesPad goal={notesGoal} onSaved={onNotesSaved} />;
+
   if (tab === "readme") {
     return (
       <section aria-label="README" className="h-full overflow-y-auto">
@@ -84,7 +99,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, onPrepare, 
     );
   }
 
-  if (tab === "preview") return <Preview repo={repo} run={run} error={error} tail={terminalLines(events).slice(-6)} onPrepare={onPrepare} onLaunch={onLaunch} onStop={onStop} />;
+  if (tab === "preview") return <Preview repo={repo} run={run} error={error} tail={terminalLines(events).slice(-6)} version={previewVersion} onPrepare={onPrepare} onLaunch={onLaunch} onStop={onStop} />;
 
   const lines = terminalLines(events);
   return (
@@ -109,21 +124,10 @@ export function RepoContent({ repo, tab, run, events, error, readme, onPrepare, 
   );
 }
 
-type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; tail: TermLine[] };
+type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; tail: TermLine[]; version: number };
 
-function Preview({ repo, run, error, tail, onPrepare, onLaunch, onStop }: PreviewProps) {
-  if (run && isRunRunning(run)) {
-    return (
-      <section aria-label="Live preview" className="flex h-full flex-col">
-        <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3.5 font-mono text-xs text-muted-foreground">
-          <span className="size-1.5 rounded-full bg-green-500" />
-          <a href={run.previewUrl!} target="_blank" rel="noreferrer" className="truncate hover:text-foreground" title="Open in a new tab">{run.previewUrl}</a>
-          <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="ml-auto h-6 px-2 font-normal text-muted-foreground">Stop</Button>
-        </div>
-        <iframe src={run.previewUrl!} title={`${repo.fullName} preview`} className="min-h-0 w-full flex-1 bg-white" />
-      </section>
-    );
-  }
+function Preview({ repo, run, error, tail, version, onPrepare, onLaunch, onStop }: PreviewProps) {
+  if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} version={version} onStop={onStop} />;
 
   const [title, detail, action] = error
     ? ["Could not prepare " + repo.fullName, error, { label: "Try again", onClick: onPrepare }]
@@ -151,6 +155,39 @@ function Preview({ repo, run, error, tail, onPrepare, onLaunch, onStop }: Previe
           ))}
         </pre>
       )}
+    </section>
+  );
+}
+
+// The app in an iframe. A save in the Code tab, or the Reload button,
+// reloads it and the header says so until the new page has loaded. Dev
+// servers push changes themselves; a plain file server never does, and the
+// reload covers both.
+function RunningPreview({ repo, run, version, onStop }: { repo: Repo; run: SandboxRun; version: number; onStop: (runId: string) => void }) {
+  const [reloads, setReloads] = useState(0);
+  const [loading, setLoading] = useState<"first" | "update" | null>("first");
+  // Mounting already loads the page; only saves after that trigger a reload.
+  const seen = useRef(version);
+  useEffect(() => {
+    if (version === seen.current) return;
+    seen.current = version;
+    setReloads((n) => n + 1);
+    setLoading("update");
+  }, [version]);
+  const reload = () => { setReloads((n) => n + 1); setLoading("update"); };
+
+  return (
+    <section aria-label="Live preview" className="flex h-full flex-col">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3.5 font-mono text-xs text-muted-foreground">
+        <span className={cn("size-1.5 rounded-full", loading ? "animate-pulse bg-neutral-400" : "bg-green-500")} />
+        <a href={run.previewUrl!} target="_blank" rel="noreferrer" className="truncate hover:text-foreground" title="Open in a new tab">{run.previewUrl}</a>
+        <span role="status" className="ml-auto shrink-0 font-sans">{loading === "update" ? "Updating…" : loading === "first" ? "Loading…" : ""}</span>
+        <Button variant="ghost" size="icon" aria-label="Reload preview" title="Reload preview" onClick={reload} className="size-6 text-muted-foreground">
+          <RotateCw className={cn("size-3", loading && "animate-spin")} />
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="h-6 px-2 font-normal text-muted-foreground">Stop</Button>
+      </div>
+      <iframe key={reloads} src={run.previewUrl!} title={`${repo.fullName} preview`} onLoad={() => setLoading(null)} className="min-h-0 w-full flex-1 bg-white" />
     </section>
   );
 }

@@ -2,11 +2,16 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { parseGitHubRepo, type Repo } from "@/lib/repos";
-import { REPO_COLUMNS, toRepo, type RepoRow } from "@/lib/repos-server";
+import { REPO_COLUMNS, toRepo, type RepoRow } from "@/lib/repos";
+import { decodeFile, isSafeRepoPath, type FileContent, type FileTree, type TreeEntry } from "@/lib/code-files";
 
 export type AddRepoResult = { ok: true; repo: Repo } | { ok: false; error: string };
 
-const GITHUB_HEADERS = { Accept: "application/vnd.github+json", "User-Agent": "engelbart-web" };
+const GITHUB_HEADERS: Record<string, string> = {
+  Accept: "application/vnd.github+json", "User-Agent": "engelbart-web",
+  // Optional: lifts the anonymous rate limit of 60 requests an hour.
+  ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
+};
 
 // What GitHub says about a public repository, or why it could not say.
 type Lookup =
@@ -83,5 +88,46 @@ export async function fetchReadme(owner: string, name: string): Promise<string |
     return res.ok ? await res.text() : null;
   } catch {
     return null;
+  }
+}
+
+// The whole tree in one request. GitHub caps it at 100,000 entries and
+// says so with `truncated`; the browser shows what it got.
+export async function fetchTree(owner: string, name: string, branch: string): Promise<FileTree> {
+  try {
+    const ref = encodeURIComponent(branch || "HEAD");
+    const res = await fetch(`https://api.github.com/repos/${owner}/${name}/git/trees/${ref}?recursive=1`, {
+      headers: GITHUB_HEADERS,
+      next: { revalidate: 300 },
+    });
+    if (res.status === 403 || res.status === 429) return { error: "GitHub's rate limit was reached. Try again in a few minutes." };
+    if (!res.ok) return { error: `GitHub could not list the files (${res.status}).` };
+    const body = (await res.json()) as { tree?: { path: string; type: string; size?: number }[]; truncated?: boolean };
+    const entries: TreeEntry[] = (body.tree ?? [])
+      .filter((e) => e.type === "blob" || e.type === "tree")
+      .map((e) => ({ path: e.path, type: e.type as "blob" | "tree", size: e.size ?? 0 }));
+    return { entries, truncated: !!body.truncated };
+  } catch {
+    return { error: "GitHub could not be reached." };
+  }
+}
+
+// A file's contents. Served from raw.githubusercontent.com, which is not
+// rate-limited like the API, when the branch is known.
+export async function fetchFile(owner: string, name: string, branch: string, path: string): Promise<FileContent> {
+  if (!isSafeRepoPath(path)) return { error: "That is not a path inside the repository." };
+  const encoded = path.split("/").map(encodeURIComponent).join("/");
+  const url = branch
+    ? `https://raw.githubusercontent.com/${owner}/${name}/${encodeURIComponent(branch)}/${encoded}`
+    : `https://api.github.com/repos/${owner}/${name}/contents/${encoded}`;
+  try {
+    const res = await fetch(url, {
+      headers: branch ? { "User-Agent": "engelbart-web" } : { ...GITHUB_HEADERS, Accept: "application/vnd.github.raw+json" },
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return { error: `GitHub could not read the file (${res.status}).` };
+    return decodeFile(new Uint8Array(await res.arrayBuffer()));
+  } catch {
+    return { error: "GitHub could not be reached." };
   }
 }
