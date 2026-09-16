@@ -1,0 +1,322 @@
+[
+  {
+    "url": "https://github.com/ianarawjo/ChainForge",
+    "owner": "ianarawjo",
+    "name": "ChainForge",
+    "kind": "web_preview",
+    "title": "system",
+    "constraints": "Opening the UI can work without paid credentials, generating responses requires a configured provider. Monorepo and optional RAG extras complicate installation."
+  },
+  {
+    "url": "https://github.com/mqo00/hypocompass",
+    "owner": "mqo00",
+    "name": "hypocompass",
+    "kind": "web_preview",
+    "title": "system",
+    "constraints": "README suggests Node 16. Backend and frontend must both start. Do not infer credential requirement from an installed OpenAI client alone."
+  },
+  {
+    "url": "https://github.com/joonspk-research/generative_agents",
+    "owner": "joonspk-research",
+    "name": "generative_agents",
+    "kind": "web_preview",
+    "title": "system",
+    "constraints": "Replay and new simulation are distinct workflows. New simulation makes paid model calls, UI health alone does not validate agent behavior."
+  },
+  {
+    "url": "https://github.com/stanford-oval/storm",
+    "owner": "stanford-oval",
+    "name": "storm",
+    "kind": "web_preview",
+    "title": "system",
+    "constraints": "Core package and nested demo have distinct entry points. Cloud search and model credentials are needed for the corresponding article-generation example."
+  },
+  {
+    "url": "https://github.com/stanfordnlp/dspy",
+    "owner": "stanfordnlp",
+    "name": "dspy",
+    "kind": "library_or_cli",
+    "title": "cli_script",
+    "constraints": "Library import is a different contract from a web server. Selecting a usage example is necessary for a functional test."
+  },
+  {
+    "url": "https://github.com/microsoft/autogen",
+    "owner": "microsoft",
+    "name": "autogen",
+    "kind": "web_preview",
+    "title": "tool",
+    "constraints": "Must choose a component such as Studio. Installing a root monorepo or importing the framework does not start the GUI."
+  },
+  {
+    "url": "https://github.com/SWE-agent/SWE-agent",
+    "owner": "SWE-agent",
+    "name": "SWE-agent",
+    "kind": "library_or_cli",
+    "title": "tool",
+    "constraints": "Launching the inspector does not prove an agent completed a coding task. Running tasks executes external code and consumes configured model resources."
+  },
+  {
+    "url": "https://github.com/ServiceNow/WorkArena",
+    "owner": "ServiceNow",
+    "name": "WorkArena",
+    "kind": "library_or_cli",
+    "title": "system",
+    "constraints": "Gated remote service access is an expected prerequisite. The HF artifact contains instance access information, not a replacement for a ServiceNow deployment."
+  },
+  {
+    "url": "https://github.com/web-arena-x/webarena",
+    "owner": "web-arena-x",
+    "name": "webarena",
+    "kind": "web_preview",
+    "title": "system",
+    "constraints": "Multi-container environment and external images. Native-only preview support cannot be interpreted as full benchmark compatibility."
+  },
+  {
+    "url": "https://github.com/vega/vega-lite",
+    "owner": "vega",
+    "name": "vega-lite",
+    "kind": "library_or_cli",
+    "title": "visualization",
+    "constraints": "A successful compiler build is not a server. Jekyll site dependencies are additional to the JavaScript library."
+  },
+  {
+    "url": "https://github.com/uwdata/voyager",
+    "owner": "uwdata",
+    "name": "voyager",
+    "kind": "web_preview",
+    "title": "tool",
+    "constraints": "This is the original Voyager repository, not the Voyager 2 paper. Legacy Bower/Gulp compatibility is an intentional stress case."
+  },
+  {
+    "url": "https://github.com/cmudig/draco2",
+    "owner": "cmudig",
+    "name": "draco2",
+    "kind": "library_or_cli",
+    "title": "visualization",
+    "constraints": "Core solver usage and optional HTTP API are separate workflows. A correct diagnosis can be library-only or require the server extra."
+  },
+  {
+    "url": "https://github.com/poloclub/wizmap",
+    "owner": "poloclub",
+    "name": "wizmap",
+    "kind": "web_preview",
+    "title": "system",
+    "constraints": "Viewing existing embeddings and creating embeddings are different tasks, model inference is not required for the viewer itself."
+  },
+  {
+    "url": "https://github.com/jessevig/bertviz",
+    "owner": "jessevig",
+    "name": "bertviz",
+    "kind": "notebook_or_visualization",
+    "title": "tool",
+    "constraints": "Notebook output is not a standalone web application. Visualizing supplied attention tensors can avoid downloading a model."
+  },
+  {
+    "url": "https://github.com/PAIR-code/lit",
+    "owner": "PAIR-code",
+    "name": "lit",
+    "kind": "web_preview",
+    "title": "system",
+    "constraints": "Choose a documented demo or model wrapper. HTTP health does not verify salience/model computations."
+  },
+  {
+    "url": "https://github.com/jalammar/ecco",
+    "owner": "jalammar",
+    "name": "ecco",
+    "kind": "notebook_or_visualization",
+    "title": "tool",
+    "constraints": "Notebook-first library, do not require an HTTP listener to recognize it. Older model APIs can fail against newer Transformers releases."
+  },
+  {
+    "url": "https://github.com/mesa/mesa",
+    "owner": "mesa",
+    "name": "mesa",
+    "kind": "simulation",
+    "title": "simulation",
+    "constraints": "A specific example model must be selected for visualization. The current source runtime floor differs from older Mesa releases."
+  },
+  {
+    "url": "https://github.com/Farama-Foundation/Gymnasium",
+    "owner": "Farama-Foundation",
+    "name": "Gymnasium",
+    "kind": "simulation",
+    "title": "simulation",
+    "constraints": "Core environment reset/step can run headlessly. Rendering or all-extras installation introduces additional platform requirements."
+  },
+  {
+    "url": "https://github.com/Farama-Foundation/Minigrid",
+    "owner": "Farama-Foundation",
+    "name": "Minigrid",
+    "kind": "simulation",
+    "title": "tool",
+    "constraints": "README officially supports Linux/macOS and does not claim Windows support. Grid stepping and interactive rendering are distinct checks."
+  },
+  {
+    "url": "https://github.com/HumanCompatibleAI/overcooked_ai",
+    "owner": "HumanCompatibleAI",
+    "name": "overcooked_ai",
+    "kind": "simulation",
+    "title": "simulation",
+    "constraints": "Tight Python pin and optional training GPU stack. A running demo does not prove human-AI coordination results reproduce."
+  },
+  {
+    "url": "https://github.com/google-deepmind/mujoco",
+    "owner": "google-deepmind",
+    "name": "mujoco",
+    "kind": "simulation",
+    "title": "tool",
+    "constraints": "Desktop/OpenGL rendering differs from a web preview. Source compilation and pip wheels are different setup paths."
+  },
+  {
+    "url": "https://github.com/jspsych/jsPsych",
+    "owner": "jspsych",
+    "name": "jsPsych",
+    "kind": "web_preview",
+    "title": "tool",
+    "constraints": "Do not mistake a documentation server for an experiment. Build/release example assets must resolve for a meaningful browser check."
+  },
+  {
+    "url": "https://github.com/NeuroTechX/moabb",
+    "owner": "NeuroTechX",
+    "name": "moabb",
+    "kind": "dataset_or_pipeline",
+    "title": "tool",
+    "constraints": "Downloads vary greatly across EEG datasets. Repository checkout does not include the raw recordings or establish cross-subject reproducibility."
+  },
+  {
+    "url": "https://github.com/mne-tools/mne-python",
+    "owner": "mne-tools",
+    "name": "mne-python",
+    "kind": "dataset_or_pipeline",
+    "title": "tool",
+    "constraints": "Headless numerical analysis and desktop 3D visualization have different dependency requirements."
+  },
+  {
+    "url": "https://github.com/braindecode/braindecode",
+    "owner": "braindecode",
+    "name": "braindecode",
+    "kind": "dataset_or_pipeline",
+    "title": "tool",
+    "constraints": "Model construction can be tested without large data, reproducing EEG decoding results requires data and a specified evaluation pipeline."
+  },
+  {
+    "url": "https://github.com/SWE-bench/SWE-bench",
+    "owner": "SWE-bench",
+    "name": "SWE-bench",
+    "kind": "dataset_or_pipeline",
+    "title": "tool",
+    "constraints": "Full harness runs are storage-intensive, a small dataset read is not a successful patch evaluation. ARM image setup differs from x86."
+  },
+  {
+    "url": "https://github.com/openai/human-eval",
+    "owner": "openai",
+    "name": "human-eval",
+    "kind": "dataset_or_pipeline",
+    "title": "cli_package",
+    "constraints": "Repository deliberately disables execution by default pending explicit setup. Dataset inspection is a separate check from executing generated code."
+  },
+  {
+    "url": "https://github.com/openai/grade-school-math",
+    "owner": "openai",
+    "name": "grade-school-math",
+    "kind": "dataset",
+    "title": "dataset_in_git",
+    "constraints": "Intentional incomplete-manifest case. Treat dataset availability independently of training-code executability."
+  },
+  {
+    "url": "https://github.com/hendrycks/test",
+    "owner": "hendrycks",
+    "name": "test",
+    "kind": "dataset_or_pipeline",
+    "title": "cli_script",
+    "constraints": "This records the original external distribution even though mirrors exist elsewhere. Archive retrieval and evaluation are separate stages."
+  },
+  {
+    "url": "https://github.com/allenai/natural-instructions",
+    "owner": "allenai",
+    "name": "natural-instructions",
+    "kind": "dataset",
+    "title": "dataset_in_git",
+    "constraints": "Large task collection with source-specific data licenses. Cloning and checking JSON do not reproduce cross-task generalization."
+  },
+  {
+    "url": "https://github.com/yizhongw/Tk-Instruct",
+    "owner": "yizhongw",
+    "name": "Tk-Instruct",
+    "kind": "dataset_or_pipeline",
+    "title": "tool",
+    "constraints": "Paired with natural-instructions-data to test one paper with multiple repositories. HF artifact here is model weights, not an HF dataset."
+  },
+  {
+    "url": "https://github.com/poloclub/diffusiondb",
+    "owner": "poloclub",
+    "name": "diffusiondb",
+    "kind": "dataset",
+    "title": "dataset_in_hf",
+    "constraints": "Use a bounded subset, full data retrieval is not a reasonable smoke test. Detect README dependencies omitted from requirements.txt."
+  },
+  {
+    "url": "https://github.com/allenai/scifact",
+    "owner": "allenai",
+    "name": "scifact",
+    "kind": "dataset_or_pipeline",
+    "title": "dataset_external",
+    "constraints": "Old binary dependencies stress modern Python/Apple Silicon. Data download, model loading and claim verification need distinct outcomes."
+  },
+  {
+    "url": "https://github.com/huggingface/sentence-transformers",
+    "owner": "huggingface",
+    "name": "sentence-transformers",
+    "kind": "library_or_cli",
+    "title": "cli_script",
+    "constraints": "Repository moved from UKPLab to Hugging Face. Current package differs from the original 2019 implementation, reviewed revision is recorded."
+  },
+  {
+    "url": "https://github.com/EleutherAI/lm-evaluation-harness",
+    "owner": "EleutherAI",
+    "name": "lm-evaluation-harness",
+    "kind": "dataset_or_pipeline",
+    "title": "tool",
+    "constraints": "Paper is Lessons from the Trenches, written by harness developers,do not substitute the software Zenodo DOI for its paper DOI. Task/model/configuration must accompany any score."
+  },
+  {
+    "url": "https://github.com/huggingface/datasets",
+    "owner": "huggingface",
+    "name": "datasets",
+    "kind": "dataset_or_pipeline",
+    "title": "tool",
+    "constraints": "Library is not a single dataset. Use a specified small public dataset/revision for functional testing, load success is not model evaluation."
+  },
+  {
+    "url": "https://github.com/facebookresearch/faiss",
+    "owner": "facebookresearch",
+    "name": "faiss",
+    "kind": "library_or_cli",
+    "title": "cli_script",
+    "constraints": "Native source build and precompiled CPU wheels are different cases. Synthetic-vector smoke tests avoid billion-vector dataset downloads."
+  },
+  {
+    "url": "https://github.com/mwaskom/seaborn",
+    "owner": "mwaskom",
+    "name": "seaborn",
+    "kind": "notebook_or_visualization",
+    "title": "visualization",
+    "constraints": "A static generated plot is a valid artifact, absence of a long-running server is expected."
+  },
+  {
+    "url": "https://github.com/lmcinnes/umap",
+    "owner": "lmcinnes",
+    "name": "umap",
+    "kind": "notebook_or_visualization",
+    "title": "visualization",
+    "constraints": "Numba JIT warmup affects first-run latency. Local data transformation and optional plotting need separate checks."
+  },
+  {
+    "url": "https://github.com/distillpub/post--feature-visualization",
+    "owner": "distillpub",
+    "name": "post--feature-visualization",
+    "kind": "web_preview",
+    "title": "visualization",
+    "constraints": "Serving committed visualization assets does not regenerate neural feature images. Legacy source rebuild is a different, harder case."
+  }
+]

@@ -5,7 +5,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "worker": "node --env-file-if-exists=.env.local --import tsx worker/index.ts"
+    "worker": "node --env-file-if-exists=.env.local --import tsx worker/index.ts",
+    "bench": "node --env-file-if-exists=.env.local --import tsx scripts/bench/run.mts",
+    "bench:grade": "node --env-file-if-exists=.env.local --import tsx scripts/bench/grade.mts",
+    "bench:report": "node --import tsx scripts/bench/report.mts"
   },
   "dependencies": {
     "@codemirror/language": "^6.12.4",
