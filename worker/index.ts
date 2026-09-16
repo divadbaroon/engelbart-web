@@ -13,7 +13,9 @@
 // One run at a time per row: a claim is an update that only matches while
 // the row is still queued and unclaimed, so two workers cannot take the same
 // run. While a worker holds a run it heartbeats; the reaper marks runs whose
-// worker went quiet, and checks on running apps left behind by a restart.
+// worker went quiet, checks on running apps left behind by a restart, and
+// kills sandboxes whose run is gone or over. Concurrency counts runs being
+// set up; a running app costs the worker only an open stream.
 import os from "node:os";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Sandbox } from "e2b";
@@ -69,7 +71,8 @@ class Worker {
   // Take as many queued runs as there is room for, oldest first.
   private async claim() {
     if (this.stopping) return;
-    const room = CONCURRENCY - this.inFlight.size;
+    const settingUp = [...this.inFlight.values()].filter((r) => r.status !== "running").length;
+    const room = CONCURRENCY - settingUp;
     if (room <= 0) return;
     const { data, error } = await this.supabase
       .from("engelbart_sandbox_runs").select("id").eq("status", "queued").is("worker_id", null).order("started_at").limit(room);
@@ -121,17 +124,29 @@ class Worker {
     }
   }
 
+  // Stamp the runs this worker holds. A run whose row has gone (its
+  // repository was removed, say) is let go and its sandbox killed.
   private async heartbeat() {
     const ids = [...this.inFlight.keys(), ...this.watching.keys()];
     if (!ids.length) return;
-    const { error } = await this.supabase.from("engelbart_sandbox_runs").update({ heartbeat_at: new Date().toISOString() }).in("id", ids);
-    if (error) log({ level: "error", event: "heartbeat", message: error.message });
+    const { data, error } = await this.supabase.from("engelbart_sandbox_runs").update({ heartbeat_at: new Date().toISOString() }).in("id", ids).select("id");
+    if (error) { log({ level: "error", event: "heartbeat", message: error.message }); return; }
+    const present = new Set((data ?? []).map((r) => r.id as string));
+    for (const id of ids) {
+      if (present.has(id)) continue;
+      const run = this.inFlight.get(id) ?? this.watching.get(id);
+      this.inFlight.delete(id);
+      this.watching.delete(id);
+      log({ event: "vanished", run: id, sandbox: run?.sandboxId });
+      if (run?.sandboxId) { try { await Sandbox.kill(run.sandboxId); } catch { /* already gone */ } }
+    }
   }
 
   // Runs whose worker stopped heartbeating. In-progress ones cannot be resumed
   // (their output stream died with the worker), so they fail and their sandbox
   // goes. Running ones are adopted: the app may well still be up.
   private async reap() {
+    await this.sweepSandboxes();
     const stale = new Date(Date.now() - STALE_MS).toISOString();
     const { data, error } = await this.supabase
       .from("engelbart_sandbox_runs").select(SELECT)
@@ -155,6 +170,31 @@ class Worker {
       await record.status("failed", { errorKind: "WorkerLost", error: message });
       if (run.sandboxId) { try { await Sandbox.kill(run.sandboxId); record.event("status", "sandbox killed"); } catch { /* already gone */ } }
       await record.flush();
+    }
+  }
+
+  // Every sandbox we created carries its run id. Any whose run is gone,
+  // failed or stopped is costing sandbox time for nothing: kill it.
+  private async sweepSandboxes() {
+    try {
+      const paginator = Sandbox.list({ query: { state: ["running", "paused"] } });
+      const infos = [];
+      while (paginator.hasNext) infos.push(...(await paginator.nextItems()));
+      const ours = infos.filter((i) => typeof i.metadata?.runId === "string");
+      if (!ours.length) return;
+      const { data, error } = await this.supabase.from("engelbart_sandbox_runs").select("id, status").in("id", ours.map((i) => i.metadata!.runId));
+      if (error) { log({ level: "error", event: "sweep-query", message: error.message }); return; }
+      const status = new Map((data ?? []).map((r) => [r.id as string, r.status as string]));
+      for (const info of ours) {
+        const runId = info.metadata!.runId;
+        const s = status.get(runId);
+        if (s && s !== "failed" && s !== "killed") continue;
+        this.inFlight.delete(runId);
+        this.watching.delete(runId);
+        try { await Sandbox.kill(info.sandboxId); log({ event: "swept", run: runId, sandbox: info.sandboxId, status: s ?? "gone" }); } catch { /* already gone */ }
+      }
+    } catch (err) {
+      log({ level: "error", event: "sweep", message: errorMessage(err) });
     }
   }
 

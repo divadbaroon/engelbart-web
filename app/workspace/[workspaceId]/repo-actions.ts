@@ -72,8 +72,16 @@ export async function addRepo(projectId: string, input: string): Promise<AddRepo
   return { ok: true, repo: toRepo(data as RepoRow) };
 }
 
+// Removing a repository removes its runs with it, so their sandboxes are
+// killed first; a sandbox nobody can reach would otherwise run out its clock.
 export async function removeRepo(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient();
+  const { data: runs } = await supabase
+    .from("engelbart_sandbox_runs").select("sandbox_id").eq("repo_id", id).not("sandbox_id", "is", null).not("status", "in", "(failed,killed)");
+  if (runs?.length) {
+    const { Sandbox } = await import("e2b");
+    await Promise.all(runs.map(async (r) => { try { await Sandbox.kill((r as { sandbox_id: string }).sandbox_id); } catch { /* already gone */ } }));
+  }
   const { error } = await supabase.from("engelbart_repos").delete().eq("id", id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
