@@ -2,7 +2,8 @@
 
 import { GitBranch, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { isReadyStep, previewUrl, terminalScript, type Repo } from "@/lib/repos";
+import type { Repo } from "@/lib/repos";
+import { isRunActive, isRunReady, STATUS_LABEL, terminalLines, type SandboxEvent, type SandboxRun, type TermLine } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Markdown } from "@/components/markdown";
@@ -16,12 +17,15 @@ type RepoTabsProps = {
   repo: Repo;
   tab: RepoTab;
   onTabChange: (tab: RepoTab) => void;
-  ready: boolean;
+  run: SandboxRun | undefined;
   onClose: () => void;
 };
 
+const dotClass = (run: SandboxRun | undefined) =>
+  isRunReady(run) ? "bg-green-500" : run?.status === "failed" ? "bg-red-500" : isRunActive(run) ? "animate-pulse bg-neutral-400" : "bg-neutral-300";
+
 // Tab bar for the selected repo: repo chip + README / Live preview (status dot) / Terminal.
-export function RepoTabs({ repo, tab, onTabChange, ready, onClose }: RepoTabsProps) {
+export function RepoTabs({ repo, tab, onTabChange, run, onClose }: RepoTabsProps) {
   return (
     <Tabs value={tab} onValueChange={(v) => onTabChange(v as RepoTab)}>
       <TabsList className="h-auto w-full justify-start gap-6 rounded-none border-b bg-transparent p-0">
@@ -41,9 +45,9 @@ export function RepoTabs({ repo, tab, onTabChange, ready, onClose }: RepoTabsPro
           <span className="ml-1 h-4 w-px bg-border" />
         </div>
         <TabsTrigger value="readme" className={TAB_TRIGGER}>README</TabsTrigger>
-        <TabsTrigger value="preview" title={ready ? "Application ready" : "Preparing…"} className={cn(TAB_TRIGGER, "gap-[7px]")}>
+        <TabsTrigger value="preview" title={run ? STATUS_LABEL[run.status] : "Not prepared"} className={cn(TAB_TRIGGER, "gap-[7px]")}>
           Live preview
-          <span aria-hidden className={cn("size-1.5 rounded-full", ready ? "bg-green-500" : "bg-neutral-300")} />
+          <span aria-hidden className={cn("size-1.5 rounded-full", dotClass(run))} />
         </TabsTrigger>
         <TabsTrigger value="terminal" className={TAB_TRIGGER}>Terminal</TabsTrigger>
       </TabsList>
@@ -52,11 +56,16 @@ export function RepoTabs({ repo, tab, onTabChange, ready, onClose }: RepoTabsPro
 }
 
 // `readme` is undefined while it loads, null when the repo has none GitHub can serve.
-type RepoContentProps = { repo: Repo; tab: RepoTab; progress: number | undefined; readme: string | null | undefined };
+type RepoContentProps = {
+  repo: Repo;
+  tab: RepoTab;
+  run: SandboxRun | undefined;
+  events: SandboxEvent[];
+  error: string | undefined;
+  readme: string | null | undefined;
+};
 
-export function RepoContent({ repo, tab, progress, readme }: RepoContentProps) {
-  const ready = isReadyStep(progress);
-
+export function RepoContent({ repo, tab, run, events, error, readme }: RepoContentProps) {
   if (tab === "readme") {
     return (
       <section aria-label="README" className="h-full overflow-y-auto">
@@ -69,41 +78,67 @@ export function RepoContent({ repo, tab, progress, readme }: RepoContentProps) {
     );
   }
 
-  if (tab === "preview") {
+  if (tab === "preview") return <Preview repo={repo} run={run} error={error} tail={terminalLines(events).slice(-5)} />;
+
+  const lines = terminalLines(events);
+  return (
+    <section aria-label="Terminal" className="h-full overflow-y-auto px-[22px] py-[18px] font-mono text-[13px] leading-[1.75]">
+      {!lines.length && (
+        <p className="text-muted-foreground">{error ?? (run ? STATUS_LABEL[run.status] : "Open the repository to prepare it in a sandbox.")}</p>
+      )}
+      {lines.map((l, i) => (
+        <div
+          key={i}
+          className={cn(
+            "flex gap-2.5 break-words whitespace-pre-wrap",
+            l.kind === "command" ? "text-foreground" : l.kind === "error" ? "text-destructive" : l.kind === "status" ? "text-muted-foreground/60 italic" : "text-muted-foreground",
+          )}
+        >
+          <span aria-hidden className="w-2.5 shrink-0 text-muted-foreground/60">{l.kind === "command" ? "$" : ""}</span>
+          <span>{l.text}</span>
+        </div>
+      ))}
+      {error && lines.length > 0 && <p role="alert" className="mt-2 text-destructive">{error}</p>}
+    </section>
+  );
+}
+
+type PreviewProps = { repo: Repo; run: SandboxRun | undefined; error: string | undefined; tail: TermLine[] };
+
+function Preview({ repo, run, error, tail }: PreviewProps) {
+  if (run?.previewUrl) {
     return (
       <section aria-label="Live preview" className="flex h-full flex-col">
-        {ready ? (
-          <>
-            <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3.5 font-mono text-xs text-muted-foreground">
-              <span className="size-1.5 rounded-full bg-green-500" />
-              <span>{previewUrl(repo)}</span>
-            </div>
-            {/* Replace with <iframe src={previewUrl(repo)} className="flex-1 w-full" /> once the dev server is real. */}
-            <div className="flex min-h-0 flex-1 items-center justify-center bg-[repeating-linear-gradient(135deg,#f4f4f4_0_10px,#fafafa_10px_20px)] font-mono text-xs text-muted-foreground">
-              running application
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-1 flex-col items-center justify-center gap-1.5 p-6 text-center">
-            <span className="text-[13px] text-muted-foreground">Preparing {repo.fullName}…</span>
-            <span className="max-w-[320px] text-xs leading-normal text-muted-foreground/70">
-              Installing dependencies and starting the dev server. You can keep reading the README meanwhile.
-            </span>
-          </div>
-        )}
+        <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3.5 font-mono text-xs text-muted-foreground">
+          <span className="size-1.5 rounded-full bg-green-500" />
+          <span>{run.previewUrl}</span>
+        </div>
+        <iframe src={run.previewUrl} title={`${repo.fullName} preview`} className="min-h-0 w-full flex-1" />
       </section>
     );
   }
 
-  const lines = terminalScript(repo).slice(0, (progress ?? 0) + 1).flat();
+  const [title, detail] = error
+    ? ["Could not prepare " + repo.fullName, error]
+    : !run
+      ? ["Not prepared yet", "Open the repository to clone it into a sandbox."]
+      : isRunActive(run)
+        ? [`Preparing ${repo.fullName}…`, STATUS_LABEL[run.status] + " You can keep reading the README meanwhile."]
+        : run.status === "failed"
+          ? ["Could not prepare " + repo.fullName, run.error ?? "The run failed. See the Terminal for details."]
+          : ["Cloned into a sandbox", `The repository is on disk in sandbox ${run.sandboxId ?? ""}. Starting the application comes next.`];
+
   return (
-    <section aria-label="Terminal" className="h-full overflow-y-auto px-[22px] py-[18px] font-mono text-[13px] leading-[1.75]">
-      {lines.map((l, i) => (
-        <div key={i} className={cn("flex gap-2.5 break-words whitespace-pre-wrap", l.prompt ? "text-foreground" : "text-muted-foreground")}>
-          <span aria-hidden className="w-2.5 shrink-0 text-muted-foreground/60">{l.prompt}</span>
-          <span>{l.text}</span>
-        </div>
-      ))}
+    <section aria-label="Live preview" className="flex h-full flex-col items-center justify-center gap-1.5 p-6 text-center">
+      <span className="text-[13px] text-muted-foreground">{title}</span>
+      <span className="max-w-[360px] text-xs leading-normal text-muted-foreground/70">{detail}</span>
+      {isRunActive(run) && tail.length > 0 && (
+        <pre aria-label="Latest output" className="mt-4 w-full max-w-[520px] overflow-hidden rounded-md border bg-[#f6f6f6] px-3.5 py-2.5 text-left font-mono text-[11px] leading-[1.7] text-muted-foreground">
+          {tail.map((l, i) => (
+            <div key={i} className="truncate">{l.kind === "command" ? "$ " : ""}{l.text}</div>
+          ))}
+        </pre>
+      )}
     </section>
   );
 }

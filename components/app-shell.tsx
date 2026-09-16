@@ -6,8 +6,9 @@ import { createGoal, updateGoal } from "@/app/workspace/[workspaceId]/actions";
 import { addRepo, fetchReadme, removeRepo } from "@/app/workspace/[workspaceId]/repo-actions";
 import { usePanelRef } from "react-resizable-panels";
 import { isPaperTab, paperTabValue, SAMPLE_PAPERS, type Paper } from "@/lib/papers";
-import { isReadyStep, type Repo } from "@/lib/repos";
-import { useRepoPrep } from "@/hooks/use-repo-prep";
+import type { Repo } from "@/lib/repos";
+import { isRunActive, isRunReady, type SandboxRun } from "@/lib/sandbox";
+import { useSandboxRuns } from "@/hooks/use-sandbox-run";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NavRail, type SidebarMode } from "@/components/nav-rail";
@@ -18,7 +19,7 @@ import { RepoTabs, RepoContent, type RepoTab } from "@/components/repo-workspace
 
 type Center = { kind: "project" } | { kind: "repo"; id: string };
 type Named = { id: string; name: string; meta: string; isNew?: boolean };
-type RepoStatus = "none" | "ready" | "preparing";
+type RepoStatus = "none" | "ready" | "preparing" | "failed";
 
 // Generic list helpers for the editable sidebar lists (papers, repos).
 function useEditableList<T extends Named>(initial: T[], blank: (id: string) => T) {
@@ -33,9 +34,9 @@ function useEditableList<T extends Named>(initial: T[], blank: (id: string) => T
   return { items, add, rename, commit };
 }
 
-type AppShellProps = { projectId: string; plan: Plan; repos: Repo[] };
+type AppShellProps = { projectId: string; plan: Plan; repos: Repo[]; runs: Record<string, SandboxRun> };
 
-export function AppShell({ projectId, plan, repos: initialRepos }: AppShellProps) {
+export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRuns }: AppShellProps) {
   const sidebarRef = usePanelRef();
   const [mode, setMode] = useState<SidebarMode>("plan");
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -43,7 +44,7 @@ export function AppShell({ projectId, plan, repos: initialRepos }: AppShellProps
   const [center, setCenter] = useState<Center>({ kind: "project" });
   const [tab, setTab] = useState("preview");
   const [repoTabs, setRepoTabs] = useState<Record<string, RepoTab>>({});
-  const { progress, prepare } = useRepoPrep();
+  const sandbox = useSandboxRuns(initialRuns);
 
   const papers = useEditableList<Paper>(SAMPLE_PAPERS, (id) => ({ id, name: "", meta: "", isNew: true }));
   // Repositories: rows from the database, added by pasting a GitHub URL.
@@ -106,11 +107,14 @@ export function AppShell({ projectId, plan, repos: initialRepos }: AppShellProps
     if (tab === paperTabValue(id)) setTab("preview");
   }
 
-  // Opening a repo shows its README first and starts preparing it in the background.
+  // Opening a repo shows its README first and, the first time, clones it into
+  // a sandbox in the background. A repo prepared earlier just loads its log.
   function openRepo(id: string) {
     setCenter({ kind: "repo", id });
     setRepoTabs((t) => (t[id] ? t : { ...t, [id]: "readme" }));
-    prepare(id);
+    const run = sandbox.runs[id];
+    if (!run || run.status === "failed" || run.status === "killed") sandbox.prepare(id);
+    else sandbox.load(run.id);
     const target = repos.find((r) => r.id === id);
     if (target && !(id in readmes)) {
       fetchReadme(target.owner, target.name).then((text) => setReadmes((all) => ({ ...all, [id]: text })));
@@ -143,8 +147,10 @@ export function AppShell({ projectId, plan, repos: initialRepos }: AppShellProps
   const repo = center.kind === "repo" ? repos.find((r) => r.id === center.id) : undefined;
   const openPapers = openPaperIds.map((id) => papers.items.find((p) => p.id === id)).filter((p): p is Paper => !!p);
   const activePaperId = center.kind === "project" && isPaperTab(tab) ? tab.slice("paper:".length) : null;
-  const statusOf = (id: string): RepoStatus =>
-  progress[id] === undefined ? "none" : isReadyStep(progress[id]) ? "ready" : "preparing";
+  const statusOf = (id: string): RepoStatus => {
+    const run = sandbox.runs[id];
+    return isRunReady(run) ? "ready" : isRunActive(run) ? "preparing" : run?.status === "failed" ? "failed" : "none";
+  };
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -179,7 +185,7 @@ export function AppShell({ projectId, plan, repos: initialRepos }: AppShellProps
                     repo={repo}
                     tab={repoTabs[repo.id] ?? "readme"}
                     onTabChange={(t) => setRepoTabs((all) => ({ ...all, [repo.id]: t }))}
-                    ready={isReadyStep(progress[repo.id])}
+                    run={sandbox.runs[repo.id]}
                     onClose={() => setCenter({ kind: "project" })}
                   />
                 ) : (
@@ -188,7 +194,14 @@ export function AppShell({ projectId, plan, repos: initialRepos }: AppShellProps
               }
             >
               {repo ? (
-                <RepoContent repo={repo} tab={repoTabs[repo.id] ?? "readme"} progress={progress[repo.id]} readme={readmes[repo.id]} />
+                <RepoContent
+                  repo={repo}
+                  tab={repoTabs[repo.id] ?? "readme"}
+                  run={sandbox.runs[repo.id]}
+                  events={sandbox.events[sandbox.runs[repo.id]?.id ?? ""] ?? []}
+                  error={sandbox.errors[repo.id]}
+                  readme={readmes[repo.id]}
+                />
               ) : (
                 <ProjectContent tab={tab} openPapers={openPapers} notesGoal={selectedGoal} onNotesSaved={noteSaved} />
               )}

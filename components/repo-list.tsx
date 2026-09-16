@@ -6,7 +6,7 @@ import { repoMeta, type Repo } from "@/lib/repos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export type RepoStatus = "none" | "preparing" | "ready";
+export type RepoStatus = "none" | "preparing" | "ready" | "failed";
 
 export type RepoListActions = {
   repos: Repo[];
@@ -23,8 +23,8 @@ export type RepoListActions = {
   onCancelAdd: () => void;
 };
 
-const DOT: Record<RepoStatus, string> = { none: "bg-transparent", preparing: "bg-neutral-300", ready: "bg-green-500" };
-const DOT_TITLE: Record<RepoStatus, string> = { none: "", preparing: "Preparing…", ready: "Ready" };
+const DOT: Record<RepoStatus, string> = { none: "bg-transparent", preparing: "animate-pulse bg-neutral-400", ready: "bg-green-500", failed: "bg-red-500" };
+const DOT_TITLE: Record<RepoStatus, string> = { none: "", preparing: "Preparing…", ready: "Cloned", failed: "Failed" };
 
 // The project's repositories, one selected, and a row to paste a GitHub URL into.
 export function RepoList({ repos, activeId, statusOf, onOpen, onRemove, draft, adding, error, onDraftChange, onStartAdd, onCommitAdd, onCancelAdd }: RepoListActions) {
