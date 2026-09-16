@@ -7,8 +7,10 @@ import { BartPanel } from "@/components/bart-panel";
 
 type CenterPanelProps = { tabs: ReactNode; children: ReactNode };
 
-// Stable shell for the center: tab bar slot on top, then a bordered card split into content | Bart.
-// Stays mounted while the project/repo context changes, so Bart's conversation is never reset.
+// Stable shell for the center: tab bar slot on top, then two bordered cards,
+// content and Bart, with the same gap between them as beside the sidebar.
+// The resize handle is that gap. Stays mounted while the project/repo
+// context changes, so Bart's conversation is never reset.
 export function CenterPanel({ tabs, children }: CenterPanelProps) {
   const bartRef = usePanelRef();
   const [bartOpen, setBartOpen] = useState(true);
@@ -22,12 +24,12 @@ export function CenterPanel({ tabs, children }: CenterPanelProps) {
   return (
     <main className="flex h-full min-w-0 flex-col bg-background px-6 pt-4 pb-5">
       {tabs}
-      <div className="mt-5 flex min-h-0 flex-1 overflow-hidden rounded-lg border">
+      <div className="mt-5 flex min-h-0 flex-1">
         <ResizablePanelGroup orientation="horizontal" id="engelbart-workspace">
           <ResizablePanel defaultSize="65" minSize="35">
-            {children}
+            <div className="h-full overflow-hidden rounded-lg border">{children}</div>
           </ResizablePanel>
-          <ResizableHandle />
+          <ResizableHandle className="w-6 bg-transparent" />
           <ResizablePanel
             panelRef={bartRef}
             defaultSize="35"
@@ -37,10 +39,12 @@ export function CenterPanel({ tabs, children }: CenterPanelProps) {
             collapsedSize="4"
             onResize={() => setBartOpen(!bartRef.current?.isCollapsed())}
           >
-            <BartPanel
-              open={bartOpen}
-              onToggle={() => (bartOpen ? bartRef.current?.collapse() : bartRef.current?.expand())}
-            />
+            <div className="h-full overflow-hidden rounded-lg border">
+              <BartPanel
+                open={bartOpen}
+                onToggle={() => (bartOpen ? bartRef.current?.collapse() : bartRef.current?.expand())}
+              />
+            </div>
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
