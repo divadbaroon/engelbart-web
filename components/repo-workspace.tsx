@@ -1,16 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { GitBranch, RotateCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
 import type { Goal } from "@/lib/plan";
-import { isRunActive, isRunCloned, isRunRunning, STATUS_LABEL, terminalLines, type PreviewService, type SandboxEvent, type SandboxRun, type TermLine } from "@/lib/sandbox";
+import { isRunActive, isRunCloned, isRunRunning, isSandboxLive, STATUS_LABEL, terminalLines, type PreviewService, type SandboxEvent, type SandboxRun, type TermLine } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Markdown } from "@/components/markdown";
 import { CodeBrowser } from "@/components/code-browser";
 import { NotesPad } from "@/components/notes-pad";
+
+// xterm touches the DOM as soon as it loads.
+const SandboxShell = dynamic(() => import("@/components/sandbox-shell"), { ssr: false });
 
 export type RepoTab = "readme" | "code" | "preview" | "terminal" | "notes";
 
@@ -108,9 +113,10 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
 
   if (tab === "preview") return <Preview repo={repo} run={run} error={error} tail={terminalLines(events).slice(-6)} version={previewVersion} onPrepare={onPrepare} onLaunch={onLaunch} onStop={onStop} />;
 
+  // The run's log, and a shell in its sandbox once there is one to open.
   const lines = terminalLines(events);
-  return (
-    <section aria-label="Terminal" className="h-full overflow-y-auto px-[22px] py-[18px] font-mono text-[13px] leading-[1.75]">
+  const log = (
+    <section aria-label="Run log" className="h-full overflow-y-auto px-[22px] py-[18px] font-mono text-[13px] leading-[1.75]">
       {!lines.length && (
         <p className="text-muted-foreground">{error ?? (run ? STATUS_LABEL[run.status] : "Open the repository to prepare it in a sandbox.")}</p>
       )}
@@ -128,6 +134,16 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
       ))}
       {error && lines.length > 0 && <p role="alert" className="mt-2 text-destructive">{error}</p>}
     </section>
+  );
+  if (!run || !isSandboxLive(run)) return log;
+  return (
+    <ResizablePanelGroup orientation="vertical" id={`terminal-${repo.id}`} className="h-full">
+      <ResizablePanel defaultSize="55" minSize="15">{log}</ResizablePanel>
+      <ResizableHandle className="h-px bg-border" />
+      <ResizablePanel defaultSize="45" minSize="15">
+        <SandboxShell runId={run.id} />
+      </ResizablePanel>
+    </ResizablePanelGroup>
   );
 }
 

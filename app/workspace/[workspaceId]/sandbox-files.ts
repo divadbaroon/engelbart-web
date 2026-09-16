@@ -1,27 +1,11 @@
 "use server";
 
-import { Sandbox } from "e2b";
-import { createClient } from "@/lib/supabase/server";
+import { openSandbox } from "@/lib/sandbox-access";
 import { decodeFile, isSafeRepoPath, type FileContent, type FileTree } from "@/lib/code-files";
 
 // The files of a run's sandbox: what the Code tab reads and writes while
-// the application is running. Reads go through row-level security on the
-// run, so only the project's members reach its sandbox.
-
-const LIVE = ["cloned", "launching", "running"];
-
-async function openSandbox(runId: string): Promise<{ sandbox: Sandbox; workdir: string } | { error: string }> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("engelbart_sandbox_runs").select("sandbox_id, workdir, status").eq("id", runId).maybeSingle();
-  if (error) return { error: error.message };
-  if (!data?.sandbox_id || !data.workdir || !LIVE.includes(data.status)) return { error: "The sandbox is not running." };
-  try {
-    return { sandbox: await Sandbox.connect(data.sandbox_id), workdir: data.workdir };
-  } catch (err) {
-    return { error: `The sandbox could not be reached: ${err instanceof Error ? err.message : String(err)}` };
-  }
-}
+// the application is running. The connection is scoped to the caller's
+// projects by lib/sandbox-access.
 
 // Every file git knows about or would add, so build output and dependencies
 // stay out of the way. Directories are implied by the paths.

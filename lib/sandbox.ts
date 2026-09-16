@@ -91,6 +91,11 @@ export const isRunActive = (run: SandboxRun | undefined) =>
 // own; it can be asked to launch.
 export const isRunCloned = (run: SandboxRun | undefined) => !!run && run.status === "paused";
 
+// There is a sandbox with the repository on disk that can be reached:
+// files can be read and written and a shell opened.
+export const isSandboxLive = (run: SandboxRun | undefined): run is SandboxRun & { sandboxId: string } =>
+  !!run?.sandboxId && (run.status === "cloned" || run.status === "launching" || run.status === "running");
+
 // The application is up and has a preview URL.
 export const isRunRunning = (run: SandboxRun | undefined) => !!run && run.status === "running" && !!run.previewUrl;
 

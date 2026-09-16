@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { ChevronRight, File as FileIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
-import type { SandboxRun } from "@/lib/sandbox";
+import { isSandboxLive, type SandboxRun } from "@/lib/sandbox";
 import type { FileContent, FileTree, TreeEntry } from "@/lib/code-files";
 import { Button } from "@/components/ui/button";
 import { fetchFile, fetchTree } from "@/app/workspace/[workspaceId]/repo-actions";
@@ -28,9 +28,8 @@ const trees = new Map<string, FileTree>();
 const files = new Map<string, FileContent>();
 const views = new Map<string, { selected: string | null; expanded: Set<string> }>();
 
-const LIVE = ["cloned", "launching", "running"];
 const sourceFor = (repo: Repo, run: SandboxRun | undefined): Source =>
-  run?.sandboxId && LIVE.includes(run.status) ? { kind: "sandbox", key: `sb:${run.id}`, runId: run.id } : { kind: "github", key: `gh:${repo.id}` };
+  isSandboxLive(run) ? { kind: "sandbox", key: `sb:${run.id}`, runId: run.id } : { kind: "github", key: `gh:${repo.id}` };
 
 type Node = { name: string; path: string; type: "blob" | "tree"; children: Node[] };
 
