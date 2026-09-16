@@ -6,6 +6,17 @@
 export type RunStatus = "queued" | "creating" | "cloning" | "cloned" | "paused" | "launching" | "running" | "failed" | "killed";
 export type EventKind = "status" | "command" | "stdout" | "stderr" | "metrics" | "error";
 
+// One service a run brought up, reachable from the browser at previewUrl.
+// A frontend and its API are two of these; the entry service is what the
+// preview shows first. Services that forbid framing are opened in a tab.
+export type PreviewService = {
+  id: string;
+  port: number;
+  previewUrl: string;
+  isEntry: boolean;
+  embeddable: boolean;
+};
+
 export type SandboxRun = {
   id: string;
   repoId: string;
@@ -17,6 +28,7 @@ export type SandboxRun = {
   error: string | null;
   port: number | null;
   previewUrl: string | null;
+  services: PreviewService[] | null;
   startedAt: string;
   finishedAt: string | null;
 };
@@ -42,6 +54,7 @@ export type RunRow = {
   error: string | null;
   port: number | null;
   preview_url: string | null;
+  services: PreviewService[] | null;
   started_at: string;
   finished_at: string | null;
 };
@@ -56,12 +69,12 @@ export type EventRow = {
   data: Record<string, unknown> | null;
 };
 
-export const RUN_COLUMNS = "id, repo_id, sandbox_id, template, status, workdir, error_kind, error, port, preview_url, started_at, finished_at";
+export const RUN_COLUMNS = "id, repo_id, sandbox_id, template, status, workdir, error_kind, error, port, preview_url, services, started_at, finished_at";
 export const EVENT_COLUMNS = "id, run_id, seq, at, kind, text, data";
 
 export const toRun = (r: RunRow): SandboxRun => ({
   id: r.id, repoId: r.repo_id, sandboxId: r.sandbox_id, template: r.template, status: r.status, workdir: r.workdir,
-  errorKind: r.error_kind, error: r.error, port: r.port, previewUrl: r.preview_url, startedAt: r.started_at, finishedAt: r.finished_at,
+  errorKind: r.error_kind, error: r.error, port: r.port, previewUrl: r.preview_url, services: r.services, startedAt: r.started_at, finishedAt: r.finished_at,
 });
 
 export const toEvent = (e: EventRow): SandboxEvent => ({

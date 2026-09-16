@@ -1,5 +1,6 @@
 import { Sandbox, CommandExitError } from "e2b";
 import type { LaunchOutcome, LaunchRecipe, Recorder, Runtime } from "@/lib/runtime/types";
+import type { PreviewService } from "@/lib/sandbox";
 
 // The template runner sandboxes start from. Built by sandbox/build-template.mjs.
 export const TEMPLATE = process.env.E2B_TEMPLATE ?? "engelbart-runner";
@@ -9,7 +10,7 @@ const RUN_SANDBOX_TIMEOUT_MS = 60 * 60_000;     // how long a launched app stays
 const LAUNCH_DEADLINE_MS = 12 * 60_000;         // install, agents and start, end to end
 const WRAPPER = "/opt/engelbart/hc_run.py";
 const PROXY = "/opt/engelbart/proxy.mjs";
-const PROXY_PORT = 43110;   // the public port; the app's own port stays loopback-only
+const PROXY_PORT = 43110;   // the first public port; each service gets the next one, and their own ports stay loopback-only
 const RECIPE_FILE = "/home/user/.engelbart-recipe.json";
 
 const errorKind = (err: unknown) => (err instanceof Error ? err.constructor.name : "Error");
@@ -127,9 +128,12 @@ export const e2bRuntime: Runtime = {
           if (ev.status === "captured" && ev.recipe && typeof ev.recipe === "object") recipe = ev.recipe as LaunchRecipe;
           if (ev.status === "failed") recipeFailed = true;
         } else if (ev.phase === "ready" && typeof ev.port === "number") {
-          const port = ev.port;
-          expose(sandbox, port, typeof ev.host === "string" ? ev.host : "127.0.0.1", record)
-            .then((previewUrl) => record.status("running", { previewUrl, port }).then(() => settle({ ok: true, previewUrl, port, done, recipe, recipeFailed })))
+          expose(sandbox, readyServices(ev), record)
+            .then((services) => {
+              const entry = services[0];
+              const fields = { previewUrl: entry.previewUrl, port: entry.port, services };
+              return record.status("running", fields).then(() => settle({ ok: true, ...fields, done, recipe, recipeFailed }));
+            })
             .catch((err) => fail(record, "ProxyError", errorMessage(err), recipeFailed).then(settle));
         } else if (ev.phase === "error") {
           ended = true;
@@ -193,11 +197,27 @@ export const e2bRuntime: Runtime = {
   },
 };
 
-// Put the running app behind the in-sandbox proxy and check the public URL
-// answers, so "running" means reachable from the browser, not just healthy
-// on loopback.
-async function expose(sandbox: Sandbox, appPort: number, appHost: string, record: Recorder): Promise<string> {
-  const cmd = `node ${PROXY} ${PROXY_PORT} ${appPort} ${shellQuote(appHost)}`;
+// What the wrapper's ready event says is listening, entry first. Older
+// wrappers only name the entry; that still makes a one-service list.
+type ReadyService = { id: string; host: string; port: number; isEntry: boolean; embeddable: boolean };
+function readyServices(ev: WrapperEvent): ReadyService[] {
+  const listed = Array.isArray(ev.services) ? (ev.services as Partial<ReadyService>[]) : [];
+  const services = listed
+    .filter((s) => typeof s.port === "number")
+    .map((s) => ({ id: String(s.id ?? "app"), host: typeof s.host === "string" ? s.host : "127.0.0.1", port: s.port as number, isEntry: !!s.isEntry, embeddable: s.embeddable !== false }));
+  if (!services.some((s) => s.isEntry)) {
+    services.unshift({ id: "app", host: typeof ev.host === "string" ? ev.host : "127.0.0.1", port: ev.port as number, isEntry: true, embeddable: true });
+  }
+  return services.sort((a, b) => Number(b.isEntry) - Number(a.isEntry));
+}
+
+// Put every service behind the in-sandbox proxy, one public port each, and
+// check the entry's public URL answers, so "running" means reachable from
+// the browser, not just healthy on loopback. The others are not probed:
+// an API may well answer 404 at its root and still be fine.
+async function expose(sandbox: Sandbox, wanted: ReadyService[], record: Recorder): Promise<PreviewService[]> {
+  const mappings = wanted.map((s, i) => ({ ...s, listenPort: PROXY_PORT + i }));
+  const cmd = `node ${PROXY} ${mappings.map((m) => shellQuote(`${m.listenPort}:${m.port}:${m.host}`)).join(" ")}`;
   record.event("command", cmd);
   await sandbox.commands.run(cmd, {
     background: true,
@@ -205,7 +225,11 @@ async function expose(sandbox: Sandbox, appPort: number, appHost: string, record
     onStdout: (d) => record.event("stdout", d),
     onStderr: (d) => record.event("stderr", d),
   });
-  const previewUrl = `https://${sandbox.getHost(PROXY_PORT)}`;
+  const services: PreviewService[] = mappings.map((m) => ({
+    id: m.id, port: m.port, previewUrl: `https://${sandbox.getHost(m.listenPort)}`, isEntry: m.isEntry, embeddable: m.embeddable,
+  }));
+  for (const s of services.slice(1)) record.event("status", `service ${s.id} at ${s.previewUrl}`, { service: s.id, previewUrl: s.previewUrl, port: s.port });
+  const { previewUrl } = services[0];
   let last = "";
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
@@ -213,7 +237,7 @@ async function expose(sandbox: Sandbox, appPort: number, appHost: string, record
       const body = (await res.text()).slice(0, 200).replace(/\s+/g, " ");
       if (res.status < 500 && !/Invalid Host header|not allowed/i.test(body)) {
         record.event("status", `preview ${previewUrl} → ${res.status}`, { previewUrl, status: res.status, body });
-        return previewUrl;
+        return services;
       }
       last = `${res.status} ${body}`;
     } catch (err) {
@@ -285,9 +309,11 @@ function describe(ev: WrapperEvent, record: Recorder) {
       else if (ev.status === "failed") record.event("status", `saved launch plan did not work (${ev.reason ?? "unknown"}); running the full pipeline`, ev);
       else record.event("status", `launch plan ${ev.status}: ${ev.reason ?? ""}`, ev);
       return;
-    case "ready":
-      record.event("status", `application ready at ${ev.url}`, ev);
+    case "ready": {
+      const names = Array.isArray(ev.services) ? (ev.services as { id?: string; port?: number }[]).map((s) => `${s.id} :${s.port}`) : [];
+      record.event("status", `application ready at ${ev.url}${names.length > 1 ? ` (services: ${names.join(", ")})` : ""}`, ev);
       return;
+    }
     case "error":
       record.event("error", String(ev.message ?? "pipeline error"), ev);
       return;

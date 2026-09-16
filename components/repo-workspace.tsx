@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GitBranch, RotateCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
 import type { Goal } from "@/lib/plan";
-import { isRunActive, isRunCloned, isRunRunning, STATUS_LABEL, terminalLines, type SandboxEvent, type SandboxRun, type TermLine } from "@/lib/sandbox";
+import { isRunActive, isRunCloned, isRunRunning, STATUS_LABEL, terminalLines, type PreviewService, type SandboxEvent, type SandboxRun, type TermLine } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Markdown } from "@/components/markdown";
@@ -169,8 +169,15 @@ function Preview({ repo, run, error, tail, version, onPrepare, onLaunch, onStop 
 // The app in an iframe. A save in the Code tab, or the Reload button,
 // reloads it and the header says so until the new page has loaded. Dev
 // servers push changes themselves; a plain file server never does, and the
-// reload covers both.
+// reload covers both. A run with several services (a frontend and its API,
+// say) gets a picker; a service that forbids framing opens in a tab instead.
 function RunningPreview({ repo, run, version, onStop }: { repo: Repo; run: SandboxRun; version: number; onStop: (runId: string) => void }) {
+  const services = useMemo<PreviewService[]>(
+    () => (run.services?.length ? run.services : [{ id: "app", port: run.port ?? 0, previewUrl: run.previewUrl!, isEntry: true, embeddable: true }]),
+    [run.services, run.port, run.previewUrl],
+  );
+  const [serviceId, setServiceId] = useState(services[0].id);
+  const service = services.find((s) => s.id === serviceId) ?? services[0];
   const [reloads, setReloads] = useState(0);
   const [loading, setLoading] = useState<"first" | "update" | null>("first");
   // Mounting already loads the page; only saves after that trigger a reload.
@@ -182,19 +189,46 @@ function RunningPreview({ repo, run, version, onStop }: { repo: Repo; run: Sandb
     setLoading("update");
   }, [version]);
   const reload = () => { setReloads((n) => n + 1); setLoading("update"); };
+  const pick = (id: string) => { if (id !== service.id) { setServiceId(id); setLoading("first"); } };
 
   return (
     <section aria-label="Live preview" className="flex h-full flex-col">
       <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3.5 font-mono text-xs text-muted-foreground">
-        <span className={cn("size-1.5 rounded-full", loading ? "animate-pulse bg-neutral-400" : "bg-green-500")} />
-        <a href={run.previewUrl!} target="_blank" rel="noreferrer" className="truncate hover:text-foreground" title="Open in a new tab">{run.previewUrl}</a>
-        <span role="status" className="ml-auto shrink-0 font-sans">{loading === "update" ? "Updating…" : loading === "first" ? "Loading…" : ""}</span>
-        <Button variant="ghost" size="icon" aria-label="Reload preview" title="Reload preview" onClick={reload} className="size-6 text-muted-foreground">
-          <RotateCw className={cn("size-3", loading && "animate-spin")} />
+        <span className={cn("size-1.5 rounded-full", loading && service.embeddable ? "animate-pulse bg-neutral-400" : "bg-green-500")} />
+        {services.length > 1 && (
+          <div role="tablist" aria-label="Service" className="flex shrink-0 items-center gap-0.5 font-sans">
+            {services.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                role="tab"
+                aria-selected={s.id === service.id}
+                title={`${s.id} on port ${s.port}`}
+                onClick={() => pick(s.id)}
+                className={cn("rounded px-1.5 py-0.5 transition-colors hover:text-foreground", s.id === service.id ? "bg-neutral-100 text-foreground" : "text-muted-foreground")}
+              >
+                {s.id}
+              </button>
+            ))}
+          </div>
+        )}
+        <a href={service.previewUrl} target="_blank" rel="noreferrer" className="truncate hover:text-foreground" title="Open in a new tab">{service.previewUrl}</a>
+        <span role="status" className="ml-auto shrink-0 font-sans">{!service.embeddable ? "" : loading === "update" ? "Updating…" : loading === "first" ? "Loading…" : ""}</span>
+        <Button variant="ghost" size="icon" aria-label="Reload preview" title="Reload preview" disabled={!service.embeddable} onClick={reload} className="size-6 text-muted-foreground">
+          <RotateCw className={cn("size-3", loading && service.embeddable && "animate-spin")} />
         </Button>
         <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="h-6 px-2 font-normal text-muted-foreground">Stop</Button>
       </div>
-      <iframe key={reloads} src={run.previewUrl!} title={`${repo.fullName} preview`} onLoad={() => setLoading(null)} className="min-h-0 w-full flex-1 bg-white" />
+      {service.embeddable ? (
+        <iframe key={`${service.id}:${reloads}`} src={service.previewUrl} title={`${repo.fullName} ${service.id} preview`} onLoad={() => setLoading(null)} className="min-h-0 w-full flex-1 bg-white" />
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center gap-1.5 p-6 text-center">
+          <span className="text-[13px] text-muted-foreground">{service.id} does not allow being shown in a frame.</span>
+          <Button asChild variant="outline" size="sm" className="mt-3 font-normal">
+            <a href={service.previewUrl} target="_blank" rel="noreferrer">Open in a new tab</a>
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

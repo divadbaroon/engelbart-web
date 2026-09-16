@@ -110,7 +110,7 @@ class Worker {
         log({ event: launched.ok ? "running" : "failed", run: run.id, repo: repo.fullName, replayed: !!recipe && !launched.recipeFailed, ...(launched.ok ? { previewUrl: launched.previewUrl } : { kind: launched.kind, message: launched.message }) });
         await this.saveRecipe(repo.id, run.id, launched.ok ? launched.recipe : null, launched.recipeFailed);
         if (launched.ok) {
-          this.inFlight.set(run.id, { ...launchable, status: "running", previewUrl: launched.previewUrl, port: launched.port });
+          this.inFlight.set(run.id, { ...launchable, status: "running", previewUrl: launched.previewUrl, port: launched.port, services: launched.services });
           await launched.done;   // stay attached until the app stops
         }
       }

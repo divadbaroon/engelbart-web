@@ -1,7 +1,7 @@
 // The boundary between the workspace and whatever runs the code. The hosted
 // app implements it with E2B; the desktop app can implement it locally.
 import type { Repo } from "@/lib/repos";
-import type { EventKind, RunStatus, SandboxRun } from "@/lib/sandbox";
+import type { EventKind, PreviewService, RunStatus, SandboxRun } from "@/lib/sandbox";
 
 // Where a run writes what happened. Every status change, command and chunk
 // of output goes through here, so the record is complete by construction.
@@ -18,6 +18,7 @@ export type RunFields = {
   error: string;
   previewUrl: string;
   port: number;
+  services: PreviewService[];
 };
 
 export type PrepareOutcome =
@@ -32,7 +33,7 @@ export type LaunchOutcome =
   // `done` settles when the application stops, however that happens; the
   // run's status has been recorded by then. `recipe` is what worked this
   // time, for saving; `recipeFailed` says the saved one had to be dropped.
-  | { ok: true; previewUrl: string; port: number; done: Promise<void>; recipe: LaunchRecipe | null; recipeFailed: boolean }
+  | { ok: true; previewUrl: string; port: number; services: PreviewService[]; done: Promise<void>; recipe: LaunchRecipe | null; recipeFailed: boolean }
   | { ok: false; kind: string; message: string; recipeFailed: boolean };
 
 export type LaunchOptions = { recipe?: LaunchRecipe | null };

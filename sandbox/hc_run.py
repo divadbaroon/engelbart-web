@@ -203,11 +203,32 @@ def run(PR, PE, run_id, cwd):
             if recipe:
                 emit(phase="recipe", status="captured", recipe=recipe)
             parts = urlsplit(state["url"])
-            emit(phase="ready", url=state["url"], host=parts.hostname, port=parts.port, pid=state.get("pid"))
+            emit(phase="ready", url=state["url"], host=parts.hostname, port=parts.port, pid=state.get("pid"),
+                 services=services_of(state))
             return "ready"
         if state.get("status") in TERMINAL_RUN:
             return state.get("reason") or state.get("status")
         time.sleep(0.5)
+
+
+def services_of(state):
+    """Every service the run brought up and where it listens, the entry
+    service first. A multi-service plan (a frontend and its API, say) has
+    several; anything else is just the entry. The URLs are the pipeline's
+    health URLs, so only their host and port matter."""
+    found = []
+    for service in state.get("previewServices") or []:
+        parts = urlsplit(service.get("url") or "")
+        if not parts.port or any(f["port"] == parts.port for f in found):
+            continue
+        found.append({"id": service.get("id") or "app", "host": parts.hostname, "port": parts.port,
+                      "isEntry": bool(service.get("isEntry")), "embeddable": service.get("embeddable") is not False})
+    if not any(f["isEntry"] for f in found):
+        parts = urlsplit(state["url"])
+        found = [f for f in found if f["port"] != parts.port]
+        found.insert(0, {"id": "app", "host": parts.hostname, "port": parts.port, "isEntry": True, "embeddable": True})
+    found.sort(key=lambda f: not f["isEntry"])
+    return found
 
 
 PLAN_KEYS = ("summary", "evidence", "preparation", "services", "entryService", "pythonRuntimes")
