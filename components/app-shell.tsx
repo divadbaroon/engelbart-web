@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { addSubgoal, findGoal, isDone, patchGoal, type Goal, type Plan } from "@/lib/plan";
 import { createGoal, updateGoal } from "@/app/workspace/[workspaceId]/actions";
 import { addRepo, fetchReadme, removeRepo } from "@/app/workspace/[workspaceId]/repo-actions";
@@ -76,9 +76,10 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   const selectedGoal = selectedGoalId ? findGoal(goals, selectedGoalId) : null;
 
   // Restore the remembered position once, checking each part still exists,
-  // then keep the browser's copy current. Nothing is written until the
-  // restore has run, so a refresh never overwrites the memory with defaults.
-  const restored = useRef(false);
+  // then keep the browser's copy current. `restored` is state, set in the
+  // same batch as the restored values, so the first write already carries
+  // them: a ref would let the write effect run first and save the defaults.
+  const [restored, setRestored] = useState(false);
   useEffect(() => {
     const saved = readRemembered(projectId);
     if (saved) {
@@ -92,14 +93,14 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
       setRepoTabs(Object.fromEntries(Object.entries(saved.repoTabs ?? {}).filter(([id, t]) => repos.some((r) => r.id === id) && REPO_TABS.includes(t))));
       if (saved.selectedGoalId && findGoal(plan.goals, saved.selectedGoalId)) setSelectedGoalId(saved.selectedGoalId);
     }
-    restored.current = true;
+    setRestored(true);
   }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!restored.current) return;
+    if (!restored) return;
     const state: Remembered = { mode, sidebarOpen, center, tab, repoTabs, openPaperIds, selectedGoalId };
     try { localStorage.setItem(rememberKey(projectId), JSON.stringify(state)); } catch { /* private mode or full */ }
-  }, [projectId, mode, sidebarOpen, center, tab, repoTabs, openPaperIds, selectedGoalId]);
+  }, [restored, projectId, mode, sidebarOpen, center, tab, repoTabs, openPaperIds, selectedGoalId]);
 
   // Whatever repository is in the middle needs its README and its run's
   // log, whether it got there by a click or by a restore.
