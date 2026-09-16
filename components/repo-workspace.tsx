@@ -3,7 +3,7 @@
 import { GitBranch, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
-import { isRunActive, isRunReady, STATUS_LABEL, terminalLines, type SandboxEvent, type SandboxRun, type TermLine } from "@/lib/sandbox";
+import { isRunActive, isRunCloned, isRunRunning, STATUS_LABEL, terminalLines, type SandboxEvent, type SandboxRun, type TermLine } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Markdown } from "@/components/markdown";
@@ -22,7 +22,7 @@ type RepoTabsProps = {
 };
 
 const dotClass = (run: SandboxRun | undefined) =>
-  isRunReady(run) ? "bg-green-500" : run?.status === "failed" ? "bg-red-500" : isRunActive(run) ? "animate-pulse bg-neutral-400" : "bg-neutral-300";
+  isRunRunning(run) ? "bg-green-500" : run?.status === "failed" ? "bg-red-500" : isRunActive(run) ? "animate-pulse bg-neutral-400" : isRunCloned(run) ? "bg-neutral-400" : "bg-neutral-300";
 
 // Tab bar for the selected repo: repo chip + README / Live preview (status dot) / Terminal.
 export function RepoTabs({ repo, tab, onTabChange, run, onClose }: RepoTabsProps) {
@@ -56,7 +56,13 @@ export function RepoTabs({ repo, tab, onTabChange, run, onClose }: RepoTabsProps
 }
 
 // `readme` is undefined while it loads, null when the repo has none GitHub can serve.
-type RepoContentProps = {
+type RunControls = {
+  onPrepare: () => void;                 // clone into a fresh sandbox and start
+  onLaunch: (runId: string) => void;     // start the app in an existing cloned sandbox
+  onStop: (runId: string) => void;       // kill the sandbox
+};
+
+type RepoContentProps = RunControls & {
   repo: Repo;
   tab: RepoTab;
   run: SandboxRun | undefined;
@@ -65,7 +71,7 @@ type RepoContentProps = {
   readme: string | null | undefined;
 };
 
-export function RepoContent({ repo, tab, run, events, error, readme }: RepoContentProps) {
+export function RepoContent({ repo, tab, run, events, error, readme, onPrepare, onLaunch, onStop }: RepoContentProps) {
   if (tab === "readme") {
     return (
       <section aria-label="README" className="h-full overflow-y-auto">
@@ -78,7 +84,7 @@ export function RepoContent({ repo, tab, run, events, error, readme }: RepoConte
     );
   }
 
-  if (tab === "preview") return <Preview repo={repo} run={run} error={error} tail={terminalLines(events).slice(-5)} />;
+  if (tab === "preview") return <Preview repo={repo} run={run} error={error} tail={terminalLines(events).slice(-6)} onPrepare={onPrepare} onLaunch={onLaunch} onStop={onStop} />;
 
   const lines = terminalLines(events);
   return (
@@ -103,36 +109,42 @@ export function RepoContent({ repo, tab, run, events, error, readme }: RepoConte
   );
 }
 
-type PreviewProps = { repo: Repo; run: SandboxRun | undefined; error: string | undefined; tail: TermLine[] };
+type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; tail: TermLine[] };
 
-function Preview({ repo, run, error, tail }: PreviewProps) {
-  if (run?.previewUrl) {
+function Preview({ repo, run, error, tail, onPrepare, onLaunch, onStop }: PreviewProps) {
+  if (run && isRunRunning(run)) {
     return (
       <section aria-label="Live preview" className="flex h-full flex-col">
         <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3.5 font-mono text-xs text-muted-foreground">
           <span className="size-1.5 rounded-full bg-green-500" />
-          <span>{run.previewUrl}</span>
+          <a href={run.previewUrl!} target="_blank" rel="noreferrer" className="truncate hover:text-foreground" title="Open in a new tab">{run.previewUrl}</a>
+          <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="ml-auto h-6 px-2 font-normal text-muted-foreground">Stop</Button>
         </div>
-        <iframe src={run.previewUrl} title={`${repo.fullName} preview`} className="min-h-0 w-full flex-1" />
+        <iframe src={run.previewUrl!} title={`${repo.fullName} preview`} className="min-h-0 w-full flex-1 bg-white" />
       </section>
     );
   }
 
-  const [title, detail] = error
-    ? ["Could not prepare " + repo.fullName, error]
+  const [title, detail, action] = error
+    ? ["Could not prepare " + repo.fullName, error, { label: "Try again", onClick: onPrepare }]
     : !run
-      ? ["Not prepared yet", "Open the repository to clone it into a sandbox."]
+      ? ["Not prepared yet", "Open the repository to clone it into a sandbox and start it.", { label: "Prepare", onClick: onPrepare }]
       : isRunActive(run)
-        ? [`Preparing ${repo.fullName}…`, STATUS_LABEL[run.status] + " You can keep reading the README meanwhile."]
+        ? [run.status === "launching" ? `Starting ${repo.fullName}…` : `Preparing ${repo.fullName}…`, STATUS_LABEL[run.status] + " You can keep reading the README meanwhile.", null]
         : run.status === "failed"
-          ? ["Could not prepare " + repo.fullName, run.error ?? "The run failed. See the Terminal for details."]
-          : ["Cloned into a sandbox", `The repository is on disk in sandbox ${run.sandboxId ?? ""}. Starting the application comes next.`];
+          ? ["Could not run " + repo.fullName, run.error ?? "The run failed. See the Terminal for details.", { label: "Try again", onClick: onPrepare }]
+          : isRunCloned(run)
+            ? ["Cloned into a sandbox", "The repository is on disk but the application was never started. Start it to get a preview.", { label: "Run application", onClick: () => onLaunch(run.id) }]
+            : [STATUS_LABEL[run.status], run.error ?? "Prepare the repository again to start over.", { label: "Prepare again", onClick: onPrepare }];
 
   return (
     <section aria-label="Live preview" className="flex h-full flex-col items-center justify-center gap-1.5 p-6 text-center">
       <span className="text-[13px] text-muted-foreground">{title}</span>
       <span className="max-w-[360px] text-xs leading-normal text-muted-foreground/70">{detail}</span>
-      {isRunActive(run) && tail.length > 0 && (
+      {action && (
+        <Button variant="outline" size="sm" onClick={action.onClick} className="mt-3 font-normal">{action.label}</Button>
+      )}
+      {run && isRunActive(run) && tail.length > 0 && (
         <pre aria-label="Latest output" className="mt-4 w-full max-w-[520px] overflow-hidden rounded-md border bg-[#f6f6f6] px-3.5 py-2.5 text-left font-mono text-[11px] leading-[1.7] text-muted-foreground">
           {tail.map((l, i) => (
             <div key={i} className="truncate">{l.kind === "command" ? "$ " : ""}{l.text}</div>

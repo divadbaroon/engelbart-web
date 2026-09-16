@@ -7,7 +7,7 @@ import { addRepo, fetchReadme, removeRepo } from "@/app/workspace/[workspaceId]/
 import { usePanelRef } from "react-resizable-panels";
 import { isPaperTab, paperTabValue, SAMPLE_PAPERS, type Paper } from "@/lib/papers";
 import type { Repo } from "@/lib/repos";
-import { isRunActive, isRunReady, type SandboxRun } from "@/lib/sandbox";
+import { isRunActive, isRunCloned, isRunRunning, type SandboxRun } from "@/lib/sandbox";
 import { useSandboxRuns } from "@/hooks/use-sandbox-run";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,7 +19,7 @@ import { RepoTabs, RepoContent, type RepoTab } from "@/components/repo-workspace
 
 type Center = { kind: "project" } | { kind: "repo"; id: string };
 type Named = { id: string; name: string; meta: string; isNew?: boolean };
-type RepoStatus = "none" | "ready" | "preparing" | "failed";
+type RepoStatus = "none" | "preparing" | "cloned" | "ready" | "failed";
 
 // Generic list helpers for the editable sidebar lists (papers, repos).
 function useEditableList<T extends Named>(initial: T[], blank: (id: string) => T) {
@@ -108,12 +108,13 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   }
 
   // Opening a repo shows its README first and, the first time, clones it into
-  // a sandbox in the background. A repo prepared earlier just loads its log.
+  // a sandbox and starts it in the background. A repo with a run already just
+  // loads that run's log; failed runs are retried from the preview tab.
   function openRepo(id: string) {
     setCenter({ kind: "repo", id });
     setRepoTabs((t) => (t[id] ? t : { ...t, [id]: "readme" }));
     const run = sandbox.runs[id];
-    if (!run || run.status === "failed" || run.status === "killed") sandbox.prepare(id);
+    if (!run) sandbox.prepare(id);
     else sandbox.load(run.id);
     const target = repos.find((r) => r.id === id);
     if (target && !(id in readmes)) {
@@ -149,7 +150,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   const activePaperId = center.kind === "project" && isPaperTab(tab) ? tab.slice("paper:".length) : null;
   const statusOf = (id: string): RepoStatus => {
     const run = sandbox.runs[id];
-    return isRunReady(run) ? "ready" : isRunActive(run) ? "preparing" : run?.status === "failed" ? "failed" : "none";
+    return isRunRunning(run) ? "ready" : isRunActive(run) ? "preparing" : isRunCloned(run) ? "cloned" : run?.status === "failed" ? "failed" : "none";
   };
 
   return (
@@ -201,6 +202,9 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
                   events={sandbox.events[sandbox.runs[repo.id]?.id ?? ""] ?? []}
                   error={sandbox.errors[repo.id]}
                   readme={readmes[repo.id]}
+                  onPrepare={() => sandbox.prepare(repo.id)}
+                  onLaunch={(runId) => sandbox.launch(runId, repo.id)}
+                  onStop={(runId) => sandbox.stop(runId, repo.id)}
                 />
               ) : (
                 <ProjectContent tab={tab} openPapers={openPapers} notesGoal={selectedGoal} onNotesSaved={noteSaved} />

@@ -1,7 +1,7 @@
 import { e2bRuntime } from "@/lib/runtime/e2b";
 import type { Runtime } from "@/lib/runtime/types";
 
-export type { Runtime, Recorder, PrepareOutcome } from "@/lib/runtime/types";
+export type { Runtime, Recorder, PrepareOutcome, LaunchOutcome } from "@/lib/runtime/types";
 
 // The hosted app runs code in E2B. Swap this to pick a different runtime.
 export function getRuntime(): Runtime {

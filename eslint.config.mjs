@@ -10,6 +10,8 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  // Staged hc source for the E2B template build; not our code.
+  { ignores: ["sandbox/.hc/**"] },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 ];
 

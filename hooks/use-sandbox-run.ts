@@ -6,7 +6,7 @@ import {
   EVENT_COLUMNS, RUN_COLUMNS, isLaterStatus, isRunActive, mergeEvents, statusFromEvents, toEvent, toRun,
   type EventRow, type RunRow, type SandboxEvent, type SandboxRun,
 } from "@/lib/sandbox";
-import { executeRun, getRun, startRun } from "@/app/workspace/[workspaceId]/sandbox-actions";
+import { executeRun, getRun, launchRun, startRun, stopRun } from "@/app/workspace/[workspaceId]/sandbox-actions";
 
 // The latest run per repository and the events of the runs on screen.
 // Events arrive live over Realtime while a run is active, and the run's
@@ -45,9 +45,20 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
     applySnapshot(result.run, result.events);
   }, [applySnapshot]);
 
+  const clearError = (repoId: string) => setErrors((e) => Object.fromEntries(Object.entries(e).filter(([id]) => id !== repoId)));
+
+  // Bring the application up in a cloned run's sandbox.
+  const launch = useCallback(async (runId: string, repoId: string) => {
+    clearError(repoId);
+    const finished = await launchRun(runId);
+    if ("error" in finished) { setErrors((e) => ({ ...e, [repoId]: finished.error })); return; }
+    applySnapshot(finished.run, finished.events);
+  }, [applySnapshot]);
+
+  // Clone into a fresh sandbox and launch, all in one server action.
   const prepare = useCallback(async (repoId: string) => {
     if (isRunActive(runs[repoId])) return;
-    setErrors((e) => Object.fromEntries(Object.entries(e).filter(([id]) => id !== repoId)));
+    clearError(repoId);
     const started = await startRun(repoId);
     if (!started.ok) { setErrors((e) => ({ ...e, [repoId]: started.error })); return; }
     loaded.current.add(started.run.id);
@@ -56,6 +67,13 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
     if ("error" in finished) { setErrors((e) => ({ ...e, [repoId]: finished.error })); return; }
     applySnapshot(finished.run, finished.events);
   }, [runs, applySnapshot]);
+
+  const stop = useCallback(async (runId: string, repoId: string) => {
+    clearError(repoId);
+    const finished = await stopRun(runId);
+    if ("error" in finished) { setErrors((e) => ({ ...e, [repoId]: finished.error })); return; }
+    applySnapshot(finished.run, finished.events);
+  }, [applySnapshot]);
 
   // Live feed for whichever runs are active: new event rows and status
   // updates over Realtime, plus a poll every 1.5 s as the fallback. Realtime
@@ -107,5 +125,5 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
     return () => { clearInterval(timer); channels.forEach((c) => supabase.removeChannel(c)); };
   }, [activeIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { runs, events, errors, prepare, load };
+  return { runs, events, errors, prepare, launch, stop, load };
 }

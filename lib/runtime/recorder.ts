@@ -3,7 +3,7 @@ import type { EventKind, RunStatus } from "@/lib/sandbox";
 import type { Recorder, RunFields } from "@/lib/runtime/types";
 
 const FIELD_COLUMNS: Record<keyof RunFields, string> = {
-  sandboxId: "sandbox_id", workdir: "workdir", errorKind: "error_kind", error: "error", previewUrl: "preview_url",
+  sandboxId: "sandbox_id", workdir: "workdir", errorKind: "error_kind", error: "error", previewUrl: "preview_url", port: "port",
 };
 
 const FINAL: RunStatus[] = ["paused", "failed", "killed"];

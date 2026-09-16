@@ -3,17 +3,19 @@
 // engelbart_sandbox_runs and engelbart_sandbox_events. Free of React and of
 // Supabase so the desktop app can share it.
 
-export type RunStatus = "queued" | "creating" | "cloning" | "cloned" | "paused" | "failed" | "killed";
+export type RunStatus = "queued" | "creating" | "cloning" | "cloned" | "paused" | "launching" | "running" | "failed" | "killed";
 export type EventKind = "status" | "command" | "stdout" | "stderr" | "metrics" | "error";
 
 export type SandboxRun = {
   id: string;
   repoId: string;
   sandboxId: string | null;
+  template: string;
   status: RunStatus;
   workdir: string | null;
   errorKind: string | null;
   error: string | null;
+  port: number | null;
   previewUrl: string | null;
   startedAt: string;
   finishedAt: string | null;
@@ -33,10 +35,12 @@ export type RunRow = {
   id: string;
   repo_id: string;
   sandbox_id: string | null;
+  template: string;
   status: RunStatus;
   workdir: string | null;
   error_kind: string | null;
   error: string | null;
+  port: number | null;
   preview_url: string | null;
   started_at: string;
   finished_at: string | null;
@@ -52,27 +56,30 @@ export type EventRow = {
   data: Record<string, unknown> | null;
 };
 
-export const RUN_COLUMNS = "id, repo_id, sandbox_id, status, workdir, error_kind, error, preview_url, started_at, finished_at";
+export const RUN_COLUMNS = "id, repo_id, sandbox_id, template, status, workdir, error_kind, error, port, preview_url, started_at, finished_at";
 export const EVENT_COLUMNS = "id, run_id, seq, at, kind, text, data";
 
 export const toRun = (r: RunRow): SandboxRun => ({
-  id: r.id, repoId: r.repo_id, sandboxId: r.sandbox_id, status: r.status, workdir: r.workdir,
-  errorKind: r.error_kind, error: r.error, previewUrl: r.preview_url, startedAt: r.started_at, finishedAt: r.finished_at,
+  id: r.id, repoId: r.repo_id, sandboxId: r.sandbox_id, template: r.template, status: r.status, workdir: r.workdir,
+  errorKind: r.error_kind, error: r.error, port: r.port, previewUrl: r.preview_url, startedAt: r.started_at, finishedAt: r.finished_at,
 });
 
 export const toEvent = (e: EventRow): SandboxEvent => ({
   id: e.id, runId: e.run_id, seq: e.seq, at: e.at, kind: e.kind, text: e.text, data: e.data,
 });
 
-// Still doing something: the sandbox is being created or the clone is running.
+// Still doing something: creating the sandbox, cloning, or bringing the app up.
 export const isRunActive = (run: SandboxRun | undefined) =>
-  !!run && (run.status === "queued" || run.status === "creating" || run.status === "cloning");
+  !!run && (run.status === "queued" || run.status === "creating" || run.status === "cloning" || run.status === "launching");
 
-// The repository is in a sandbox and can be picked up by the next step.
-export const isRunReady = (run: SandboxRun | undefined) =>
+// The repository is in a sandbox, waiting to be launched.
+export const isRunCloned = (run: SandboxRun | undefined) =>
   !!run && (run.status === "cloned" || run.status === "paused");
 
-const STATUSES: RunStatus[] = ["queued", "creating", "cloning", "cloned", "paused", "failed", "killed"];
+// The application is up and has a preview URL.
+export const isRunRunning = (run: SandboxRun | undefined) => !!run && run.status === "running" && !!run.previewUrl;
+
+const STATUSES: RunStatus[] = ["queued", "creating", "cloning", "cloned", "paused", "launching", "running", "failed", "killed"];
 const isRunStatus = (s: string): s is RunStatus => (STATUSES as string[]).includes(s);
 
 // Events can arrive late over one path after a newer one came over the other;
@@ -90,6 +97,8 @@ export function statusFromEvents(events: SandboxEvent[]): Partial<SandboxRun> | 
   if (typeof d.workdir === "string") patch.workdir = d.workdir;
   if (typeof d.error === "string") patch.error = d.error;
   if (typeof d.errorKind === "string") patch.errorKind = d.errorKind;
+  if (typeof d.previewUrl === "string") patch.previewUrl = d.previewUrl;
+  if (typeof d.port === "number") patch.port = d.port;
   return patch;
 }
 
@@ -99,6 +108,8 @@ export const STATUS_LABEL: Record<RunStatus, string> = {
   cloning: "Cloning…",
   cloned: "Cloned",
   paused: "Cloned, sandbox paused",
+  launching: "Starting the application…",
+  running: "Running",
   failed: "Failed",
   killed: "Stopped",
 };
