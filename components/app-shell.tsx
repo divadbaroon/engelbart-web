@@ -35,7 +35,7 @@ type Remembered = {
   selectedGoalId: string | null;
 };
 const MODES: SidebarMode[] = ["plan", "github", "papers"];
-const REPO_TABS: RepoTab[] = ["readme", "code", "preview", "terminal", "notes"];
+const REPO_TABS: RepoTab[] = ["readme", "code", "preview", "terminal", "env", "notes"];
 const rememberKey = (projectId: string) => `engelbart:workspace:${projectId}`;
 
 function readRemembered(projectId: string): Partial<Remembered> | null {
@@ -290,6 +290,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
                   onPrepare={() => sandbox.prepare(repo.id)}
                   onLaunch={(runId) => sandbox.launch(runId, repo.id)}
                   onStop={(runId) => sandbox.stop(runId, repo.id)}
+                  onOpenEnvironment={() => setRepoTabs((all) => ({ ...all, [repo.id]: "env" }))}
                 />
               ) : (
                 <ProjectContent tab={tab} openPapers={openPapers} paperUrls={papers.urls} notesGoal={selectedGoal} onNotesSaved={noteSaved} />

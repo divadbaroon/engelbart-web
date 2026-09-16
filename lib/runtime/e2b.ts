@@ -1,6 +1,7 @@
 import { Sandbox, CommandExitError } from "e2b";
 import type { LaunchOutcome, LaunchRecipe, Recorder, Runtime } from "@/lib/runtime/types";
 import type { PreviewService } from "@/lib/sandbox";
+import { toEnvReport } from "@/lib/environment";
 
 // The template runner sandboxes start from. Built by sandbox/build-template.mjs.
 export const TEMPLATE = process.env.E2B_TEMPLATE ?? "engelbart-runner";
@@ -12,6 +13,7 @@ const WRAPPER = "/opt/engelbart/hc_run.py";
 const PROXY = "/opt/engelbart/proxy.mjs";
 const PROXY_PORT = 43110;   // the first public port; each service gets the next one, and their own ports stay loopback-only
 const RECIPE_FILE = "/home/user/.engelbart-recipe.json";
+const ENV_FILE = "/home/user/.engelbart-env.json";   // the wrapper deletes it once read
 
 const errorKind = (err: unknown) => (err instanceof Error ? err.constructor.name : "Error");
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -108,6 +110,20 @@ export const e2bRuntime: Runtime = {
       }
     }
 
+    // Saved environment values ride in the same way. The event log only
+    // ever sees their names.
+    let handedEnv = false;
+    const envNames = Object.keys(options.env ?? {});
+    if (envNames.length) {
+      try {
+        await sandbox.files.write(ENV_FILE, JSON.stringify(options.env));
+        handedEnv = true;
+        record.event("status", `using ${envNames.length} saved environment value${envNames.length === 1 ? "" : "s"}: ${envNames.join(", ")}`, { env: envNames });
+      } catch (err) {
+        record.event("status", `could not hand over the saved environment values: ${errorMessage(err)}`);
+      }
+    }
+
     const cmd = `python3 ${WRAPPER} ${shellQuote(run.workdir)}`;
     record.event("command", cmd);
     const lines = new LineReader();
@@ -127,6 +143,9 @@ export const e2bRuntime: Runtime = {
         if (ev.phase === "recipe") {
           if (ev.status === "captured" && ev.recipe && typeof ev.recipe === "object") recipe = ev.recipe as LaunchRecipe;
           if (ev.status === "failed") recipeFailed = true;
+        } else if (ev.phase === "environment") {
+          const report = toEnvReport(ev, run.id, new Date().toISOString());
+          if (report) options.onEnvironment?.(report);
         } else if (ev.phase === "ready" && typeof ev.port === "number") {
           expose(sandbox, readyServices(ev), record)
             .then((services) => {
@@ -158,6 +177,7 @@ export const e2bRuntime: Runtime = {
           HC_EXPERIMENTAL: "1",
           HUMAN_COMPACT_HOME: "/home/user/.human-compact",
           ...(replaying ? { HC_RECIPE_FILE: RECIPE_FILE } : {}),
+          ...(handedEnv ? { HC_ENV_FILE: ENV_FILE } : {}),
         },
         onStdout: (d) => lines.push(d),
         onStderr: (d) => record.event("stderr", d),
@@ -291,10 +311,19 @@ function describe(ev: WrapperEvent, record: Recorder) {
     case "plan":
       record.event("status", ev.source === "run_order" ? `plan: ${ev.summary ?? "ready"}` : `plan: ${ev.providers ? (ev.providers as string[]).join(", ") : ev.source} → ${ev.start ?? "start command pending"}`, ev);
       return;
-    case "environment":
-      if (ev.skipped) record.event("status", `skipping missing environment values: ${(ev.skipped as string[]).join(", ")}`, ev);
-      else if (ev.warning) record.event("status", `environment scan: ${ev.warning}`, ev);
+    case "environment": {
+      if (ev.warning) { record.event("status", `environment scan: ${ev.warning}`, ev); return; }
+      const skipped = (ev.skipped as string[] | undefined) ?? [];
+      const provided = (ev.provided as string[] | undefined) ?? [];
+      const ignored = (ev.ignored as string[] | undefined) ?? [];
+      const parts = [
+        provided.length ? `using saved values for ${provided.join(", ")}` : "",
+        skipped.length ? `skipping missing environment values: ${skipped.join(", ")}` : "",
+        ignored.length ? `saved values not read by this app: ${ignored.join(", ")}` : "",
+      ].filter(Boolean);
+      record.event("status", parts.join(" · ") || "environment: nothing missing", ev);
       return;
+    }
     case "run": {
       const who = agent?.name ? ` · ${agent.name}: ${agent.phase ?? agent.status}` : "";
       record.event("status", `${ev.status}${ev.stage ? ` [${ev.stage}]` : ""}${ev.reason ? ` — ${ev.reason}` : ""}${who}`, ev);

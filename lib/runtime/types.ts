@@ -2,6 +2,7 @@
 // app implements it with E2B; the desktop app can implement it locally.
 import type { Repo } from "@/lib/repos";
 import type { EventKind, PreviewService, RunStatus, SandboxRun } from "@/lib/sandbox";
+import type { EnvReport } from "@/lib/environment";
 
 // Where a run writes what happened. Every status change, command and chunk
 // of output goes through here, so the record is complete by construction.
@@ -36,7 +37,14 @@ export type LaunchOutcome =
   | { ok: true; previewUrl: string; port: number; services: PreviewService[]; done: Promise<void>; recipe: LaunchRecipe | null; recipeFailed: boolean }
   | { ok: false; kind: string; message: string; recipeFailed: boolean };
 
-export type LaunchOptions = { recipe?: LaunchRecipe | null };
+export type LaunchOptions = {
+  recipe?: LaunchRecipe | null;
+  // Values saved for the repository, handed to the pipeline for names its
+  // scan finds. Never logged.
+  env?: Record<string, string> | null;
+  // Called once the pipeline has scanned the environment, before the app starts.
+  onEnvironment?: (report: EnvReport) => void;
+};
 
 export type Runtime = {
   // Bring the repository into a fresh sandbox and leave it ready for the next step.

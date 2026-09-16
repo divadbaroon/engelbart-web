@@ -23,6 +23,7 @@ import { getRuntime, type LaunchRecipe, type Runtime } from "@/lib/runtime";
 import { createRecorder } from "@/lib/runtime/recorder";
 import { REPO_COLUMNS, toRepo, type RepoRow } from "@/lib/repos";
 import { RUN_COLUMNS, toRun, type RunRow, type SandboxRun } from "@/lib/sandbox";
+import type { EnvReport } from "@/lib/environment";
 
 const POLL_MS = 2_000;
 const HEARTBEAT_MS = 15_000;
@@ -106,7 +107,10 @@ class Worker {
       }
       if (launchable) {
         this.inFlight.set(run.id, launchable);
-        const launched = await this.runtime.launch(repo, launchable, record, { recipe });
+        const env = await this.loadEnv(repo.id);
+        const launched = await this.runtime.launch(repo, launchable, record, {
+          recipe, env, onEnvironment: (report) => void this.saveEnvReport(repo.id, report),
+        });
         log({ event: launched.ok ? "running" : "failed", run: run.id, repo: repo.fullName, replayed: !!recipe && !launched.recipeFailed, ...(launched.ok ? { previewUrl: launched.previewUrl } : { kind: launched.kind, message: launched.message }) });
         await this.saveRecipe(repo.id, run.id, launched.ok ? launched.recipe : null, launched.recipeFailed);
         if (launched.ok) {
@@ -138,6 +142,19 @@ class Worker {
     const { error } = await this.supabase.from("engelbart_repos").update(patch).eq("id", repoId);
     if (error) log({ level: "error", event: "recipe-save", run: runId, message: error.message });
     else log({ event: recipe ? "recipe-saved" : "recipe-dropped", run: runId, repo: repoId });
+  }
+
+  // The values saved for a repository, for the pipeline. Read with the
+  // service key; the run itself was already authorised when it was queued.
+  private async loadEnv(repoId: string): Promise<Record<string, string>> {
+    const { data, error } = await this.supabase.from("engelbart_repo_env").select("name, value").eq("repo_id", repoId);
+    if (error) { log({ level: "error", event: "env-load", repo: repoId, message: error.message }); return {}; }
+    return Object.fromEntries(((data ?? []) as { name: string; value: string }[]).map((r) => [r.name, r.value]));
+  }
+
+  private async saveEnvReport(repoId: string, report: EnvReport) {
+    const { error } = await this.supabase.from("engelbart_repos").update({ env_report: report }).eq("id", repoId);
+    if (error) log({ level: "error", event: "env-report", repo: repoId, message: error.message });
   }
 
   private async heartbeat() {

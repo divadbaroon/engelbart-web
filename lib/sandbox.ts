@@ -3,6 +3,8 @@
 // engelbart_sandbox_runs and engelbart_sandbox_events. Free of React and of
 // Supabase so the desktop app can share it.
 
+import { toEnvReport, type EnvReport } from "@/lib/environment";
+
 export type RunStatus = "queued" | "creating" | "cloning" | "cloned" | "paused" | "launching" | "running" | "failed" | "killed";
 export type EventKind = "status" | "command" | "stdout" | "stderr" | "metrics" | "error";
 
@@ -101,6 +103,16 @@ export const isRunRunning = (run: SandboxRun | undefined) => !!run && run.status
 
 const STATUSES: RunStatus[] = ["queued", "creating", "cloning", "cloned", "paused", "launching", "running", "failed", "killed"];
 const isRunStatus = (s: string): s is RunStatus => (STATUSES as string[]).includes(s);
+
+// The latest environment scan a run reported, from its event log; live,
+// unlike the copy stored on the repository.
+export const environmentFromEvents = (events: SandboxEvent[], runId: string): EnvReport | null => {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.kind === "status" && e.data?.phase === "environment" && Array.isArray(e.data.variables)) return toEnvReport(e.data, runId, e.at);
+  }
+  return null;
+};
 
 // Events can arrive late over one path after a newer one came over the other;
 // only ever move a run forward.

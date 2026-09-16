@@ -165,19 +165,57 @@ def pipeline(PA, PC, PO, repo):
         return result["analysisId"], component["path"]
 
 
+SAVED_SOURCE = "Engelbart local storage"   # what the pipeline calls values handed to it
+
+
+def load_env():
+    """Values the person saved for this repository, handed over as a file
+    that is removed once read so it does not linger on disk."""
+    path = os.environ.get("HC_ENV_FILE")
+    if not path or not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            values = json.load(f)
+        os.unlink(path)
+    except (OSError, ValueError) as exc:
+        emit(phase="environment", warning=f"saved values could not be read: {str(exc)[:200]}")
+        return {}
+    return {k: v for k, v in values.items() if isinstance(k, str) and isinstance(v, str) and v}
+
+
+def environment(PE, cwd, values):
+    """Give the pipeline the saved values it can use, then report every
+    variable the app reads and its state. The pipeline only accepts names
+    its scan found; the rest are reported as ignored. What remains missing
+    is skipped, since the sandbox cannot ask anyone."""
+    skips = {}
+    try:
+        known = {v["name"] for v in PE.scan(cwd).get("variables", [])}
+        usable = {k: v for k, v in values.items() if k in known}
+        if usable:
+            PE.save(cwd, usable)
+        report = PE.scan(cwd)
+        variables = []
+        for v in report.get("variables", []):
+            provided = v.get("source") == SAVED_SOURCE
+            variables.append({"name": v["name"], "status": "provided" if provided else v.get("status"),
+                              "requirement": v.get("requirement"), "group": v.get("group"),
+                              "source": "saved" if provided else v.get("source"), "public": bool(v.get("public"))})
+        missing = [v["name"] for v in variables if v["status"] == "missing"]
+        if missing:
+            skips[str(Path(cwd).resolve())] = missing
+        emit(phase="environment", variables=variables, skipped=missing,
+             provided=sorted(usable), ignored=sorted(set(values) - known))
+    except Exception as exc:  # noqa: BLE001
+        emit(phase="environment", warning=str(exc)[:300])
+    return skips
+
+
 def run(PR, PE, run_id, cwd):
     """Start the record and follow it until the app is ready ("ready") or it
     gives up (the reason). On ready the recipe is emitted for saving."""
-    # The sandbox cannot supply values the project wants from a person.
-    skips = {}
-    try:
-        report = PE.scan(cwd)
-        missing = [v["name"] for v in report.get("variables", []) if v.get("status") == "missing"]
-        if missing:
-            skips[str(Path(cwd).resolve())] = missing
-            emit(phase="environment", skipped=missing)
-    except Exception as exc:  # noqa: BLE001
-        emit(phase="environment", warning=str(exc)[:300])
+    skips = environment(PE, cwd, load_env())
 
     PR.start(run_id, environment_skips=skips)
     logs = LOGS[run_id] = StageLog()

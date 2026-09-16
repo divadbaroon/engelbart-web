@@ -6,18 +6,19 @@ import { GitBranch, RotateCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
 import type { Goal } from "@/lib/plan";
-import { isRunActive, isRunCloned, isRunRunning, isSandboxLive, STATUS_LABEL, terminalLines, type PreviewService, type SandboxEvent, type SandboxRun, type TermLine } from "@/lib/sandbox";
+import { environmentFromEvents, isRunActive, isRunCloned, isRunRunning, isSandboxLive, STATUS_LABEL, terminalLines, type PreviewService, type SandboxEvent, type SandboxRun, type TermLine } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Markdown } from "@/components/markdown";
 import { CodeBrowser } from "@/components/code-browser";
 import { NotesPad } from "@/components/notes-pad";
+import { EnvPanel } from "@/components/env-panel";
 
 // xterm touches the DOM as soon as it loads.
 const SandboxShell = dynamic(() => import("@/components/sandbox-shell"), { ssr: false });
 
-export type RepoTab = "readme" | "code" | "preview" | "terminal" | "notes";
+export type RepoTab = "readme" | "code" | "preview" | "terminal" | "env" | "notes";
 
 // The shadcn list fixes its height under an orientation variant, which a
 // plain `h-auto` cannot override; the tabs are taller than that, so their
@@ -67,6 +68,7 @@ export function RepoTabs({ repo, tab, onTabChange, run, onClose }: RepoTabsProps
           <span aria-hidden className={cn("size-1.5 rounded-full", dotClass(run))} />
         </TabsTrigger>
         <TabsTrigger value="terminal" className={TAB_TRIGGER}>Terminal</TabsTrigger>
+        <TabsTrigger value="env" className={TAB_TRIGGER}>Environment</TabsTrigger>
         <TabsTrigger value="notes" className={TAB_TRIGGER}>Notes</TabsTrigger>
       </TabsList>
     </Tabs>
@@ -78,6 +80,7 @@ type RunControls = {
   onPrepare: () => void;                 // clone into a fresh sandbox and start
   onLaunch: (runId: string) => void;     // start the app in an existing cloned sandbox
   onStop: (runId: string) => void;       // kill the sandbox
+  onOpenEnvironment: () => void;         // switch to the Environment tab
 };
 
 type RepoContentProps = RunControls & {
@@ -95,9 +98,12 @@ type RepoContentProps = RunControls & {
   onFileSaved: () => void;
 };
 
-export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, onPrepare, onLaunch, onStop }: RepoContentProps) {
+export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, onPrepare, onLaunch, onStop, onOpenEnvironment }: RepoContentProps) {
+  // The environment scan from this run's log if it has one, else the last one saved.
+  const envReport = (run && environmentFromEvents(events, run.id)) ?? repo.envReport;
   if (tab === "code") return <CodeBrowser repo={repo} run={run} onSaved={onFileSaved} />;
   if (tab === "notes") return <NotesPad goal={notesGoal} onSaved={onNotesSaved} />;
+  if (tab === "env") return <EnvPanel repo={repo} run={run} report={envReport} onPrepare={onPrepare} />;
 
   if (tab === "readme") {
     return (
@@ -111,7 +117,9 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
     );
   }
 
-  if (tab === "preview") return <Preview repo={repo} run={run} error={error} tail={terminalLines(events).slice(-6)} version={previewVersion} onPrepare={onPrepare} onLaunch={onLaunch} onStop={onStop} />;
+  if (tab === "preview") {
+    return <Preview repo={repo} run={run} error={error} tail={terminalLines(events).slice(-6)} version={previewVersion} missing={envReport?.missing ?? []} onPrepare={onPrepare} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} />;
+  }
 
   // The run's log, and a shell in its sandbox once there is one to open.
   const lines = terminalLines(events);
@@ -147,9 +155,9 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   );
 }
 
-type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; tail: TermLine[]; version: number };
+type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; tail: TermLine[]; version: number; missing: string[] };
 
-function Preview({ repo, run, error, tail, version, onPrepare, onLaunch, onStop }: PreviewProps) {
+function Preview({ repo, run, error, tail, version, missing, onPrepare, onLaunch, onStop, onOpenEnvironment }: PreviewProps) {
   if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} version={version} onStop={onStop} />;
 
   const [title, detail, action] = error
@@ -170,6 +178,15 @@ function Preview({ repo, run, error, tail, version, onPrepare, onLaunch, onStop 
       <span className="max-w-[360px] text-xs leading-normal text-muted-foreground/70">{detail}</span>
       {action && (
         <Button variant="outline" size="sm" onClick={action.onClick} className="mt-3 font-normal">{action.label}</Button>
+      )}
+      {run?.status === "failed" && missing.length > 0 && (
+        <div className="mt-5 flex max-w-[420px] flex-col items-center gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
+          <span>
+            The application started without {missing.length === 1 ? "a value it reads" : `${missing.length} values it reads`}:{" "}
+            <span className="font-mono text-foreground">{missing.join(", ")}</span>.
+          </span>
+          <Button variant="ghost" size="sm" onClick={onOpenEnvironment} className="h-7 px-2 font-normal">Add the values</Button>
+        </div>
       )}
       {run && isRunActive(run) && tail.length > 0 && (
         <pre aria-label="Latest output" className="mt-4 w-full max-w-[520px] overflow-hidden rounded-md border bg-[#f6f6f6] px-3.5 py-2.5 text-left font-mono text-[11px] leading-[1.7] text-muted-foreground">
