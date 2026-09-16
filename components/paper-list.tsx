@@ -19,6 +19,7 @@ export type PaperListActions = {
   onRename: (id: string, title: string) => void;
   onRemove: (id: string) => void;
   onDismiss: (id: string) => void;   // clear a failed upload from the list
+  analyzing: Set<string>;   // papers being read for links right now
   // Repositories found in a just-added paper, minus any already in the project.
   suggestion: RepoSuggestion | null;
   onAcceptSuggestion: (paperId: string, repoUrls: string[]) => void;
@@ -29,7 +30,7 @@ const pdfsOf = (files: FileList | null) => Array.from(files ?? []).filter((f) =>
 
 // The project's papers. Drop PDFs anywhere on the panel, pick them with
 // the button, or paste a link; each shows up as it uploads.
-export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFromUrl, onRename, onRemove, onDismiss, suggestion, onAcceptSuggestion, onDismissSuggestion }: PaperListActions) {
+export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFromUrl, onRename, onRemove, onDismiss, analyzing, suggestion, onAcceptSuggestion, onDismissSuggestion }: PaperListActions) {
   const [over, setOver] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -76,8 +77,6 @@ export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFr
         </div>
       )}
 
-      {suggestion && <SuggestionCard key={suggestion.paperId} suggestion={suggestion} onAccept={onAcceptSuggestion} onDismiss={onDismissSuggestion} />}
-
       <ul className="flex flex-col gap-2">
         {papers.map((paper) =>
           editing?.id === paper.id ? (
@@ -107,12 +106,20 @@ export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFr
                 className={cn(
                   "flex w-full items-start gap-2.5 rounded-lg border bg-background px-3.5 py-3 pr-8 text-left transition-colors hover:border-neutral-300",
                   activeId === paper.id && "border-neutral-400",
+                  suggestion?.paperId === paper.id && "rounded-b-none border-b-0",
                 )}
               >
                 <FileText className="mt-0.5 size-[15px] shrink-0 text-muted-foreground" />
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <span className="text-sm leading-5 font-medium text-pretty">{paper.title}</span>
-                  <span className="text-xs text-muted-foreground">{paperMeta(paper)}</span>
+                  {analyzing.has(paper.id) ? (
+                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Loader2 className="size-3 animate-spin" />
+                      Reading the paper…
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{paperMeta(paper)}</span>
+                  )}
                 </div>
               </button>
               <Button
@@ -125,6 +132,9 @@ export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFr
               >
                 <X className="size-3" />
               </Button>
+              {suggestion?.paperId === paper.id && (
+                <SuggestionCard key={suggestion.paperId} suggestion={suggestion} onAccept={onAcceptSuggestion} onDismiss={onDismissSuggestion} />
+              )}
             </li>
           ),
         )}
@@ -195,15 +205,18 @@ export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFr
   );
 }
 
-// "This paper links to these repositories. Add them?" Each is checked to
-// start with; adding clones and starts them like a pasted URL would.
+// Hangs off the bottom of its paper's card: "links to these repositories,
+// add them?" Each is checked to start with; adding clones and starts them
+// like a pasted URL would.
 function SuggestionCard({ suggestion, onAccept, onDismiss }: { suggestion: RepoSuggestion; onAccept: (paperId: string, urls: string[]) => void; onDismiss: (paperId: string) => void }) {
   const [chosen, setChosen] = useState<Set<string>>(new Set(suggestion.repos));
   const toggle = (url: string) => setChosen((prev) => { const next = new Set(prev); if (next.has(url)) next.delete(url); else next.add(url); return next; });
+  const many = suggestion.repos.length > 1;
   return (
-    <div role="dialog" aria-label="Repositories found in the paper" className="flex flex-col gap-2.5 rounded-lg border border-neutral-300 bg-background px-3.5 py-3">
-      <p className="text-[13px] leading-5 text-pretty">
-        <span className="font-medium">{suggestion.paperTitle}</span> links to {suggestion.repos.length === 1 ? "a repository" : `${suggestion.repos.length} repositories`}. Add to this project and start {suggestion.repos.length === 1 ? "it" : "them"}?
+    <div role="dialog" aria-label="Repositories found in the paper" className="rounded-b-lg border border-t-0 bg-neutral-50 px-3.5">
+      <div className="flex flex-col gap-2.5 border-t border-dashed py-3">
+      <p className="text-[13px] leading-5 text-pretty text-muted-foreground">
+        Links to {many ? `${suggestion.repos.length} repositories` : "a repository"}.
       </p>
       <ul className="flex flex-col gap-1.5">
         {suggestion.repos.map((url) => {
@@ -221,11 +234,12 @@ function SuggestionCard({ suggestion, onAccept, onDismiss }: { suggestion: RepoS
       </ul>
       <div className="flex gap-1.5">
         <Button size="sm" disabled={!chosen.size} onClick={() => onAccept(suggestion.paperId, suggestion.repos.filter((u) => chosen.has(u)))} className="h-7 px-3 font-normal">
-          Add {chosen.size === 1 ? "repository" : "repositories"}
+          Add and start
         </Button>
         <Button variant="ghost" size="sm" onClick={() => onDismiss(suggestion.paperId)} className="h-7 px-3 font-normal text-muted-foreground">
           Not now
         </Button>
+      </div>
       </div>
     </div>
   );

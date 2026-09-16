@@ -19,13 +19,17 @@ export function usePapers(projectId: string, initial: Paper[]) {
   const [pending, setPending] = useState<PendingPaper[]>([]);
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [suggestions, setSuggestions] = useState<RepoSuggestion[]>([]);
+  const [analyzing, setAnalyzing] = useState<Set<string>>(new Set());   // papers being read right now
 
   // Once a paper is in, read it: its text is kept, and any repositories it
   // links to are offered. Runs in the background; nothing waits on it.
   const analyze = (paper: Paper) => {
-    void analyzePaper(paper.id).then((result) => {
-      if (result.ok && result.repos.length) setSuggestions((all) => [...all, { paperId: paper.id, paperTitle: paper.title, repos: result.repos }]);
-    });
+    setAnalyzing((all) => new Set(all).add(paper.id));
+    void analyzePaper(paper.id)
+      .then((result) => {
+        if (result.ok && result.repos.length) setSuggestions((all) => [...all, { paperId: paper.id, paperTitle: paper.title, repos: result.repos }]);
+      })
+      .finally(() => setAnalyzing((all) => { const next = new Set(all); next.delete(paper.id); return next; }));
   };
 
   const setPending1 = (id: string, patch: Partial<PendingPaper>) =>
@@ -87,5 +91,5 @@ export function usePapers(projectId: string, initial: Paper[]) {
 
   const dismissSuggestion = useCallback((paperId: string) => setSuggestions((all) => all.filter((s) => s.paperId !== paperId)), []);
 
-  return { papers, pending, urls, suggestions, upload, addFromUrl, rename, remove, view, dismiss: dropPending, dismissSuggestion };
+  return { papers, pending, urls, suggestions, analyzing, upload, addFromUrl, rename, remove, view, dismiss: dropPending, dismissSuggestion };
 }

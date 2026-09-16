@@ -248,7 +248,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
                 papers: papers.papers, pending: papers.pending, activeId: activePaperId, onOpen: openPaper,
                 onUpload: papers.upload, onAddFromUrl: papers.addFromUrl, onRename: papers.rename, onDismiss: papers.dismiss,
                 onRemove: (id) => { papers.remove(id); closePaper(id); },
-                suggestion, onAcceptSuggestion: acceptSuggestion, onDismissSuggestion: papers.dismissSuggestion,
+                analyzing: papers.analyzing, suggestion, onAcceptSuggestion: acceptSuggestion, onDismissSuggestion: papers.dismissSuggestion,
               }}
               repos={{
                 repos, activeId: repo?.id ?? null, statusOf, onOpen: openRepo, onRemove: removeRepoRow,
