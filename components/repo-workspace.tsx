@@ -6,6 +6,7 @@ import { GitBranch, RotateCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
 import type { Goal } from "@/lib/plan";
+import { RunLog } from "@/components/run-log";
 import { environmentFromEvents, isRunActive, isRunCloned, isRunRunning, isSandboxLive, STATUS_LABEL, terminalLines, type PreviewService, type SandboxEvent, type SandboxRun, type TermLine } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -105,6 +106,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   // The environment scan and any repair edits from this run's log if it
   // has them, else the last ones saved on the repository.
   const envReport = (run && environmentFromEvents(events, run.id)) ?? repo.envReport;
+  const lines = useMemo(() => terminalLines(events), [events]);
   const livePatch = run && patchFromEvents(events, run.id);
   const patch: RepoPatch | null = livePatch
     ? { ...livePatch, worked: run.status === "running" ? true : run.status === "failed" ? false : null }
@@ -126,31 +128,11 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   }
 
   if (tab === "preview") {
-    return <Preview repo={repo} run={run} error={error} tail={terminalLines(events).slice(-6)} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} onPrepare={onPrepare} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onRunWithoutPatch={onRunWithoutPatch} />;
+    return <Preview repo={repo} run={run} error={error} tail={lines.slice(-6)} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} onPrepare={onPrepare} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onRunWithoutPatch={onRunWithoutPatch} />;
   }
 
   // The run's log, and a shell in its sandbox once there is one to open.
-  const lines = terminalLines(events);
-  const log = (
-    <section aria-label="Run log" className="h-full overflow-y-auto px-[22px] py-[18px] font-mono text-[13px] leading-[1.75]">
-      {!lines.length && (
-        <p className="text-muted-foreground">{error ?? (run ? STATUS_LABEL[run.status] : "Open the repository to prepare it in a sandbox.")}</p>
-      )}
-      {lines.map((l, i) => (
-        <div
-          key={i}
-          className={cn(
-            "flex gap-2.5 break-words whitespace-pre-wrap",
-            l.kind === "command" ? "text-foreground" : l.kind === "error" ? "text-destructive" : l.kind === "status" ? "text-muted-foreground/60 italic" : "text-muted-foreground",
-          )}
-        >
-          <span aria-hidden className="w-2.5 shrink-0 text-muted-foreground/60">{l.kind === "command" ? "$" : ""}</span>
-          <span>{l.text}</span>
-        </div>
-      ))}
-      {error && lines.length > 0 && <p role="alert" className="mt-2 text-destructive">{error}</p>}
-    </section>
-  );
+  const log = <RunLog lines={lines} error={error} empty={error ?? (run ? STATUS_LABEL[run.status] : "Open the repository to prepare it in a sandbox.")} />;
   if (!run || !isSandboxLive(run)) return log;
   return (
     <ResizablePanelGroup orientation="vertical" id={`terminal-${repo.id}`} className="h-full">

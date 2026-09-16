@@ -35,6 +35,25 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
     }
   }, []);
 
+  // Realtime hands over one row at a time, up to several a second while a
+  // build runs. Rows arriving within a short window become one state update,
+  // so the page renders once per burst rather than once per line.
+  const pending = useRef(new Map<string, { run: SandboxRun; incoming: SandboxEvent[] }>());
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushEvents = useCallback(() => {
+    flushTimer.current = null;
+    const batches = [...pending.current.values()];
+    pending.current.clear();
+    for (const b of batches) addEvents(b.run, b.incoming);
+  }, [addEvents]);
+  const queueEvents = useCallback((run: SandboxRun, incoming: SandboxEvent[]) => {
+    const batch = pending.current.get(run.id);
+    if (batch) batch.incoming.push(...incoming);
+    else pending.current.set(run.id, { run, incoming: [...incoming] });
+    flushTimer.current ??= setTimeout(flushEvents, 100);
+  }, [flushEvents]);
+  useEffect(() => () => { if (flushTimer.current) clearTimeout(flushTimer.current); }, []);
+
   // Fetch a run's events once, for runs that were already on the row when the page loaded.
   const load = useCallback(async (runId: string) => {
     if (loaded.current.has(runId)) return;
@@ -89,7 +108,7 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
       supabase
         .channel(`sandbox-run-${run.id}`)
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "engelbart_sandbox_events", filter: `run_id=eq.${run.id}` }, (payload) => {
-          addEvents(run, [toEvent(payload.new as EventRow)]);
+          queueEvents(run, [toEvent(payload.new as EventRow)]);
         })
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "engelbart_sandbox_runs", filter: `id=eq.${run.id}` }, (payload) => {
           const updated = toRun(payload.new as RunRow);

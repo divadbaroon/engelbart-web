@@ -1,8 +1,10 @@
+import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 // README renderer. Renders the repository's real markdown; styles match Engelbart's restrained surfaces.
-export function Markdown({ source }: { source: string }) {
+// Memoized: the workspace re-renders on every line of run output, and the README does not change with it.
+export const Markdown = memo(function Markdown({ source }: { source: string }) {
   return (
     <article className="mx-auto max-w-[760px] px-10 pt-9 pb-12 text-[15px] leading-[1.65] text-neutral-800">
       <ReactMarkdown
@@ -50,4 +52,4 @@ export function Markdown({ source }: { source: string }) {
       </ReactMarkdown>
     </article>
   );
-}
+});
