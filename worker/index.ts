@@ -48,7 +48,7 @@ function config() {
 }
 
 type RunWithRepo = RunRow & { worker_id: string | null; heartbeat_at: string | null; engelbart_repos: RepoRow & { launch_recipe: LaunchRecipe | null; recipe_at: string | null } };
-const SELECT = `${RUN_COLUMNS}, worker_id, heartbeat_at, engelbart_repos(${REPO_COLUMNS}, launch_recipe, recipe_at)`;
+const SELECT = `${RUN_COLUMNS}, worker_id, heartbeat_at, engelbart_repos!engelbart_sandbox_runs_repo_id_fkey(${REPO_COLUMNS}, launch_recipe, recipe_at)`;
 
 class Worker {
   private inFlight = new Map<string, SandboxRun>();   // runs this process is driving
