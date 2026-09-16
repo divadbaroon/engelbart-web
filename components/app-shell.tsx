@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addSubgoal, findGoal, isDone, patchGoal, type Goal, type Plan } from "@/lib/plan";
 import { createGoal, updateGoal } from "@/app/workspace/[workspaceId]/actions";
 import { addRepo, fetchReadme, removeRepo } from "@/app/workspace/[workspaceId]/repo-actions";
@@ -22,6 +22,30 @@ type Center = { kind: "project" } | { kind: "repo"; id: string };
 type RepoStatus = "none" | "preparing" | "cloned" | "ready" | "failed";
 
 type AppShellProps = { projectId: string; plan: Plan; repos: Repo[]; runs: Record<string, SandboxRun>; papers: Paper[] };
+
+// Where the reader was, kept in the browser per project so a refresh lands
+// on the same panel, tab and repository.
+type Remembered = {
+  mode: SidebarMode;
+  sidebarOpen: boolean;
+  center: Center;
+  tab: string;
+  repoTabs: Record<string, RepoTab>;
+  openPaperIds: string[];
+  selectedGoalId: string | null;
+};
+const MODES: SidebarMode[] = ["plan", "github", "papers"];
+const REPO_TABS: RepoTab[] = ["readme", "code", "preview", "terminal", "notes"];
+const rememberKey = (projectId: string) => `engelbart:workspace:${projectId}`;
+
+function readRemembered(projectId: string): Partial<Remembered> | null {
+  try {
+    const raw = localStorage.getItem(rememberKey(projectId));
+    return raw ? (JSON.parse(raw) as Partial<Remembered>) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRuns, papers: initialPapers }: AppShellProps) {
   const sidebarRef = usePanelRef();
@@ -50,6 +74,50 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(plan.goals[0]?.id ?? null);
   const [planError, setPlanError] = useState<string | null>(null);
   const selectedGoal = selectedGoalId ? findGoal(goals, selectedGoalId) : null;
+
+  // Restore the remembered position once, checking each part still exists,
+  // then keep the browser's copy current. Nothing is written until the
+  // restore has run, so a refresh never overwrites the memory with defaults.
+  const restored = useRef(false);
+  useEffect(() => {
+    const saved = readRemembered(projectId);
+    if (saved) {
+      if (saved.mode && MODES.includes(saved.mode)) setMode(saved.mode);
+      if (saved.sidebarOpen === false) sidebarRef.current?.collapse();
+      const savedCenter = saved.center;
+      if (savedCenter?.kind === "repo" && repos.some((r) => r.id === savedCenter.id)) setCenter(savedCenter);
+      const openIds = (saved.openPaperIds ?? []).filter((id) => papers.papers.some((p) => p.id === id));
+      setOpenPaperIds(openIds);
+      if (saved.tab && (!isPaperTab(saved.tab) || openIds.includes(saved.tab.slice("paper:".length)))) setTab(saved.tab);
+      setRepoTabs(Object.fromEntries(Object.entries(saved.repoTabs ?? {}).filter(([id, t]) => repos.some((r) => r.id === id) && REPO_TABS.includes(t))));
+      if (saved.selectedGoalId && findGoal(plan.goals, saved.selectedGoalId)) setSelectedGoalId(saved.selectedGoalId);
+    }
+    restored.current = true;
+  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!restored.current) return;
+    const state: Remembered = { mode, sidebarOpen, center, tab, repoTabs, openPaperIds, selectedGoalId };
+    try { localStorage.setItem(rememberKey(projectId), JSON.stringify(state)); } catch { /* private mode or full */ }
+  }, [projectId, mode, sidebarOpen, center, tab, repoTabs, openPaperIds, selectedGoalId]);
+
+  // Whatever repository is in the middle needs its README and its run's
+  // log, whether it got there by a click or by a restore.
+  const centerRepoId = center.kind === "repo" ? center.id : null;
+  useEffect(() => {
+    if (!centerRepoId) return;
+    const target = repos.find((r) => r.id === centerRepoId);
+    if (target && !(centerRepoId in readmes)) {
+      fetchReadme(target.owner, target.name).then((text) => setReadmes((all) => ({ ...all, [centerRepoId]: text })));
+    }
+    const run = sandbox.runs[centerRepoId];
+    if (run) sandbox.load(run.id);
+  }, [centerRepoId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Open papers need their signed links, whether opened by a click or restored.
+  useEffect(() => {
+    openPaperIds.forEach((id) => void papers.view(id));
+  }, [openPaperIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function toggleGoalDone(goal: Goal) {
     const status = isDone(goal) ? "active" : "completed";
@@ -89,7 +157,6 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
     setOpenPaperIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
     setTab(paperTabValue(id));
     setCenter({ kind: "project" });
-    void papers.view(id);
   }
 
   function closePaper(id: string) {
@@ -97,19 +164,13 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
     if (tab === paperTabValue(id)) setTab("preview");
   }
 
-  // Opening a repo shows its README first and, the first time, clones it into
-  // a sandbox and starts it in the background. A repo with a run already just
-  // loads that run's log; failed runs are retried from the preview tab.
+  // Opening a repo shows its README first and, if it was never run, clones
+  // it into a sandbox and starts it in the background. Failed runs are
+  // retried from the preview tab.
   function openRepo(id: string) {
     setCenter({ kind: "repo", id });
     setRepoTabs((t) => (t[id] ? t : { ...t, [id]: "readme" }));
-    const run = sandbox.runs[id];
-    if (!run) sandbox.prepare(id);
-    else sandbox.load(run.id);
-    const target = repos.find((r) => r.id === id);
-    if (target && !(id in readmes)) {
-      fetchReadme(target.owner, target.name).then((text) => setReadmes((all) => ({ ...all, [id]: text })));
-    }
+    if (!sandbox.runs[id]) sandbox.prepare(id);
   }
 
   // Add a repository by URL and start bringing it up straight away; the
