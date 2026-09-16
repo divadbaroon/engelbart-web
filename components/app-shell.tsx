@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { addSubgoal, findGoal, isDone, patchGoal, type Goal, type Plan } from "@/lib/plan";
 import { createGoal, updateGoal } from "@/app/workspace/[workspaceId]/actions";
-import { addRepo, fetchReadme, removeRepo } from "@/app/workspace/[workspaceId]/repo-actions";
+import { addRepo, dropPatch, fetchReadme, removeRepo } from "@/app/workspace/[workspaceId]/repo-actions";
 import { usePanelRef } from "react-resizable-panels";
 import { isPaperTab, paperTabValue, type Paper } from "@/lib/papers";
 import { usePapers } from "@/hooks/use-papers";
@@ -60,6 +60,14 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   const papers = usePapers(projectId, initialPapers);
   // Repositories: rows from the database, added by pasting a GitHub URL.
   const [repos, setRepos] = useState<Repo[]>(initialRepos);
+
+  // Throw away the repair agent's edits and start the repository over.
+  async function runWithoutPatch(repoId: string) {
+    const result = await dropPatch(repoId);
+    if (!result.ok) return;
+    setRepos((rs) => rs.map((r) => (r.id === repoId ? { ...r, patch: null } : r)));
+    sandbox.prepare(repoId);
+  }
   const [repoDraft, setRepoDraft] = useState<string | null>(null);
   const [repoAdding, setRepoAdding] = useState(false);
   const [repoError, setRepoError] = useState<string | null>(null);
@@ -291,6 +299,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
                   onLaunch={(runId) => sandbox.launch(runId, repo.id)}
                   onStop={(runId) => sandbox.stop(runId, repo.id)}
                   onOpenEnvironment={() => setRepoTabs((all) => ({ ...all, [repo.id]: "env" }))}
+                  onRunWithoutPatch={() => void runWithoutPatch(repo.id)}
                 />
               ) : (
                 <ProjectContent tab={tab} openPapers={openPapers} paperUrls={papers.urls} notesGoal={selectedGoal} onNotesSaved={noteSaved} />

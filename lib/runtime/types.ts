@@ -3,6 +3,7 @@
 import type { Repo } from "@/lib/repos";
 import type { EventKind, PreviewService, RunStatus, SandboxRun } from "@/lib/sandbox";
 import type { EnvReport } from "@/lib/environment";
+import type { RepoPatch } from "@/lib/patch";
 
 // Where a run writes what happened. Every status change, command and chunk
 // of output goes through here, so the record is complete by construction.
@@ -20,7 +21,12 @@ export type RunFields = {
   previewUrl: string;
   port: number;
   services: PreviewService[];
+  template: string;   // which runner image the sandbox came from
 };
+
+// Docker means the larger runner image with Docker, Compose and the
+// Supabase CLI, for repositories that bring up their own services.
+export type PrepareOptions = { docker?: boolean };
 
 export type PrepareOutcome =
   | { ok: true; sandboxId: string; workdir: string }
@@ -44,11 +50,14 @@ export type LaunchOptions = {
   env?: Record<string, string> | null;
   // Called once the pipeline has scanned the environment, before the app starts.
   onEnvironment?: (report: EnvReport) => void;
+  // Called when the repair agent has edited the repository copy, or a
+  // saved patch was re-applied. `worked` is unknown at that point.
+  onPatch?: (patch: RepoPatch) => void;
 };
 
 export type Runtime = {
   // Bring the repository into a fresh sandbox and leave it ready for the next step.
-  prepare: (repo: Repo, runId: string, record: Recorder) => Promise<PrepareOutcome>;
+  prepare: (repo: Repo, runId: string, record: Recorder, options?: PrepareOptions) => Promise<PrepareOutcome>;
   // Bring the application up in the run's sandbox and report where it is served.
   launch: (repo: Repo, run: SandboxRun, record: Recorder, options?: LaunchOptions) => Promise<LaunchOutcome>;
 };

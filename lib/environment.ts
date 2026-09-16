@@ -3,7 +3,7 @@
 // Supabase so the desktop app can share it. Values never appear here; only
 // names and statuses travel between the sandbox, the database and the page.
 
-export type EnvStatus = "missing" | "found" | "provided" | "optional" | "uncertain" | "not_applicable";
+export type EnvStatus = "missing" | "found" | "provided" | "local" | "optional" | "uncertain" | "not_applicable";
 
 export type EnvVariable = {
   name: string;
@@ -20,6 +20,8 @@ export type EnvReport = {
   variables: EnvVariable[];
   missing: string[];    // required names that had no value when the app started
   ignored: string[];    // saved names the scan did not find in the code
+  local: string[];      // names filled by a local Supabase in the sandbox
+  localError: string | null;   // why a local Supabase could not be set up, when one was tried
   scannedAt: string;
   runId: string;
 };
@@ -44,7 +46,10 @@ export function toEnvReport(ev: EnvReportEvent, runId: string, at: string): EnvR
       public: !!v.public,
     }));
   const names = (list: unknown) => (Array.isArray(list) ? list.filter((n): n is string => typeof n === "string") : []);
-  return { variables, missing: names(ev.skipped), ignored: names(ev.ignored), scannedAt: at, runId };
+  return {
+    variables, missing: names(ev.skipped), ignored: names(ev.ignored), local: names(ev.local),
+    localError: typeof ev.localError === "string" && ev.localError ? ev.localError : null, scannedAt: at, runId,
+  };
 }
 
 // A short line for a variable's state.
@@ -53,6 +58,7 @@ export function describeEnv(v: EnvVariable, saved: boolean): string {
   switch (v.status) {
     case "missing": return "Required · no value";
     case "provided": return "Saved";
+    case "local": return "Provided by local Supabase in the sandbox";
     case "found": return v.source ? `Found in ${v.source}` : "Found";
     case "optional": return "Optional";
     case "not_applicable": return "Not used by this launch";

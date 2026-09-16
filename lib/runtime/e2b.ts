@@ -2,9 +2,14 @@ import { Sandbox, CommandExitError } from "e2b";
 import type { LaunchOutcome, LaunchRecipe, Recorder, Runtime } from "@/lib/runtime/types";
 import type { PreviewService } from "@/lib/sandbox";
 import { toEnvReport } from "@/lib/environment";
+import { toPatch } from "@/lib/patch";
 
-// The template runner sandboxes start from. Built by sandbox/build-template.mjs.
+// The templates runner sandboxes start from. Built by sandbox/build-template.mjs.
+// The Docker one has Docker, Compose, the Supabase CLI and more memory.
 export const TEMPLATE = process.env.E2B_TEMPLATE ?? "engelbart-runner";
+export const DOCKER_TEMPLATE = `${TEMPLATE}-docker`;
+const TEMPLATES = [TEMPLATE, DOCKER_TEMPLATE];
+const DOCKER_START_MS = 45_000;
 const CLONE_SANDBOX_TIMEOUT_MS = 15 * 60_000;   // killed if untouched after the clone
 const CLONE_TIMEOUT_MS = 5 * 60_000;
 const RUN_SANDBOX_TIMEOUT_MS = 60 * 60_000;     // how long a launched app stays up untouched
@@ -38,11 +43,13 @@ async function recordMetrics(sandbox: Sandbox, record: Recorder) {
 // run's event log. On success the sandbox stays up with the repository on
 // disk, so launch can carry on in the same sandbox straight away.
 export const e2bRuntime: Runtime = {
-  async prepare(repo, runId, record) {
+  async prepare(repo, runId, record, options = {}) {
     let sandbox: Sandbox | undefined;
+    const template = options.docker ? DOCKER_TEMPLATE : TEMPLATE;
     try {
-      await record.status("creating");
-      sandbox = await Sandbox.create(TEMPLATE, {
+      await record.status("creating", { template });
+      if (options.docker) record.event("status", "the repository brings up its own services; using the runner with Docker", { template });
+      sandbox = await Sandbox.create(template, {
         timeoutMs: CLONE_SANDBOX_TIMEOUT_MS,
         metadata: { runId, repoId: repo.id, repo: repo.fullName },
       });
@@ -85,7 +92,7 @@ export const e2bRuntime: Runtime = {
   // landing in the event log for as long as this process holds the stream.
   async launch(repo, run, record, options = {}) {
     if (!run.sandboxId || !run.workdir) return fail(record, "NoSandbox", "This run has no sandbox to launch in. Prepare the repository again.");
-    if (run.template !== TEMPLATE) return fail(record, "TemplateMismatch", `This run's sandbox was built from "${run.template}", not the current runner image. Prepare the repository again.`);
+    if (!TEMPLATES.includes(run.template)) return fail(record, "TemplateMismatch", `This run's sandbox was built from "${run.template}", not a current runner image. Prepare the repository again.`);
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return fail(record, "ConfigError", "ANTHROPIC_API_KEY is not set; the pipeline's agents need it.");
 
@@ -97,6 +104,7 @@ export const e2bRuntime: Runtime = {
       return fail(record, errorKind(err), `The sandbox is no longer available (${errorMessage(err)}). Prepare the repository again.`);
     }
     await record.status("launching");
+    if (run.template === DOCKER_TEMPLATE) await startDocker(sandbox, record);
 
     // A saved recipe rides in as a file; the wrapper replays it first.
     let replaying = false;
@@ -146,6 +154,9 @@ export const e2bRuntime: Runtime = {
         } else if (ev.phase === "environment") {
           const report = toEnvReport(ev, run.id, new Date().toISOString());
           if (report) options.onEnvironment?.(report);
+        } else if (ev.phase === "patch" && (ev.status === "applied" || ev.status === "replayed")) {
+          const patch = toPatch(ev, run.id, new Date().toISOString());
+          if (patch) options.onPatch?.(patch);
         } else if (ev.phase === "ready" && typeof ev.port === "number") {
           expose(sandbox, readyServices(ev), record)
             .then((services) => {
@@ -216,6 +227,25 @@ export const e2bRuntime: Runtime = {
     }
   },
 };
+
+// Bring up the Docker daemon in a sandbox built from the Docker template,
+// and open its socket to the sandbox user the app runs as. Best effort:
+// the pipeline reports what it could not do with it.
+async function startDocker(sandbox: Sandbox, record: Recorder) {
+  record.event("command", "dockerd");
+  try {
+    await sandbox.commands.run("dockerd > /var/log/dockerd.log 2>&1", { background: true, user: "root", timeoutMs: RUN_SANDBOX_TIMEOUT_MS });
+    const deadline = Date.now() + DOCKER_START_MS;
+    while (Date.now() < deadline) {
+      const probe = await sandbox.commands.run("docker info --format '{{.ServerVersion}}' && chmod 666 /var/run/docker.sock", { user: "root", timeoutMs: 10_000 }).catch(() => null);
+      if (probe?.exitCode === 0) { record.event("status", `docker ${probe.stdout.trim()} is up`); return; }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    record.event("status", "docker did not come up in time; continuing without it");
+  } catch (err) {
+    record.event("status", `docker could not be started: ${errorMessage(err)}`);
+  }
+}
 
 // What the wrapper's ready event says is listening, entry first. Older
 // wrappers only name the entry; that still makes a one-service list.
@@ -337,6 +367,21 @@ function describe(ev: WrapperEvent, record: Recorder) {
       else if (ev.status === "captured") record.event("status", "launch plan saved for next time", { kind: (ev.recipe as { kind?: string } | undefined)?.kind });
       else if (ev.status === "failed") record.event("status", `saved launch plan did not work (${ev.reason ?? "unknown"}); running the full pipeline`, ev);
       else record.event("status", `launch plan ${ev.status}: ${ev.reason ?? ""}`, ev);
+      return;
+    case "patch": {
+      const files = Array.isArray(ev.files) ? (ev.files as string[]) : [];
+      const text =
+        ev.status === "starting" ? `repair agent: looking for a fix (attempt ${ev.attempt})`
+        : ev.status === "applied" ? `repair agent edited ${files.length} file${files.length === 1 ? "" : "s"}: ${ev.summary ?? files.join(", ")}`
+        : ev.status === "replayed" ? `re-applied the saved edits: ${ev.summary ?? files.join(", ")}`
+        : ev.status === "none" ? `repair agent changed nothing${ev.reason ? `: ${ev.reason}` : ""}`
+        : `repair agent ${ev.status}${ev.reason ? `: ${ev.reason}` : ""}`;
+      // The diff is kept in the event's data, not its text; the summary says enough.
+      record.event("status", text, ev);
+      return;
+    }
+    case "supabase":
+      record.event("status", `local Supabase: ${ev.status}${ev.reason ? ` — ${ev.reason}` : ""}`, ev);
       return;
     case "ready": {
       const names = Array.isArray(ev.services) ? (ev.services as { id?: string; port?: number }[]).map((s) => `${s.id} :${s.port}`) : [];

@@ -14,6 +14,8 @@ import { Markdown } from "@/components/markdown";
 import { CodeBrowser } from "@/components/code-browser";
 import { NotesPad } from "@/components/notes-pad";
 import { EnvPanel } from "@/components/env-panel";
+import { PatchView } from "@/components/patch-view";
+import { patchFromEvents, type RepoPatch } from "@/lib/patch";
 
 // xterm touches the DOM as soon as it loads.
 const SandboxShell = dynamic(() => import("@/components/sandbox-shell"), { ssr: false });
@@ -81,6 +83,7 @@ type RunControls = {
   onLaunch: (runId: string) => void;     // start the app in an existing cloned sandbox
   onStop: (runId: string) => void;       // kill the sandbox
   onOpenEnvironment: () => void;         // switch to the Environment tab
+  onRunWithoutPatch: () => void;         // drop the repair agent's edits and prepare again
 };
 
 type RepoContentProps = RunControls & {
@@ -98,9 +101,14 @@ type RepoContentProps = RunControls & {
   onFileSaved: () => void;
 };
 
-export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, onPrepare, onLaunch, onStop, onOpenEnvironment }: RepoContentProps) {
-  // The environment scan from this run's log if it has one, else the last one saved.
+export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, onPrepare, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch }: RepoContentProps) {
+  // The environment scan and any repair edits from this run's log if it
+  // has them, else the last ones saved on the repository.
   const envReport = (run && environmentFromEvents(events, run.id)) ?? repo.envReport;
+  const livePatch = run && patchFromEvents(events, run.id);
+  const patch: RepoPatch | null = livePatch
+    ? { ...livePatch, worked: run.status === "running" ? true : run.status === "failed" ? false : null }
+    : repo.patch;
   if (tab === "code") return <CodeBrowser repo={repo} run={run} onSaved={onFileSaved} />;
   if (tab === "notes") return <NotesPad goal={notesGoal} onSaved={onNotesSaved} />;
   if (tab === "env") return <EnvPanel repo={repo} run={run} report={envReport} onPrepare={onPrepare} />;
@@ -118,7 +126,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   }
 
   if (tab === "preview") {
-    return <Preview repo={repo} run={run} error={error} tail={terminalLines(events).slice(-6)} version={previewVersion} missing={envReport?.missing ?? []} onPrepare={onPrepare} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} />;
+    return <Preview repo={repo} run={run} error={error} tail={terminalLines(events).slice(-6)} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} onPrepare={onPrepare} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onRunWithoutPatch={onRunWithoutPatch} />;
   }
 
   // The run's log, and a shell in its sandbox once there is one to open.
@@ -155,10 +163,14 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   );
 }
 
-type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; tail: TermLine[]; version: number; missing: string[] };
+type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; tail: TermLine[]; version: number; missing: string[]; localError: string | null; patch: RepoPatch | null };
 
-function Preview({ repo, run, error, tail, version, missing, onPrepare, onLaunch, onStop, onOpenEnvironment }: PreviewProps) {
-  if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} version={version} onStop={onStop} />;
+function Preview({ repo, run, error, tail, version, missing, localError, patch, onPrepare, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch }: PreviewProps) {
+  const [showPatch, setShowPatch] = useState(false);
+  if (showPatch && patch) {
+    return <PatchView patch={patch} onBack={() => setShowPatch(false)} onRunWithoutPatch={run && isRunActive(run) ? null : () => { setShowPatch(false); onRunWithoutPatch(); }} />;
+  }
+  if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} version={version} patch={patch} onShowPatch={() => setShowPatch(true)} onStop={onStop} />;
 
   const [title, detail, action] = error
     ? ["Could not prepare " + repo.fullName, error, { label: "Try again", onClick: onPrepare }]
@@ -179,12 +191,19 @@ function Preview({ repo, run, error, tail, version, missing, onPrepare, onLaunch
       {action && (
         <Button variant="outline" size="sm" onClick={action.onClick} className="mt-3 font-normal">{action.label}</Button>
       )}
+      {run?.status === "failed" && patch && (
+        <div className="mt-5 flex max-w-[420px] flex-col items-center gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
+          <span>The pipeline edited {patch.files.length} file{patch.files.length === 1 ? "" : "s"} in the sandbox copy to try to make it run, but it still did not start.</span>
+          <Button variant="ghost" size="sm" onClick={() => setShowPatch(true)} className="h-7 px-2 font-normal">View the changes</Button>
+        </div>
+      )}
       {run?.status === "failed" && missing.length > 0 && (
         <div className="mt-5 flex max-w-[420px] flex-col items-center gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
           <span>
             The application started without {missing.length === 1 ? "a value it reads" : `${missing.length} values it reads`}:{" "}
             <span className="font-mono text-foreground">{missing.join(", ")}</span>.
           </span>
+          {localError && <span className="text-muted-foreground/80">A local Supabase was tried instead, but: {localError}</span>}
           <Button variant="ghost" size="sm" onClick={onOpenEnvironment} className="h-7 px-2 font-normal">Add the values</Button>
         </div>
       )}
@@ -204,7 +223,7 @@ function Preview({ repo, run, error, tail, version, missing, onPrepare, onLaunch
 // servers push changes themselves; a plain file server never does, and the
 // reload covers both. A run with several services (a frontend and its API,
 // say) gets a picker; a service that forbids framing opens in a tab instead.
-function RunningPreview({ repo, run, version, onStop }: { repo: Repo; run: SandboxRun; version: number; onStop: (runId: string) => void }) {
+function RunningPreview({ repo, run, version, patch, onShowPatch, onStop }: { repo: Repo; run: SandboxRun; version: number; patch: RepoPatch | null; onShowPatch: () => void; onStop: (runId: string) => void }) {
   const services = useMemo<PreviewService[]>(
     () => (run.services?.length ? run.services : [{ id: "app", port: run.port ?? 0, previewUrl: run.previewUrl!, isEntry: true, embeddable: true }]),
     [run.services, run.port, run.previewUrl],
@@ -244,6 +263,11 @@ function RunningPreview({ repo, run, version, onStop }: { repo: Repo; run: Sandb
               </button>
             ))}
           </div>
+        )}
+        {patch && (
+          <button type="button" onClick={onShowPatch} title="The pipeline edited the sandbox copy to make it run" className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 font-sans text-amber-800 hover:bg-amber-100">
+            Patched · {patch.files.length} file{patch.files.length === 1 ? "" : "s"}
+          </button>
         )}
         <a href={service.previewUrl} target="_blank" rel="noreferrer" className="truncate hover:text-foreground" title="Open in a new tab">{service.previewUrl}</a>
         <span role="status" className="ml-auto shrink-0 font-sans">{!service.embeddable ? "" : loading === "update" ? "Updating…" : loading === "first" ? "Loading…" : ""}</span>

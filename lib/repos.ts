@@ -1,4 +1,5 @@
 import type { EnvReport } from "@/lib/environment";
+import type { RepoPatch } from "@/lib/patch";
 
 // A GitHub repository attached to a project. Rows come from engelbart_repos.
 // Kept free of React and of Supabase so the desktop app can share it.
@@ -13,6 +14,7 @@ export type Repo = {
   language: string;
   createdAt: string;
   envReport: EnvReport | null;   // the latest run's environment scan
+  patch: RepoPatch | null;       // edits the repair agent made to get it running
 };
 
 export type RepoRow = {
@@ -25,14 +27,15 @@ export type RepoRow = {
   language: string;
   created_at: string;
   env_report: EnvReport | null;
+  patch: RepoPatch | null;
 };
 
-export const REPO_COLUMNS = "id, owner, name, url, default_branch, description, language, created_at, env_report";
+export const REPO_COLUMNS = "id, owner, name, url, default_branch, description, language, created_at, env_report, patch";
 
 export function toRepo(row: RepoRow): Repo {
   return {
     id: row.id, owner: row.owner, name: row.name, fullName: `${row.owner}/${row.name}`, url: row.url,
-    defaultBranch: row.default_branch, description: row.description, language: row.language, createdAt: row.created_at, envReport: row.env_report ?? null,
+    defaultBranch: row.default_branch, description: row.description, language: row.language, createdAt: row.created_at, envReport: row.env_report ?? null, patch: row.patch ?? null,
   };
 }
 

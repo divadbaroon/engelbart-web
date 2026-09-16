@@ -24,6 +24,9 @@ import { createRecorder } from "@/lib/runtime/recorder";
 import { REPO_COLUMNS, toRepo, type RepoRow } from "@/lib/repos";
 import { RUN_COLUMNS, toRun, type RunRow, type SandboxRun } from "@/lib/sandbox";
 import type { EnvReport } from "@/lib/environment";
+import type { RepoPatch } from "@/lib/patch";
+import { listRepoPaths } from "@/lib/github";
+import { needsDocker } from "@/lib/repo-needs";
 
 const POLL_MS = 2_000;
 const HEARTBEAT_MS = 15_000;
@@ -102,15 +105,24 @@ class Worker {
       // A run that still has its sandbox (asked to launch again) skips the clone.
       let launchable: SandboxRun | null = run.sandboxId && run.workdir ? { ...run, status: "cloned" } : null;
       if (!launchable) {
-        const prepared = await this.runtime.prepare(repo, run.id, record);
+        // The sandbox's size is fixed at creation, so what the repository
+        // will need is read off its file list first.
+        const paths = await listRepoPaths(repo.owner, repo.name, repo.defaultBranch);
+        const docker = paths ? needsDocker(paths) : false;
+        if (!paths) record.event("status", "could not list the repository's files on GitHub; using the standard runner");
+        const prepared = await this.runtime.prepare(repo, run.id, record, { docker });
         if (prepared.ok) launchable = { ...run, status: "cloned", sandboxId: prepared.sandboxId, workdir: prepared.workdir };
       }
       if (launchable) {
         this.inFlight.set(run.id, launchable);
         const env = await this.loadEnv(repo.id);
+        let patch: RepoPatch | null = null;
         const launched = await this.runtime.launch(repo, launchable, record, {
-          recipe, env, onEnvironment: (report) => void this.saveEnvReport(repo.id, report),
+          recipe, env,
+          onEnvironment: (report) => void this.saveEnvReport(repo.id, report),
+          onPatch: (p) => { patch = p; void this.savePatch(repo.id, p); },
         });
+        if (patch) await this.savePatch(repo.id, { ...(patch as RepoPatch), worked: launched.ok });
         log({ event: launched.ok ? "running" : "failed", run: run.id, repo: repo.fullName, replayed: !!recipe && !launched.recipeFailed, ...(launched.ok ? { previewUrl: launched.previewUrl } : { kind: launched.kind, message: launched.message }) });
         await this.saveRecipe(repo.id, run.id, launched.ok ? launched.recipe : null, launched.recipeFailed);
         if (launched.ok) {
@@ -150,6 +162,13 @@ class Worker {
     const { data, error } = await this.supabase.from("engelbart_repo_env").select("name, value").eq("repo_id", repoId);
     if (error) { log({ level: "error", event: "env-load", repo: repoId, message: error.message }); return {}; }
     return Object.fromEntries(((data ?? []) as { name: string; value: string }[]).map((r) => [r.name, r.value]));
+  }
+
+  // What the repair agent changed, for the person to see; first as soon as
+  // it happens, then again with whether it worked.
+  private async savePatch(repoId: string, patch: RepoPatch) {
+    const { error } = await this.supabase.from("engelbart_repos").update({ patch }).eq("id", repoId);
+    if (error) log({ level: "error", event: "patch-save", repo: repoId, message: error.message });
   }
 
   private async saveEnvReport(repoId: string, report: EnvReport) {

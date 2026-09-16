@@ -4,14 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { parseGitHubRepo, type Repo } from "@/lib/repos";
 import { REPO_COLUMNS, toRepo, type RepoRow } from "@/lib/repos";
 import { decodeFile, isSafeRepoPath, type FileContent, type FileTree, type TreeEntry } from "@/lib/code-files";
+import { GITHUB_HEADERS } from "@/lib/github";
 
 export type AddRepoResult = { ok: true; repo: Repo } | { ok: false; error: string };
-
-const GITHUB_HEADERS: Record<string, string> = {
-  Accept: "application/vnd.github+json", "User-Agent": "engelbart-web",
-  // Optional: lifts the anonymous rate limit of 60 requests an hour.
-  ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
-};
 
 // What GitHub says about a public repository, or why it could not say.
 type Lookup =
@@ -97,6 +92,18 @@ export async function fetchReadme(owner: string, name: string): Promise<string |
   } catch {
     return null;
   }
+}
+
+// Throw away the repair agent's edits: the next run starts from a clean
+// clone, and the saved recipe no longer re-applies them.
+export async function dropPatch(repoId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("engelbart_repos").select("launch_recipe").eq("id", repoId).maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  const recipe = (data as { launch_recipe: Record<string, unknown> | null } | null)?.launch_recipe;
+  const cleaned = recipe ? Object.fromEntries(Object.entries(recipe).filter(([k]) => k !== "patch")) : null;
+  const update = await supabase.from("engelbart_repos").update({ patch: null, launch_recipe: cleaned }).eq("id", repoId);
+  return update.error ? { ok: false, error: update.error.message } : { ok: true };
 }
 
 // The whole tree in one request. GitHub caps it at 100,000 entries and

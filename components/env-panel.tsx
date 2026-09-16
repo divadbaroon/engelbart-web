@@ -109,6 +109,13 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
 
       {error && <p role="alert" className="max-w-[560px] text-[13px] text-destructive">{error}</p>}
 
+      {current?.localError && (
+        <p className="max-w-[560px] text-[13px] leading-5 text-muted-foreground">
+          A local Supabase was tried in the sandbox so these values would not be needed, but it could not be set up:{" "}
+          <span className="text-foreground">{current.localError}</span>
+        </p>
+      )}
+
       {saved === null && !current ? (
         <p className="text-[13px] text-muted-foreground">Loading…</p>
       ) : rows.length === 0 && !adding ? (
@@ -119,7 +126,8 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
         <ul className="flex max-w-[720px] flex-col divide-y rounded-lg border">
           {rows.map((row) => {
             const draft = drafts[row.name];
-            const editing = !row.saved || draft !== undefined;
+            const local = row.variable?.status === "local";   // the sandbox supplies it
+            const editing = !local && (!row.saved || draft !== undefined);
             const isBusy = busy.has(row.name);
             return (
               <li key={row.name} className="flex items-center gap-4 px-3.5 py-2.5">
@@ -130,7 +138,9 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
                     {row.variable?.public && " · sent to the browser"}
                   </span>
                 </div>
-                {editing ? (
+                {local ? (
+                  <span className="shrink-0 text-xs text-muted-foreground">local</span>
+                ) : editing ? (
                   <div className="flex w-[300px] shrink-0 items-center gap-1.5">
                     <Input
                       type="password"
