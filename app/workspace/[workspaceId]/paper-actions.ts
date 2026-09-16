@@ -1,8 +1,9 @@
 "use server";
 
+import { extractText, getDocumentProxy } from "unpdf";
 import { createClient } from "@/lib/supabase/server";
 import {
-  MAX_PAPER_BYTES, PAPER_COLUMNS, PAPERS_BUCKET, paperStoragePath, parsePaperUrl, titleFromFilename, toPaper,
+  githubReposIn, MAX_PAPER_BYTES, PAPER_COLUMNS, PAPERS_BUCKET, paperStoragePath, parsePaperUrl, titleFromFilename, toPaper,
   type Paper, type PaperRow,
 } from "@/lib/papers";
 
@@ -103,4 +104,34 @@ export async function paperViewUrl(paperId: string): Promise<{ ok: true; url: st
   const signed = await supabase.storage.from(PAPERS_BUCKET).createSignedUrl((data as { storage_path: string }).storage_path, 3600);
   if (signed.error || !signed.data) return { ok: false, error: signed.error?.message ?? "The file could not be opened." };
   return { ok: true, url: signed.data.signedUrl };
+}
+
+export type PaperAnalysis = { ok: true; repos: string[] } | { ok: false; error: string };
+
+// Read the PDF once it is stored: keep its text for Bart, and find the
+// GitHub repositories it links to. Links often live only in the PDF's
+// link annotations, not in the visible text, so both are scanned.
+export async function analyzePaper(paperId: string): Promise<PaperAnalysis> {
+  const supabase = await createClient();
+  const { data: row, error } = await supabase.from("engelbart_papers").select("storage_path").eq("id", paperId).maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!row) return { ok: false, error: "That paper is no longer in the project." };
+
+  const file = await supabase.storage.from(PAPERS_BUCKET).download((row as { storage_path: string }).storage_path);
+  if (file.error || !file.data) return { ok: false, error: file.error?.message ?? "The PDF could not be read back." };
+
+  try {
+    const pdf = await getDocumentProxy(new Uint8Array(await file.data.arrayBuffer()));
+    const { text } = await extractText(pdf, { mergePages: true });
+    const linked: string[] = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      for (const a of await page.getAnnotations()) if (typeof a.url === "string") linked.push(a.url);
+    }
+    await supabase.from("engelbart_papers").update({ content: text, text_status: "done" }).eq("id", paperId);
+    return { ok: true, repos: githubReposIn([text, ...linked]) };
+  } catch (err) {
+    await supabase.from("engelbart_papers").update({ text_status: "failed" }).eq("id", paperId);
+    return { ok: false, error: `The PDF could not be read: ${err instanceof Error ? err.message : String(err)}` };
+  }
 }

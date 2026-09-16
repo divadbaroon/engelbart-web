@@ -3,10 +3,13 @@
 import { useCallback, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { MAX_PAPER_BYTES, PAPERS_BUCKET, paperStoragePath, titleFromFilename, type Paper } from "@/lib/papers";
-import { addPaperFromUrl, paperViewUrl, recordPaper, removePaper, renamePaper } from "@/app/workspace/[workspaceId]/paper-actions";
+import { addPaperFromUrl, analyzePaper, paperViewUrl, recordPaper, removePaper, renamePaper } from "@/app/workspace/[workspaceId]/paper-actions";
 
 // A file on its way in: shown in the list while it uploads.
 export type PendingPaper = { id: string; title: string; status: "uploading" | "fetching" | "error"; error?: string };
+
+// Repositories a paper links to, waiting for the reader to say which to add.
+export type RepoSuggestion = { paperId: string; paperTitle: string; repos: string[] };
 
 // The project's papers, with uploads that go straight from the browser to
 // Storage. The row is recorded once the file is there, so the list only
@@ -15,6 +18,15 @@ export function usePapers(projectId: string, initial: Paper[]) {
   const [papers, setPapers] = useState(initial);
   const [pending, setPending] = useState<PendingPaper[]>([]);
   const [urls, setUrls] = useState<Record<string, string>>({});
+  const [suggestions, setSuggestions] = useState<RepoSuggestion[]>([]);
+
+  // Once a paper is in, read it: its text is kept, and any repositories it
+  // links to are offered. Runs in the background; nothing waits on it.
+  const analyze = (paper: Paper) => {
+    void analyzePaper(paper.id).then((result) => {
+      if (result.ok && result.repos.length) setSuggestions((all) => [...all, { paperId: paper.id, paperTitle: paper.title, repos: result.repos }]);
+    });
+  };
 
   const setPending1 = (id: string, patch: Partial<PendingPaper>) =>
     setPending((all) => all.map((p) => (p.id === id ? { ...p, ...patch } : p)));
@@ -34,6 +46,7 @@ export function usePapers(projectId: string, initial: Paper[]) {
       if (!result.ok) { setPending1(id, { status: "error", error: result.error }); return; }
       dropPending(id);
       setPapers((all) => [...all, result.paper]);
+      analyze(result.paper);
     }));
   }, [projectId]);
 
@@ -44,6 +57,7 @@ export function usePapers(projectId: string, initial: Paper[]) {
     if (!result.ok) { setPending1(id, { status: "error", error: result.error }); return false; }
     dropPending(id);
     setPapers((all) => [...all, result.paper]);
+    analyze(result.paper);
     return true;
   }, [projectId]);
 
@@ -71,5 +85,7 @@ export function usePapers(projectId: string, initial: Paper[]) {
     if (result.ok) setUrls((all) => ({ ...all, [id]: result.url }));
   }, [urls]);
 
-  return { papers, pending, urls, upload, addFromUrl, rename, remove, view, dismiss: dropPending };
+  const dismissSuggestion = useCallback((paperId: string) => setSuggestions((all) => all.filter((s) => s.paperId !== paperId)), []);
+
+  return { papers, pending, urls, suggestions, upload, addFromUrl, rename, remove, view, dismiss: dropPending, dismissSuggestion };
 }

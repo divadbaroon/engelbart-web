@@ -1,11 +1,12 @@
 "use client";
 
 import { useRef, useState, type DragEvent } from "react";
-import { FileText, Link as LinkIcon, Loader2, X } from "lucide-react";
+import { FileText, GitBranch, Link as LinkIcon, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { paperMeta, type Paper } from "@/lib/papers";
-import type { PendingPaper } from "@/hooks/use-papers";
+import type { PendingPaper, RepoSuggestion } from "@/hooks/use-papers";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 
 export type PaperListActions = {
@@ -18,13 +19,17 @@ export type PaperListActions = {
   onRename: (id: string, title: string) => void;
   onRemove: (id: string) => void;
   onDismiss: (id: string) => void;   // clear a failed upload from the list
+  // Repositories found in a just-added paper, minus any already in the project.
+  suggestion: RepoSuggestion | null;
+  onAcceptSuggestion: (paperId: string, repoUrls: string[]) => void;
+  onDismissSuggestion: (paperId: string) => void;
 };
 
 const pdfsOf = (files: FileList | null) => Array.from(files ?? []).filter((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
 
 // The project's papers. Drop PDFs anywhere on the panel, pick them with
 // the button, or paste a link; each shows up as it uploads.
-export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFromUrl, onRename, onRemove, onDismiss }: PaperListActions) {
+export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFromUrl, onRename, onRemove, onDismiss, suggestion, onAcceptSuggestion, onDismissSuggestion }: PaperListActions) {
   const [over, setOver] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -70,6 +75,8 @@ export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFr
           Drop PDFs to add them
         </div>
       )}
+
+      {suggestion && <SuggestionCard key={suggestion.paperId} suggestion={suggestion} onAccept={onAcceptSuggestion} onDismiss={onDismissSuggestion} />}
 
       <ul className="flex flex-col gap-2">
         {papers.map((paper) =>
@@ -183,6 +190,42 @@ export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFr
           hidden
           onChange={(e) => { const files = pdfsOf(e.target.files); e.target.value = ""; if (files.length) onUpload(files); }}
         />
+      </div>
+    </div>
+  );
+}
+
+// "This paper links to these repositories. Add them?" Each is checked to
+// start with; adding clones and starts them like a pasted URL would.
+function SuggestionCard({ suggestion, onAccept, onDismiss }: { suggestion: RepoSuggestion; onAccept: (paperId: string, urls: string[]) => void; onDismiss: (paperId: string) => void }) {
+  const [chosen, setChosen] = useState<Set<string>>(new Set(suggestion.repos));
+  const toggle = (url: string) => setChosen((prev) => { const next = new Set(prev); if (next.has(url)) next.delete(url); else next.add(url); return next; });
+  return (
+    <div role="dialog" aria-label="Repositories found in the paper" className="flex flex-col gap-2.5 rounded-lg border border-neutral-300 bg-background px-3.5 py-3">
+      <p className="text-[13px] leading-5 text-pretty">
+        <span className="font-medium">{suggestion.paperTitle}</span> links to {suggestion.repos.length === 1 ? "a repository" : `${suggestion.repos.length} repositories`}. Add to this project and start {suggestion.repos.length === 1 ? "it" : "them"}?
+      </p>
+      <ul className="flex flex-col gap-1.5">
+        {suggestion.repos.map((url) => {
+          const id = `suggest-${suggestion.paperId}-${url}`;
+          return (
+            <li key={url} className="flex items-center gap-2">
+              <Checkbox id={id} checked={chosen.has(url)} onCheckedChange={() => toggle(url)} />
+              <label htmlFor={id} className="flex min-w-0 cursor-pointer items-center gap-1.5 text-[13px]">
+                <GitBranch className="size-3 shrink-0 text-muted-foreground" />
+                <span className="truncate">{url.replace("https://github.com/", "")}</span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="flex gap-1.5">
+        <Button size="sm" disabled={!chosen.size} onClick={() => onAccept(suggestion.paperId, suggestion.repos.filter((u) => chosen.has(u)))} className="h-7 px-3 font-normal">
+          Add {chosen.size === 1 ? "repository" : "repositories"}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => onDismiss(suggestion.paperId)} className="h-7 px-3 font-normal text-muted-foreground">
+          Not now
+        </Button>
       </div>
     </div>
   );

@@ -76,5 +76,28 @@ export function parsePaperUrl(input: string): URL | null {
   }
 }
 
+// GitHub pages that are not repositories, so "github.com/<x>/<y>" with
+// one of these as <x> is skipped.
+const NOT_OWNERS = new Set(["orgs", "topics", "search", "settings", "marketplace", "features", "about", "sponsors", "apps", "login", "explore", "site", "collections", "events", "issues", "pulls", "trending", "security", "contact", "pricing", "enterprise", "team", "customer-stories", "readme", "notifications"]);
+
+// Repository links in a paper's text and link annotations, as
+// "https://github.com/owner/name", first seen first, no duplicates. Text
+// from a PDF wraps URLs across lines, so whitespace right after the host
+// or after the owner is closed up before matching.
+export function githubReposIn(sources: string[]): string[] {
+  const seen = new Map<string, string>();
+  for (const raw of sources) {
+    const text = raw.replace(/github\.com\/\s+/gi, "github.com/").replace(/(github\.com\/[\w.-]+\/)\s+/gi, "$1");
+    for (const m of text.matchAll(/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)/gi)) {
+      const owner = m[1];
+      const name = m[2].replace(/\.git$/i, "").replace(/[.,;:)\]'"]+$/, "");
+      if (!owner || !name || NOT_OWNERS.has(owner.toLowerCase()) || owner.startsWith(".") || name.startsWith(".")) continue;
+      const key = `${owner}/${name}`.toLowerCase();
+      if (!seen.has(key)) seen.set(key, `https://github.com/${owner}/${name}`);
+    }
+  }
+  return [...seen.values()];
+}
+
 export const paperTabValue = (id: string) => `paper:${id}`;
 export const isPaperTab = (tab: string) => tab.startsWith("paper:");

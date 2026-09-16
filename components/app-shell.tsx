@@ -112,21 +112,43 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
     }
   }
 
+  // Add a repository by URL and start bringing it up straight away; the
+  // dot on its row shows progress. Shared by the URL box and paper suggestions.
+  async function addRepoAndStart(input: string): Promise<{ ok: true } | { ok: false; error: string }> {
+    const result = await addRepo(projectId, input);
+    if (!result.ok) return result;
+    setRepos((rs) => [...rs, result.repo]);
+    void sandbox.prepare(result.repo.id);
+    return { ok: true };
+  }
+
   async function commitRepoAdd() {
     const input = (repoDraft ?? "").trim();
     if (!input) { setRepoDraft(null); return; }
     setRepoAdding(true);
     setRepoError(null);
-    const result = await addRepo(projectId, input);
+    const result = await addRepoAndStart(input);
     setRepoAdding(false);
-    if (result.ok) {
-      setRepos((rs) => [...rs, result.repo]);
-      setRepoDraft(null);
-      // Start bringing it up straight away; the dot on the row shows progress.
-      void sandbox.prepare(result.repo.id);
-    } else {
-      setRepoError(result.error);
+    if (result.ok) setRepoDraft(null);
+    else setRepoError(result.error);
+  }
+
+  // Repositories a paper linked to that are not in the project yet. Adding
+  // shows on the GitHub panel; any that GitHub refuses are reported there.
+  const isKnownRepo = (url: string) => repos.some((r) => `https://github.com/${r.fullName}`.toLowerCase() === url.toLowerCase());
+  const suggestion = (() => {
+    const next = papers.suggestions.find((s) => s.repos.some((u) => !isKnownRepo(u)));
+    return next ? { ...next, repos: next.repos.filter((u) => !isKnownRepo(u)) } : null;
+  })();
+  async function acceptSuggestion(paperId: string, urls: string[]) {
+    papers.dismissSuggestion(paperId);
+    const failed: string[] = [];
+    for (const url of urls) {
+      const result = await addRepoAndStart(url);
+      if (!result.ok) failed.push(`${url.replace("https://github.com/", "")}: ${result.error}`);
     }
+    setRepoError(failed.length ? failed.join(" ") : null);
+    if (failed.length) { setMode("github"); sidebarRef.current?.expand(); }
   }
 
   async function removeRepoRow(id: string) {
@@ -164,6 +186,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
                 papers: papers.papers, pending: papers.pending, activeId: activePaperId, onOpen: openPaper,
                 onUpload: papers.upload, onAddFromUrl: papers.addFromUrl, onRename: papers.rename, onDismiss: papers.dismiss,
                 onRemove: (id) => { papers.remove(id); closePaper(id); },
+                suggestion, onAcceptSuggestion: acceptSuggestion, onDismissSuggestion: papers.dismissSuggestion,
               }}
               repos={{
                 repos, activeId: repo?.id ?? null, statusOf, onOpen: openRepo, onRemove: removeRepoRow,
