@@ -1,25 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Repo } from "@/lib/repos";
+import { REPO_COLUMNS, toRepo, type Repo, type RepoRow } from "@/lib/repos";
 
-export type RepoRow = {
-  id: string;
-  owner: string;
-  name: string;
-  url: string;
-  default_branch: string;
-  description: string;
-  language: string;
-  created_at: string;
-};
-
-export const REPO_COLUMNS = "id, owner, name, url, default_branch, description, language, created_at";
-
-export function toRepo(row: RepoRow): Repo {
-  return {
-    id: row.id, owner: row.owner, name: row.name, fullName: `${row.owner}/${row.name}`, url: row.url,
-    defaultBranch: row.default_branch, description: row.description, language: row.language, createdAt: row.created_at,
-  };
-}
+export { REPO_COLUMNS, toRepo, type RepoRow };
 
 // Reads run as the signed-in user; row-level security scopes the rows.
 export async function listRepos(projectId: string): Promise<Repo[]> {

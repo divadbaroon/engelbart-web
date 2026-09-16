@@ -103,7 +103,7 @@ export function statusFromEvents(events: SandboxEvent[]): Partial<SandboxRun> | 
 }
 
 export const STATUS_LABEL: Record<RunStatus, string> = {
-  queued: "Queued",
+  queued: "Waiting for a runner…",
   creating: "Creating sandbox…",
   cloning: "Cloning…",
   cloned: "Cloned",

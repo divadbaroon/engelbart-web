@@ -98,6 +98,10 @@ export const e2bRuntime: Runtime = {
     record.event("command", cmd);
     const lines = new LineReader();
     let settled = false;
+    let ended = false;   // the wrapper reported the run's end itself
+    // Resolved once the wrapper has gone, whether it reported why or not.
+    let finishDone: () => void = () => {};
+    const done = new Promise<void>((resolve) => { finishDone = resolve; });
     const outcome = new Promise<LaunchOutcome>((resolve) => {
       const settle = (o: LaunchOutcome) => { if (!settled) { settled = true; resolve(o); } };
       lines.onLine = (line) => {
@@ -107,12 +111,14 @@ export const e2bRuntime: Runtime = {
         if (ev.phase === "ready" && typeof ev.port === "number") {
           const port = ev.port;
           expose(sandbox, port, typeof ev.host === "string" ? ev.host : "127.0.0.1", record)
-            .then((previewUrl) => record.status("running", { previewUrl, port }).then(() => settle({ ok: true, previewUrl, port })))
+            .then((previewUrl) => record.status("running", { previewUrl, port }).then(() => settle({ ok: true, previewUrl, port, done })))
             .catch((err) => fail(record, "ProxyError", errorMessage(err)).then(settle));
         } else if (ev.phase === "error") {
+          ended = true;
           const message = String(ev.message ?? "The pipeline stopped");
           record.status("failed", { errorKind: `Pipeline:${ev.step ?? ev.status ?? "error"}`, error: message }).then(() => settle({ ok: false, kind: "PipelineError", message }));
         } else if (ev.phase === "exited") {
+          ended = true;
           const message = `The application exited: ${ev.reason ?? ev.status ?? "unknown"}`;
           record.status("failed", { errorKind: "AppExited", error: message }).then(() => settle({ ok: false, kind: "AppExited", message }));
         }
@@ -142,12 +148,25 @@ export const e2bRuntime: Runtime = {
       const result = await Promise.race([outcome, exited.then((e) => ({ exit: e })), timeout.then((e) => ({ exit: e }))]);
       if ("exit" in result) {
         lines.flush();
+        finishDone();
         if (settled) return outcome;
         const { kind, message } = result.exit;
         if (kind === "LaunchTimeout") { try { await handle.kill(); } catch { /* gone */ } }
         return fail(record, kind, message);
       }
       await recordMetrics(sandbox, record);
+      // The app is up. Keep the stream open and mark the run when the
+      // wrapper goes away without saying why: the sandbox hit its timeout,
+      // was killed, or the wrapper itself died.
+      handle.wait()
+        .then((r) => ({ kind: "AppExited", message: `The application stopped (exit ${r.exitCode}).` }))
+        .catch((err) => ({ kind: err instanceof CommandExitError ? "AppExited" : "SandboxGone", message: err instanceof CommandExitError ? `The application stopped (exit ${err.exitCode}).` : `The sandbox is no longer running: ${errorMessage(err)}` }))
+        .then(async ({ kind, message }) => {
+          lines.flush();
+          if (!ended) { record.event("error", message, { kind }); await record.status("failed", { errorKind: kind, error: message }); }
+          await record.flush();
+          finishDone();
+        });
       return result;
     } catch (err) {
       return fail(record, errorKind(err), errorMessage(err));

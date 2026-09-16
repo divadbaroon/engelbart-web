@@ -6,12 +6,11 @@ import {
   EVENT_COLUMNS, RUN_COLUMNS, isLaterStatus, isRunActive, mergeEvents, statusFromEvents, toEvent, toRun,
   type EventRow, type RunRow, type SandboxEvent, type SandboxRun,
 } from "@/lib/sandbox";
-import { executeRun, getRun, launchRun, startRun, stopRun } from "@/app/workspace/[workspaceId]/sandbox-actions";
+import { getRun, requeueRun, startRun, stopRun } from "@/app/workspace/[workspaceId]/sandbox-actions";
 
-// The latest run per repository and the events of the runs on screen.
-// Events arrive live over Realtime while a run is active, and the run's
-// final state is read back when the work finishes, so the terminal is right
-// even if the live feed dropped.
+// The latest run per repository and the events of the runs on screen. The
+// browser only queues runs; the worker process does the work and everything
+// it records arrives here over Realtime, with a poll as the fallback.
 export function useSandboxRuns(initial: Record<string, SandboxRun>) {
   const [runs, setRuns] = useState(initial);
   const [events, setEvents] = useState<Record<string, SandboxEvent[]>>({});
@@ -47,15 +46,15 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
 
   const clearError = (repoId: string) => setErrors((e) => Object.fromEntries(Object.entries(e).filter(([id]) => id !== repoId)));
 
-  // Bring the application up in a cloned run's sandbox.
+  // Ask for a cloned run's application to be brought up.
   const launch = useCallback(async (runId: string, repoId: string) => {
     clearError(repoId);
-    const finished = await launchRun(runId);
-    if ("error" in finished) { setErrors((e) => ({ ...e, [repoId]: finished.error })); return; }
-    applySnapshot(finished.run, finished.events);
+    const queued = await requeueRun(runId);
+    if ("error" in queued) { setErrors((e) => ({ ...e, [repoId]: queued.error })); return; }
+    applySnapshot(queued.run, queued.events);
   }, [applySnapshot]);
 
-  // Clone into a fresh sandbox and launch, all in one server action.
+  // Queue a fresh run: clone into a new sandbox and launch.
   const prepare = useCallback(async (repoId: string) => {
     if (isRunActive(runs[repoId])) return;
     clearError(repoId);
@@ -63,9 +62,6 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
     if (!started.ok) { setErrors((e) => ({ ...e, [repoId]: started.error })); return; }
     loaded.current.add(started.run.id);
     applySnapshot(started.run, []);
-    const finished = await executeRun(started.run.id);
-    if ("error" in finished) { setErrors((e) => ({ ...e, [repoId]: finished.error })); return; }
-    applySnapshot(finished.run, finished.events);
   }, [runs, applySnapshot]);
 
   const stop = useCallback(async (runId: string, repoId: string) => {
@@ -75,12 +71,15 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
     applySnapshot(finished.run, finished.events);
   }, [applySnapshot]);
 
-  // Live feed for whichever runs are active: new event rows and status
-  // updates over Realtime, plus a poll every 1.5 s as the fallback. Realtime
-  // can take seconds to warm up on a quiet project, and the poll is what
-  // keeps the terminal moving until it does. Both paths merge by seq, so
-  // receiving the same row twice is harmless.
-  const activeIds = Object.values(runs).filter(isRunActive).map((r) => r.id).sort().join(",");
+  // Live feed for whichever runs are active or running: new event rows and
+  // status updates over Realtime, plus a poll as the fallback. Realtime can
+  // take seconds to warm up on a quiet project, and the poll is what keeps
+  // the terminal moving until it does. Both paths merge by seq, so receiving
+  // the same row twice is harmless. Running apps are watched too, more
+  // slowly, so the page learns when one stops.
+  const watched = Object.values(runs).filter((r) => isRunActive(r) || r.status === "running");
+  const activeIds = watched.map((r) => r.id).sort().join(",");
+  const pollMs = watched.some(isRunActive) ? 1500 : 10000;
   useEffect(() => {
     if (!activeIds) return;
     const ids = activeIds.split(",");
@@ -121,9 +120,9 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
       } finally {
         polling = false;
       }
-    }, 1500);
+    }, pollMs);
     return () => { clearInterval(timer); channels.forEach((c) => supabase.removeChannel(c)); };
-  }, [activeIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeIds, pollMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { runs, events, errors, prepare, launch, stop, load };
 }

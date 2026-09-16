@@ -25,7 +25,9 @@ export type PrepareOutcome =
   | { ok: false; kind: string; message: string };
 
 export type LaunchOutcome =
-  | { ok: true; previewUrl: string; port: number }
+  // `done` settles when the application stops, however that happens; the
+  // run's status has been recorded by then.
+  | { ok: true; previewUrl: string; port: number; done: Promise<void> }
   | { ok: false; kind: string; message: string };
 
 export type Runtime = {

@@ -41,7 +41,8 @@ export function createRecorder(supabase: SupabaseClient, runId: string): Recorde
       if (FINAL.includes(status)) patch.finished_at = new Date().toISOString();
       this.event("status", status, fields);
       await queue;
-      const { error } = await supabase.from("engelbart_sandbox_runs").update(patch).eq("id", runId);
+      // A run the user stopped stays stopped, whatever the sandbox reports afterwards.
+      const { error } = await supabase.from("engelbart_sandbox_runs").update(patch).eq("id", runId).neq("status", "killed");
       if (error) log({ level: "error", event: "status-failed", status, message: error.message });
     },
     flush: () => queue,

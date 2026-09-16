@@ -1,0 +1,202 @@
+// The sandbox runner: a long-lived process that takes queued runs from the
+// database and drives them through the runtime, so the web app never holds
+// a request open for a clone or a launch, and a page reload changes nothing.
+//
+//   npm run worker            (reads .env.local when present)
+//
+// Needs SUPABASE_SECRET_KEY (the project's secret API key: the worker writes
+// on behalf of any user, which row-level security would otherwise refuse),
+// NEXT_PUBLIC_SUPABASE_URL, E2B_API_KEY and ANTHROPIC_API_KEY. Optional:
+// WORKER_CONCURRENCY (runs at once, default 4) and WORKER_ID (default
+// hostname-pid).
+//
+// One run at a time per row: a claim is an update that only matches while
+// the row is still queued and unclaimed, so two workers cannot take the same
+// run. While a worker holds a run it heartbeats; the reaper marks runs whose
+// worker went quiet, and checks on running apps left behind by a restart.
+import os from "node:os";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { Sandbox } from "e2b";
+import { getRuntime, type Runtime } from "@/lib/runtime";
+import { createRecorder } from "@/lib/runtime/recorder";
+import { REPO_COLUMNS, toRepo, type RepoRow } from "@/lib/repos";
+import { RUN_COLUMNS, toRun, type RunRow, type SandboxRun } from "@/lib/sandbox";
+
+const POLL_MS = 2_000;
+const HEARTBEAT_MS = 15_000;
+const REAP_MS = 60_000;
+const STALE_MS = 90_000;          // no heartbeat for this long means the worker is gone
+const WATCH_MS = 30_000;          // how often an adopted running app is checked
+const CONCURRENCY = Number(process.env.WORKER_CONCURRENCY ?? 4);
+const WORKER_ID = process.env.WORKER_ID ?? `${os.hostname()}-${process.pid}`;
+
+const log = (entry: Record<string, unknown>) =>
+  console.log(JSON.stringify({ at: new Date().toISOString(), scope: "worker", worker: WORKER_ID, ...entry }));
+const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+function config() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SECRET_KEY;
+  const missing = [
+    !url && "NEXT_PUBLIC_SUPABASE_URL", !key && "SUPABASE_SECRET_KEY",
+    !process.env.E2B_API_KEY && "E2B_API_KEY", !process.env.ANTHROPIC_API_KEY && "ANTHROPIC_API_KEY",
+  ].filter(Boolean);
+  if (missing.length) { log({ level: "error", event: "config", missing }); process.exit(2); }
+  return { url: url!, key: key! };
+}
+
+type RunWithRepo = RunRow & { worker_id: string | null; heartbeat_at: string | null; engelbart_repos: RepoRow };
+const SELECT = `${RUN_COLUMNS}, worker_id, heartbeat_at, engelbart_repos(${REPO_COLUMNS})`;
+
+class Worker {
+  private inFlight = new Map<string, SandboxRun>();   // runs this process is driving
+  private watching = new Map<string, SandboxRun>();   // running apps adopted after a restart
+  private stopping = false;
+  private timers: NodeJS.Timeout[] = [];
+
+  constructor(private supabase: SupabaseClient, private runtime: Runtime) {}
+
+  async start() {
+    log({ event: "start", concurrency: CONCURRENCY });
+    await this.reap();
+    this.timers.push(setInterval(() => this.claim(), POLL_MS));
+    this.timers.push(setInterval(() => this.heartbeat(), HEARTBEAT_MS));
+    this.timers.push(setInterval(() => this.reap(), REAP_MS));
+    this.timers.push(setInterval(() => this.watch(), WATCH_MS));
+    await this.claim();
+  }
+
+  // Take as many queued runs as there is room for, oldest first.
+  private async claim() {
+    if (this.stopping) return;
+    const room = CONCURRENCY - this.inFlight.size;
+    if (room <= 0) return;
+    const { data, error } = await this.supabase
+      .from("engelbart_sandbox_runs").select("id").eq("status", "queued").is("worker_id", null).order("started_at").limit(room);
+    if (error) { log({ level: "error", event: "claim-query", message: error.message }); return; }
+    for (const { id } of data ?? []) {
+      const { data: claimed, error: claimError } = await this.supabase
+        .from("engelbart_sandbox_runs")
+        .update({ worker_id: WORKER_ID, claimed_at: new Date().toISOString(), heartbeat_at: new Date().toISOString() })
+        .eq("id", id).eq("status", "queued").is("worker_id", null)
+        .select(SELECT).maybeSingle();
+      if (claimError) { log({ level: "error", event: "claim", run: id, message: claimError.message }); continue; }
+      if (!claimed) continue;   // another worker got there first
+      const row = claimed as unknown as RunWithRepo;
+      void this.execute(toRun(row), row.engelbart_repos);
+    }
+  }
+
+  private async execute(run: SandboxRun, repoRow: RepoRow) {
+    const repo = toRepo(repoRow);
+    this.inFlight.set(run.id, run);
+    const record = createRecorder(this.supabase, run.id);
+    log({ event: "claimed", run: run.id, repo: repo.fullName, resume: !!run.sandboxId });
+    record.event("status", `picked up by runner ${WORKER_ID}`, { worker: WORKER_ID });
+    try {
+      // A run that still has its sandbox (asked to launch again) skips the clone.
+      let launchable: SandboxRun | null = run.sandboxId && run.workdir ? { ...run, status: "cloned" } : null;
+      if (!launchable) {
+        const prepared = await this.runtime.prepare(repo, run.id, record);
+        if (prepared.ok) launchable = { ...run, status: "cloned", sandboxId: prepared.sandboxId, workdir: prepared.workdir };
+      }
+      if (launchable) {
+        this.inFlight.set(run.id, launchable);
+        const launched = await this.runtime.launch(repo, launchable, record);
+        log({ event: launched.ok ? "running" : "failed", run: run.id, repo: repo.fullName, ...(launched.ok ? { previewUrl: launched.previewUrl } : { kind: launched.kind, message: launched.message }) });
+        if (launched.ok) {
+          this.inFlight.set(run.id, { ...launchable, status: "running", previewUrl: launched.previewUrl, port: launched.port });
+          await launched.done;   // stay attached until the app stops
+        }
+      }
+    } catch (err) {
+      const message = errorMessage(err);
+      log({ level: "error", event: "crashed", run: run.id, message });
+      record.event("error", message, { kind: "WorkerError" });
+      await record.status("failed", { errorKind: "WorkerError", error: message });
+    } finally {
+      await record.flush();
+      this.inFlight.delete(run.id);
+      log({ event: "released", run: run.id });
+    }
+  }
+
+  private async heartbeat() {
+    const ids = [...this.inFlight.keys(), ...this.watching.keys()];
+    if (!ids.length) return;
+    const { error } = await this.supabase.from("engelbart_sandbox_runs").update({ heartbeat_at: new Date().toISOString() }).in("id", ids);
+    if (error) log({ level: "error", event: "heartbeat", message: error.message });
+  }
+
+  // Runs whose worker stopped heartbeating. In-progress ones cannot be resumed
+  // (their output stream died with the worker), so they fail and their sandbox
+  // goes. Running ones are adopted: the app may well still be up.
+  private async reap() {
+    const stale = new Date(Date.now() - STALE_MS).toISOString();
+    const { data, error } = await this.supabase
+      .from("engelbart_sandbox_runs").select(SELECT)
+      .in("status", ["creating", "cloning", "cloned", "launching", "running"])
+      .not("worker_id", "is", null).or(`heartbeat_at.is.null,heartbeat_at.lt.${stale}`);
+    if (error) { log({ level: "error", event: "reap-query", message: error.message }); return; }
+    for (const row of (data ?? []) as unknown as RunWithRepo[]) {
+      const run = toRun(row);
+      if (this.inFlight.has(run.id) || this.watching.has(run.id)) continue;
+      if (run.status === "running") {
+        this.watching.set(run.id, run);
+        log({ event: "adopted", run: run.id, sandbox: run.sandboxId });
+        await this.supabase.from("engelbart_sandbox_runs").update({ worker_id: WORKER_ID, heartbeat_at: new Date().toISOString() }).eq("id", run.id);
+        await this.check(run);
+        continue;
+      }
+      const record = createRecorder(this.supabase, run.id);
+      const message = "The runner stopped while this run was in progress. Try again.";
+      log({ event: "reaped", run: run.id, status: run.status, worker: row.worker_id });
+      record.event("error", message, { kind: "WorkerLost", worker: row.worker_id });
+      await record.status("failed", { errorKind: "WorkerLost", error: message });
+      if (run.sandboxId) { try { await Sandbox.kill(run.sandboxId); record.event("status", "sandbox killed"); } catch { /* already gone */ } }
+      await record.flush();
+    }
+  }
+
+  // Adopted apps have no output stream; the sandbox's own state is what we can see.
+  private async watch() {
+    for (const run of this.watching.values()) await this.check(run);
+  }
+
+  private async check(run: SandboxRun) {
+    let alive = false;
+    try { alive = (await Sandbox.getInfo(run.sandboxId!)).state === "running"; } catch { alive = false; }
+    if (alive) return;
+    this.watching.delete(run.id);
+    const record = createRecorder(this.supabase, run.id);
+    const message = "The sandbox is no longer running.";
+    log({ event: "expired", run: run.id, sandbox: run.sandboxId });
+    record.event("error", message, { kind: "SandboxGone" });
+    await record.status("failed", { errorKind: "SandboxGone", error: message });
+    await record.flush();
+  }
+
+  // On shutdown, runs still being set up cannot outlive this process; say so
+  // and free their sandboxes. Running apps stay up for the next worker to adopt.
+  async stop(signal: string) {
+    if (this.stopping) return;
+    this.stopping = true;
+    this.timers.forEach(clearInterval);
+    log({ event: "stop", signal, inFlight: this.inFlight.size, watching: this.watching.size });
+    for (const run of this.inFlight.values()) {
+      if (run.status === "running") continue;
+      const record = createRecorder(this.supabase, run.id);
+      const message = "The runner shut down while this run was in progress. Try again.";
+      record.event("error", message, { kind: "WorkerStopped" });
+      await record.status("failed", { errorKind: "WorkerStopped", error: message });
+      if (run.sandboxId) { try { await Sandbox.kill(run.sandboxId); record.event("status", "sandbox killed"); } catch { /* already gone */ } }
+      await record.flush();
+    }
+    process.exit(0);
+  }
+}
+
+const { url, key } = config();
+const worker = new Worker(createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } }), getRuntime());
+for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => void worker.stop(signal));
+worker.start().catch((err) => { log({ level: "error", event: "fatal", message: errorMessage(err) }); process.exit(1); });

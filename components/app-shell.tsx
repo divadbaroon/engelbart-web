@@ -132,6 +132,8 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
     if (result.ok) {
       setRepos((rs) => [...rs, result.repo]);
       setRepoDraft(null);
+      // Start bringing it up straight away; the dot on the row shows progress.
+      void sandbox.prepare(result.repo.id);
     } else {
       setRepoError(result.error);
     }
