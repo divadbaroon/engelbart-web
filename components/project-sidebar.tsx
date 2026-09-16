@@ -1,29 +1,19 @@
 "use client";
 
 import { PanelLeft } from "lucide-react";
-import type { Paper } from "@/lib/papers";
 import { Button } from "@/components/ui/button";
 import type { SidebarMode } from "@/components/nav-rail";
 import { PlanGoals, type PlanActions } from "@/components/plan-goals";
 import { RepoList, type RepoListActions } from "@/components/repo-list";
-import { PaperList } from "@/components/paper-list";
+import { PaperList, type PaperListActions } from "@/components/paper-list";
 
 const TITLES: Record<SidebarMode, string> = { plan: "Plan", github: "GitHub", papers: "Papers" };
-
-export type ListActions<T> = {
-  items: T[];
-  activeId: string | null;
-  onOpen: (id: string) => void;
-  onAdd: () => void;
-  onRename: (id: string, name: string) => void;
-  onCommit: (id: string) => void;
-};
 
 type ProjectSidebarProps = {
   mode: SidebarMode;
   onCollapse: () => void;
   plan: PlanActions;
-  papers: ListActions<Paper>;
+  papers: PaperListActions;
   repos: RepoListActions;
 };
 
@@ -45,16 +35,7 @@ export function ProjectSidebar({ mode, onCollapse, plan, papers, repos }: Projec
       </div>
       {mode === "plan" && <PlanGoals {...plan} />}
       {mode === "github" && <RepoList {...repos} />}
-      {mode === "papers" && (
-        <PaperList
-          papers={papers.items}
-          activeId={papers.activeId}
-          onOpen={papers.onOpen}
-          onAdd={papers.onAdd}
-          onRename={papers.onRename}
-          onCommit={papers.onCommit}
-        />
-      )}
+      {mode === "papers" && <PaperList {...papers} />}
     </aside>
   );
 }

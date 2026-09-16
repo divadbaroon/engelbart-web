@@ -1,7 +1,7 @@
 "use client";
 
 import { FileText, X } from "lucide-react";
-import { isPaperTab, paperTabValue, type Paper } from "@/lib/papers";
+import { isPaperTab, paperMeta, paperTabValue, type Paper } from "@/lib/papers";
 import type { Goal } from "@/lib/plan";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,9 +33,9 @@ export function ProjectTabs({ tab, onTabChange, openPapers, onClosePaper }: Proj
         ))}
         {openPapers.map((paper) => (
           <div key={paper.id} className="flex min-w-0 items-center gap-1">
-            <TabsTrigger value={paperTabValue(paper.id)} title={paper.name} className={`${TAB_TRIGGER} max-w-[200px] gap-1.5`}>
+            <TabsTrigger value={paperTabValue(paper.id)} title={paper.title} className={`${TAB_TRIGGER} max-w-[200px] gap-1.5`}>
               <FileText className="size-[13px] shrink-0 opacity-70" />
-              <span className="truncate">{paper.name || "Untitled paper"}</span>
+              <span className="truncate">{paper.title}</span>
             </TabsTrigger>
             <Button
               variant="ghost"
@@ -57,24 +57,29 @@ export function ProjectTabs({ tab, onTabChange, openPapers, onClosePaper }: Proj
 type ProjectContentProps = {
   tab: string;
   openPapers: Paper[];
+  paperUrls: Record<string, string>;   // signed links, fetched when a paper is opened
   notesGoal: Goal | null;
   onNotesSaved: (goalId: string, notes: string, updatedAt: string) => void;
 };
 
-export function ProjectContent({ tab, openPapers, notesGoal, onNotesSaved }: ProjectContentProps) {
+export function ProjectContent({ tab, openPapers, paperUrls, notesGoal, onNotesSaved }: ProjectContentProps) {
   const activePaper = isPaperTab(tab) ? openPapers.find((p) => paperTabValue(p.id) === tab) : undefined;
 
   if (activePaper) {
+    const url = paperUrls[activePaper.id];
     return (
-      <section className="flex h-full flex-col overflow-y-auto">
-        <div className="px-8 pt-7">
-          <h1 className="mb-1.5 text-xl leading-snug font-semibold text-pretty">{activePaper.name}</h1>
-          <p className="text-[13px] text-muted-foreground">{activePaper.meta}</p>
+      <section aria-label={activePaper.title} className="flex h-full flex-col">
+        <div className="flex h-9 shrink-0 items-center gap-3 border-b px-3.5 text-xs text-muted-foreground">
+          <span className="truncate font-medium text-foreground">{activePaper.title}</span>
+          <span className="shrink-0">{paperMeta(activePaper)}</span>
+          {url && <a href={url} target="_blank" rel="noreferrer" className="ml-auto shrink-0 hover:text-foreground">Open in a new tab</a>}
         </div>
-        {/* Replace with your PDF viewer (e.g. react-pdf) */}
-        <div className="mx-8 mt-6 mb-7 flex min-h-[240px] flex-1 items-center justify-center rounded-lg border bg-[repeating-linear-gradient(135deg,#f4f4f4_0_10px,#fafafa_10px_20px)] font-mono text-xs text-muted-foreground">
-          pdf viewer
-        </div>
+        {url ? (
+          // The browser's own PDF viewer, for now.
+          <iframe src={url} title={activePaper.title} className="min-h-0 w-full flex-1 bg-neutral-100" />
+        ) : (
+          <p className="flex flex-1 items-center justify-center text-[13px] text-muted-foreground">Opening…</p>
+        )}
       </section>
     );
   }

@@ -5,7 +5,8 @@ import { addSubgoal, findGoal, isDone, patchGoal, type Goal, type Plan } from "@
 import { createGoal, updateGoal } from "@/app/workspace/[workspaceId]/actions";
 import { addRepo, fetchReadme, removeRepo } from "@/app/workspace/[workspaceId]/repo-actions";
 import { usePanelRef } from "react-resizable-panels";
-import { isPaperTab, paperTabValue, SAMPLE_PAPERS, type Paper } from "@/lib/papers";
+import { isPaperTab, paperTabValue, type Paper } from "@/lib/papers";
+import { usePapers } from "@/hooks/use-papers";
 import type { Repo } from "@/lib/repos";
 import { isRunActive, isRunCloned, isRunRunning, type SandboxRun } from "@/lib/sandbox";
 import { useSandboxRuns } from "@/hooks/use-sandbox-run";
@@ -18,25 +19,11 @@ import { ProjectTabs, ProjectContent } from "@/components/project-workspace";
 import { RepoTabs, RepoContent, type RepoTab } from "@/components/repo-workspace";
 
 type Center = { kind: "project" } | { kind: "repo"; id: string };
-type Named = { id: string; name: string; meta: string; isNew?: boolean };
 type RepoStatus = "none" | "preparing" | "cloned" | "ready" | "failed";
 
-// Generic list helpers for the editable sidebar lists (papers, repos).
-function useEditableList<T extends Named>(initial: T[], blank: (id: string) => T) {
-  const [items, setItems] = useState<T[]>(initial);
-  const add = () => setItems((xs) => [...xs, blank(crypto.randomUUID())]);
-  const rename = (id: string, name: string) => setItems((xs) => xs.map((x) => (x.id === id ? { ...x, name } : x)));
-  // Leaving the field saves the item, or drops it when left empty.
-  const commit = (id: string) =>
-    setItems((xs) =>
-      xs.flatMap((x) => (x.id !== id ? [x] : x.name.trim() ? [{ ...x, isNew: false, meta: x.meta || "Added just now" }] : [])),
-    );
-  return { items, add, rename, commit };
-}
+type AppShellProps = { projectId: string; plan: Plan; repos: Repo[]; runs: Record<string, SandboxRun>; papers: Paper[] };
 
-type AppShellProps = { projectId: string; plan: Plan; repos: Repo[]; runs: Record<string, SandboxRun> };
-
-export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRuns }: AppShellProps) {
+export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRuns, papers: initialPapers }: AppShellProps) {
   const sidebarRef = usePanelRef();
   const [mode, setMode] = useState<SidebarMode>("plan");
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -46,7 +33,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   const [repoTabs, setRepoTabs] = useState<Record<string, RepoTab>>({});
   const sandbox = useSandboxRuns(initialRuns);
 
-  const papers = useEditableList<Paper>(SAMPLE_PAPERS, (id) => ({ id, name: "", meta: "", isNew: true }));
+  const papers = usePapers(projectId, initialPapers);
   // Repositories: rows from the database, added by pasting a GitHub URL.
   const [repos, setRepos] = useState<Repo[]>(initialRepos);
   const [repoDraft, setRepoDraft] = useState<string | null>(null);
@@ -102,6 +89,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
     setOpenPaperIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
     setTab(paperTabValue(id));
     setCenter({ kind: "project" });
+    void papers.view(id);
   }
 
   function closePaper(id: string) {
@@ -150,7 +138,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   }
 
   const repo = center.kind === "repo" ? repos.find((r) => r.id === center.id) : undefined;
-  const openPapers = openPaperIds.map((id) => papers.items.find((p) => p.id === id)).filter((p): p is Paper => !!p);
+  const openPapers = openPaperIds.map((id) => papers.papers.find((p) => p.id === id)).filter((p): p is Paper => !!p);
   const activePaperId = center.kind === "project" && isPaperTab(tab) ? tab.slice("paper:".length) : null;
   const statusOf = (id: string): RepoStatus => {
     const run = sandbox.runs[id];
@@ -172,7 +160,11 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
               mode={mode}
               onCollapse={() => sidebarRef.current?.collapse()}
               plan={{ goals, selectedId: selectedGoalId, onSelect: setSelectedGoalId, onToggleDone: toggleGoalDone, onAddSubgoal: addGoalUnder, error: planError }}
-              papers={{ items: papers.items, activeId: activePaperId, onOpen: openPaper, onAdd: papers.add, onRename: papers.rename, onCommit: papers.commit }}
+              papers={{
+                papers: papers.papers, pending: papers.pending, activeId: activePaperId, onOpen: openPaper,
+                onUpload: papers.upload, onAddFromUrl: papers.addFromUrl, onRename: papers.rename, onDismiss: papers.dismiss,
+                onRemove: (id) => { papers.remove(id); closePaper(id); },
+              }}
               repos={{
                 repos, activeId: repo?.id ?? null, statusOf, onOpen: openRepo, onRemove: removeRepoRow,
                 draft: repoDraft, adding: repoAdding, error: repoError,
@@ -215,7 +207,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
                   onStop={(runId) => sandbox.stop(runId, repo.id)}
                 />
               ) : (
-                <ProjectContent tab={tab} openPapers={openPapers} notesGoal={selectedGoal} onNotesSaved={noteSaved} />
+                <ProjectContent tab={tab} openPapers={openPapers} paperUrls={papers.urls} notesGoal={selectedGoal} onNotesSaved={noteSaved} />
               )}
             </CenterPanel>
           </ResizablePanel>
