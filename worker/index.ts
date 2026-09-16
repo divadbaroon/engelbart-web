@@ -19,7 +19,7 @@
 import os from "node:os";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Sandbox } from "e2b";
-import { getRuntime, type Runtime } from "@/lib/runtime";
+import { getRuntime, type LaunchRecipe, type Runtime } from "@/lib/runtime";
 import { createRecorder } from "@/lib/runtime/recorder";
 import { REPO_COLUMNS, toRepo, type RepoRow } from "@/lib/repos";
 import { RUN_COLUMNS, toRun, type RunRow, type SandboxRun } from "@/lib/sandbox";
@@ -47,8 +47,8 @@ function config() {
   return { url: url!, key: key! };
 }
 
-type RunWithRepo = RunRow & { worker_id: string | null; heartbeat_at: string | null; engelbart_repos: RepoRow };
-const SELECT = `${RUN_COLUMNS}, worker_id, heartbeat_at, engelbart_repos(${REPO_COLUMNS})`;
+type RunWithRepo = RunRow & { worker_id: string | null; heartbeat_at: string | null; engelbart_repos: RepoRow & { launch_recipe: LaunchRecipe | null; recipe_at: string | null } };
+const SELECT = `${RUN_COLUMNS}, worker_id, heartbeat_at, engelbart_repos(${REPO_COLUMNS}, launch_recipe, recipe_at)`;
 
 class Worker {
   private inFlight = new Map<string, SandboxRun>();   // runs this process is driving
@@ -90,8 +90,9 @@ class Worker {
     }
   }
 
-  private async execute(run: SandboxRun, repoRow: RepoRow) {
+  private async execute(run: SandboxRun, repoRow: RunWithRepo["engelbart_repos"]) {
     const repo = toRepo(repoRow);
+    const recipe = repoRow.launch_recipe;
     this.inFlight.set(run.id, run);
     const record = createRecorder(this.supabase, run.id);
     log({ event: "claimed", run: run.id, repo: repo.fullName, resume: !!run.sandboxId });
@@ -105,8 +106,9 @@ class Worker {
       }
       if (launchable) {
         this.inFlight.set(run.id, launchable);
-        const launched = await this.runtime.launch(repo, launchable, record);
-        log({ event: launched.ok ? "running" : "failed", run: run.id, repo: repo.fullName, ...(launched.ok ? { previewUrl: launched.previewUrl } : { kind: launched.kind, message: launched.message }) });
+        const launched = await this.runtime.launch(repo, launchable, record, { recipe });
+        log({ event: launched.ok ? "running" : "failed", run: run.id, repo: repo.fullName, replayed: !!recipe && !launched.recipeFailed, ...(launched.ok ? { previewUrl: launched.previewUrl } : { kind: launched.kind, message: launched.message }) });
+        await this.saveRecipe(repo.id, run.id, launched.ok ? launched.recipe : null, launched.recipeFailed);
         if (launched.ok) {
           this.inFlight.set(run.id, { ...launchable, status: "running", previewUrl: launched.previewUrl, port: launched.port });
           await launched.done;   // stay attached until the app stops
@@ -126,6 +128,18 @@ class Worker {
 
   // Stamp the runs this worker holds. A run whose row has gone (its
   // repository was removed, say) is let go and its sandbox killed.
+  // Keep what worked for next time; drop a saved recipe that failed to replay
+  // unless this run produced a fresh one.
+  private async saveRecipe(repoId: string, runId: string, recipe: LaunchRecipe | null, recipeFailed: boolean) {
+    const patch = recipe
+      ? { launch_recipe: recipe, recipe_run_id: runId, recipe_at: new Date().toISOString() }
+      : recipeFailed ? { launch_recipe: null, recipe_run_id: null, recipe_at: null } : null;
+    if (!patch) return;
+    const { error } = await this.supabase.from("engelbart_repos").update(patch).eq("id", repoId);
+    if (error) log({ level: "error", event: "recipe-save", run: runId, message: error.message });
+    else log({ event: recipe ? "recipe-saved" : "recipe-dropped", run: runId, repo: repoId });
+  }
+
   private async heartbeat() {
     const ids = [...this.inFlight.keys(), ...this.watching.keys()];
     if (!ids.length) return;

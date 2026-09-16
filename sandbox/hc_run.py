@@ -11,6 +11,7 @@ import json
 import os
 import sys
 import time
+import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -71,6 +72,58 @@ def main():
     from human_compact.trajectory import (project_analysis as PA, project_components as PC,
                                           project_environment as PE, project_order as PO, project_run as PR)
 
+    # A saved recipe from a previous successful run skips straight to starting.
+    recipe = load_recipe()
+    if recipe:
+        run_id, cwd = replay(PR, repo, recipe)
+        emit(phase="recipe", status="replaying", kind=recipe.get("kind"), saved=recipe.get("savedAt"))
+        outcome = run(PR, PE, run_id, cwd)
+        if outcome == "ready":
+            supervise(PR, run_id)
+        emit(phase="recipe", status="failed", reason=outcome)
+        stop_leftovers(PR, run_id)
+
+    run_id, cwd = pipeline(PA, PC, PO, repo)
+    outcome = run(PR, PE, run_id, cwd)
+    if outcome != "ready":
+        state = PR.view(run_id)
+        fail(state.get("reason"), step="run", status=state.get("status"), stage=state.get("stage"))
+    supervise(PR, run_id)
+
+
+def load_recipe():
+    path = os.environ.get("HC_RECIPE_FILE")
+    if not path:
+        return None
+    try:
+        recipe = json.loads(Path(path).read_text())
+        if isinstance(recipe, dict) and recipe.get("version") == 1 and (recipe.get("orderPlan") or recipe.get("plan")):
+            return recipe
+        emit(phase="recipe", status="ignored", reason="unrecognized recipe")
+    except Exception as exc:  # noqa: BLE001
+        emit(phase="recipe", status="ignored", reason=str(exc)[:300])
+    return None
+
+
+def replay(PR, repo, recipe):
+    """Write a run record straight from the recipe, as analysis would have."""
+    root = str(Path(repo).resolve())
+    cwd = str((Path(root) / recipe.get("cwd", ".")).resolve())
+    order_plan = recipe.get("orderPlan")
+    run_id = uuid.uuid4().hex
+    PR.write(run_id, {"cwd": cwd, "repositoryRoot": root, "plan": recipe.get("plan") or {}, "orderPlan": order_plan})
+    return run_id, cwd
+
+
+def stop_leftovers(PR, run_id):
+    try:
+        PR.reset(run_id)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def pipeline(PA, PC, PO, repo):
+    """Discover, order or analyze; return the run record id and its directory."""
     emit(phase="discover", status="running")
     discovery = PC.discover(repo)
     components = discovery["components"]
@@ -97,7 +150,7 @@ def main():
                  step="order", status=view.get("status"))
         emit(phase="plan", source="run_order", summary=view.get("summary"), plan=view.get("plan"),
              rationale=view.get("orderingRationale"), selected=view.get("selectedComponents"))
-        run_id, cwd = order_id, discovery["root"]
+        return order_id, discovery["root"]
     else:
         component = components[0]
         if component.get("requiresContainer"):
@@ -109,8 +162,12 @@ def main():
         emit(phase="plan", source=result.get("source", "railpack"),
              providers=(result.get("info") or {}).get("detectedProviders"),
              start=(plan.get("deploy") or {}).get("startCommand"))
-        run_id, cwd = result["analysisId"], component["path"]
+        return result["analysisId"], component["path"]
 
+
+def run(PR, PE, run_id, cwd):
+    """Start the record and follow it until the app is ready ("ready") or it
+    gives up (the reason). On ready the recipe is emitted for saving."""
     # The sandbox cannot supply values the project wants from a person.
     skips = {}
     try:
@@ -123,7 +180,7 @@ def main():
         emit(phase="environment", warning=str(exc)[:300])
 
     PR.start(run_id, environment_skips=skips)
-    logs = StageLog()
+    logs = LOGS[run_id] = StageLog()
     last = None
     approved = set()
     while True:
@@ -142,14 +199,57 @@ def main():
                 emit(phase="approval", summary=approval.get("summary"), changes=approval.get("changes"))
                 PR.decide_approval(run_id, approval["id"], True)
         if state.get("status") == "running" and state.get("healthy") and state.get("url"):
+            recipe = capture(PR, run_id)
+            if recipe:
+                emit(phase="recipe", status="captured", recipe=recipe)
             parts = urlsplit(state["url"])
             emit(phase="ready", url=state["url"], host=parts.hostname, port=parts.port, pid=state.get("pid"))
-            break
+            return "ready"
         if state.get("status") in TERMINAL_RUN:
-            fail(state.get("reason"), step="run", status=state.get("status"), stage=state.get("stage"))
+            return state.get("reason") or state.get("status")
         time.sleep(0.5)
 
-    # Stay alive as the supervisor while the application runs.
+
+PLAN_KEYS = ("summary", "evidence", "preparation", "services", "entryService", "pythonRuntimes")
+LOGS = {}   # per run record: which stage output has been emitted already
+
+
+def capture(PR, run_id):
+    """The plan that worked, portable to a fresh clone: the last attempt's
+    validated plan when agents were involved, else the Railpack plan."""
+    try:
+        record = PR.read(run_id)
+        root = str(Path(record.get("repositoryRoot", record["cwd"])).resolve())
+        cwd = os.path.relpath(record["cwd"], root)
+        attempts = (record.get("run") or {}).get("attempts") or []
+        last = attempts[-1] if attempts else None
+        if last and last.get("services") and last.get("status") == "running":
+            plan = relativize({"status": "plan", **{k: last[k] for k in PLAN_KEYS if k in last}}, root)
+            return {"version": 1, "kind": "native", "cwd": cwd, "orderPlan": plan, "savedAt": time.time()}
+        if record.get("orderPlan"):
+            return {"version": 1, "kind": "native", "cwd": cwd, "orderPlan": relativize({**record["orderPlan"], "status": "plan"}, root), "savedAt": time.time()}
+        if record.get("plan"):
+            return {"version": 1, "kind": "railpack", "cwd": cwd, "plan": record["plan"], "savedAt": time.time()}
+    except Exception as exc:  # noqa: BLE001
+        emit(phase="recipe", status="ignored", reason="capture failed: " + str(exc)[:300])
+    return None
+
+
+def relativize(plan, root):
+    """Step directories relative to the repository, so the plan survives a
+    clone somewhere else."""
+    out = json.loads(json.dumps(plan))
+    for key in ("preparation", "services"):
+        for step in out.get(key, []):
+            for field in ("cwd", "environmentCwd"):
+                if isinstance(step.get(field), str) and os.path.isabs(step[field]):
+                    step[field] = os.path.relpath(step[field], root)
+    return out
+
+
+def supervise(PR, run_id):
+    """Stay alive as the supervisor while the application runs."""
+    logs = LOGS.get(run_id) or StageLog()
     while True:
         time.sleep(2)
         state = PR.view(run_id)

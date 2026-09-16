@@ -1,5 +1,5 @@
 import { Sandbox, CommandExitError } from "e2b";
-import type { LaunchOutcome, Recorder, Runtime } from "@/lib/runtime/types";
+import type { LaunchOutcome, LaunchRecipe, Recorder, Runtime } from "@/lib/runtime/types";
 
 // The template runner sandboxes start from. Built by sandbox/build-template.mjs.
 export const TEMPLATE = process.env.E2B_TEMPLATE ?? "engelbart-runner";
@@ -10,6 +10,7 @@ const LAUNCH_DEADLINE_MS = 12 * 60_000;         // install, agents and start, en
 const WRAPPER = "/opt/engelbart/hc_run.py";
 const PROXY = "/opt/engelbart/proxy.mjs";
 const PROXY_PORT = 43110;   // the public port; the app's own port stays loopback-only
+const RECIPE_FILE = "/home/user/.engelbart-recipe.json";
 
 const errorKind = (err: unknown) => (err instanceof Error ? err.constructor.name : "Error");
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -79,7 +80,7 @@ export const e2bRuntime: Runtime = {
   // wrapper, which prints one JSON event per line. The wrapper stays up as
   // the application's supervisor after we return, and its later lines keep
   // landing in the event log for as long as this process holds the stream.
-  async launch(repo, run, record) {
+  async launch(repo, run, record, options = {}) {
     if (!run.sandboxId || !run.workdir) return fail(record, "NoSandbox", "This run has no sandbox to launch in. Prepare the repository again.");
     if (run.template !== TEMPLATE) return fail(record, "TemplateMismatch", `This run's sandbox was built from "${run.template}", not the current runner image. Prepare the repository again.`);
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -94,11 +95,25 @@ export const e2bRuntime: Runtime = {
     }
     await record.status("launching");
 
+    // A saved recipe rides in as a file; the wrapper replays it first.
+    let replaying = false;
+    if (options.recipe) {
+      try {
+        await sandbox.files.write(RECIPE_FILE, JSON.stringify(options.recipe));
+        replaying = true;
+        record.event("status", "replaying the launch recipe saved from the last successful run", { recipe: true });
+      } catch (err) {
+        record.event("status", `could not hand over the saved recipe: ${errorMessage(err)}`);
+      }
+    }
+
     const cmd = `python3 ${WRAPPER} ${shellQuote(run.workdir)}`;
     record.event("command", cmd);
     const lines = new LineReader();
     let settled = false;
     let ended = false;   // the wrapper reported the run's end itself
+    let recipe: LaunchRecipe | null = null;
+    let recipeFailed = false;
     // Resolved once the wrapper has gone, whether it reported why or not.
     let finishDone: () => void = () => {};
     const done = new Promise<void>((resolve) => { finishDone = resolve; });
@@ -108,19 +123,22 @@ export const e2bRuntime: Runtime = {
         const ev = parseEvent(line);
         if (!ev) { record.event("stdout", line + "\n"); return; }
         describe(ev, record);
-        if (ev.phase === "ready" && typeof ev.port === "number") {
+        if (ev.phase === "recipe") {
+          if (ev.status === "captured" && ev.recipe && typeof ev.recipe === "object") recipe = ev.recipe as LaunchRecipe;
+          if (ev.status === "failed") recipeFailed = true;
+        } else if (ev.phase === "ready" && typeof ev.port === "number") {
           const port = ev.port;
           expose(sandbox, port, typeof ev.host === "string" ? ev.host : "127.0.0.1", record)
-            .then((previewUrl) => record.status("running", { previewUrl, port }).then(() => settle({ ok: true, previewUrl, port, done })))
-            .catch((err) => fail(record, "ProxyError", errorMessage(err)).then(settle));
+            .then((previewUrl) => record.status("running", { previewUrl, port }).then(() => settle({ ok: true, previewUrl, port, done, recipe, recipeFailed })))
+            .catch((err) => fail(record, "ProxyError", errorMessage(err), recipeFailed).then(settle));
         } else if (ev.phase === "error") {
           ended = true;
           const message = String(ev.message ?? "The pipeline stopped");
-          record.status("failed", { errorKind: `Pipeline:${ev.step ?? ev.status ?? "error"}`, error: message }).then(() => settle({ ok: false, kind: "PipelineError", message }));
+          record.status("failed", { errorKind: `Pipeline:${ev.step ?? ev.status ?? "error"}`, error: message }).then(() => settle({ ok: false, kind: "PipelineError", message, recipeFailed }));
         } else if (ev.phase === "exited") {
           ended = true;
           const message = `The application exited: ${ev.reason ?? ev.status ?? "unknown"}`;
-          record.status("failed", { errorKind: "AppExited", error: message }).then(() => settle({ ok: false, kind: "AppExited", message }));
+          record.status("failed", { errorKind: "AppExited", error: message }).then(() => settle({ ok: false, kind: "AppExited", message, recipeFailed }));
         }
       };
     });
@@ -135,6 +153,7 @@ export const e2bRuntime: Runtime = {
           HC_CHAT_PROVIDER: "claude",
           HC_EXPERIMENTAL: "1",
           HUMAN_COMPACT_HOME: "/home/user/.human-compact",
+          ...(replaying ? { HC_RECIPE_FILE: RECIPE_FILE } : {}),
         },
         onStdout: (d) => lines.push(d),
         onStderr: (d) => record.event("stderr", d),
@@ -152,7 +171,7 @@ export const e2bRuntime: Runtime = {
         if (settled) return outcome;
         const { kind, message } = result.exit;
         if (kind === "LaunchTimeout") { try { await handle.kill(); } catch { /* gone */ } }
-        return fail(record, kind, message);
+        return fail(record, kind, message, recipeFailed);
       }
       await recordMetrics(sandbox, record);
       // The app is up. Keep the stream open and mark the run when the
@@ -169,7 +188,7 @@ export const e2bRuntime: Runtime = {
         });
       return result;
     } catch (err) {
-      return fail(record, errorKind(err), errorMessage(err));
+      return fail(record, errorKind(err), errorMessage(err), recipeFailed);
     }
   },
 };
@@ -205,11 +224,11 @@ async function expose(sandbox: Sandbox, appPort: number, appHost: string, record
   throw new Error(`The application is running but the preview URL did not answer: ${last}`);
 }
 
-async function fail(record: Recorder, kind: string, message: string): Promise<LaunchOutcome> {
+async function fail(record: Recorder, kind: string, message: string, recipeFailed = false): Promise<LaunchOutcome> {
   record.event("error", message, { kind });
   await record.status("failed", { errorKind: kind, error: message });
   await record.flush();
-  return { ok: false, kind, message };
+  return { ok: false, kind, message, recipeFailed };
 }
 
 type WrapperEvent = { phase: string; [key: string]: unknown };
@@ -259,6 +278,12 @@ function describe(ev: WrapperEvent, record: Recorder) {
     }
     case "approval":
       record.event("status", `approved: ${ev.summary ?? (ev.changes as string[] | undefined)?.join("; ") ?? "install"}`, ev);
+      return;
+    case "recipe":
+      if (ev.status === "replaying") record.event("status", `replaying saved ${ev.kind ?? ""} launch plan`, { kind: ev.kind, saved: ev.saved });
+      else if (ev.status === "captured") record.event("status", "launch plan saved for next time", { kind: (ev.recipe as { kind?: string } | undefined)?.kind });
+      else if (ev.status === "failed") record.event("status", `saved launch plan did not work (${ev.reason ?? "unknown"}); running the full pipeline`, ev);
+      else record.event("status", `launch plan ${ev.status}: ${ev.reason ?? ""}`, ev);
       return;
     case "ready":
       record.event("status", `application ready at ${ev.url}`, ev);
