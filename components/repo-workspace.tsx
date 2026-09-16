@@ -7,7 +7,10 @@ import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
 import type { Goal } from "@/lib/plan";
 import { RunLog } from "@/components/run-log";
-import { environmentFromEvents, isRunActive, isRunCloned, isRunRunning, isSandboxLive, STATUS_LABEL, terminalLines, type PreviewService, type SandboxEvent, type SandboxRun, type TermLine } from "@/lib/sandbox";
+import { RunTimeline } from "@/components/run-timeline";
+import { formatDay } from "@/lib/run-steps";
+import { getSharedTrail, type SharedTrail } from "@/app/workspace/[workspaceId]/trail-actions";
+import { environmentFromEvents, isRunActive, isRunCloned, isRunRunning, isSandboxLive, STATUS_LABEL, terminalLines, type PreviewService, type SandboxEvent, type SandboxRun } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
@@ -133,13 +136,12 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   }
 
   if (tab === "preview") {
-    return <Preview repo={repo} run={run} error={error} tail={lines.slice(-6)} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} onPrepare={onPrepare} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onRunWithoutPatch={onRunWithoutPatch} />;
+    return <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} onPrepare={onPrepare} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onRunWithoutPatch={onRunWithoutPatch} />;
   }
 
   // The run's log, and a shell in its sandbox once there is one to open.
   const log = <RunLog lines={lines} error={error} empty={error ?? (run ? STATUS_LABEL[run.status] : "Open the repository to prepare it in a sandbox.")} />;
-  if (!run || !isSandboxLive(run)) return log;
-  return (
+  const body = !run || !isSandboxLive(run) ? log : (
     <ResizablePanelGroup orientation="vertical" id={`terminal-${repo.id}`} className="h-full">
       <ResizablePanel defaultSize="55" minSize="15">{log}</ResizablePanel>
       <ResizableHandle className="h-px bg-border" />
@@ -148,11 +150,18 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
       </ResizablePanel>
     </ResizablePanelGroup>
   );
+  if (!run) return body;
+  return (
+    <div className="flex h-full flex-col">
+      <RunTimeline run={run} events={events} open={false} className="shrink-0 border-b" />
+      <div className="min-h-0 flex-1">{body}</div>
+    </div>
+  );
 }
 
-type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; tail: TermLine[]; version: number; missing: string[]; localError: string | null; patch: RepoPatch | null };
+type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; events: SandboxEvent[]; version: number; missing: string[]; localError: string | null; patch: RepoPatch | null };
 
-function Preview({ repo, run, error, tail, version, missing, localError, patch, onPrepare, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch }: PreviewProps) {
+function Preview({ repo, run, error, events, version, missing, localError, patch, onPrepare, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch }: PreviewProps) {
   const [showPatch, setShowPatch] = useState(false);
   if (showPatch && patch) {
     return <PatchView patch={patch} onBack={() => setShowPatch(false)} onRunWithoutPatch={run && isRunActive(run) ? null : () => { setShowPatch(false); onRunWithoutPatch(); }} />;
@@ -171,6 +180,46 @@ function Preview({ repo, run, error, tail, version, missing, localError, patch, 
             ? ["Cloned into a sandbox", "The repository is on disk but the application was never started. Start it to get a preview.", { label: "Run application", onClick: () => onLaunch(run.id) }]
             : [STATUS_LABEL[run.status], run.error ?? "Prepare the repository again to start over.", { label: "Prepare again", onClick: onPrepare }];
 
+  const patchBox = run?.status === "failed" && patch && (
+    <div className="flex max-w-[420px] flex-col items-start gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
+      <span>The pipeline edited {patch.files.length} file{patch.files.length === 1 ? "" : "s"} in the sandbox copy to try to make it run, but it still did not start.</span>
+      <Button variant="ghost" size="sm" onClick={() => setShowPatch(true)} className="h-7 px-2 font-normal">View the changes</Button>
+    </div>
+  );
+  const missingBox = run?.status === "failed" && missing.length > 0 && (
+    <div className="flex max-w-[420px] flex-col items-start gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
+      <span>
+        The application started without {missing.length === 1 ? "a value it reads" : `${missing.length} values it reads`}:{" "}
+        <span className="font-mono text-foreground">{missing.join(", ")}</span>.
+      </span>
+      {localError && <span className="text-muted-foreground/80">A local Supabase was tried instead, but: {localError}</span>}
+      <Button variant="ghost" size="sm" onClick={onOpenEnvironment} className="h-7 px-2 font-normal">Add the values</Button>
+    </div>
+  );
+
+  // With a run to show, the steps take the page: where it is, what each
+  // step found, and what to do next at the top.
+  if (run) {
+    return (
+      <section aria-label="Live preview" className="flex h-full flex-col overflow-y-auto">
+        <div className="flex shrink-0 items-start justify-between gap-4 px-[22px] pt-[18px] pb-3.5">
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-[13px] text-foreground">{title}</span>
+            <span className="text-xs leading-normal text-muted-foreground/70">{detail}</span>
+          </div>
+          {action && <Button variant="outline" size="sm" onClick={action.onClick} className="shrink-0 font-normal">{action.label}</Button>}
+        </div>
+        <RunTimeline run={run} events={events} open className="border-y" />
+        {(patchBox || missingBox) && (
+          <div className="flex flex-col gap-3 px-[22px] py-4">
+            {patchBox}
+            {missingBox}
+          </div>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section aria-label="Live preview" className="flex h-full flex-col items-center justify-center gap-1.5 p-6 text-center">
       <span className="text-[13px] text-muted-foreground">{title}</span>
@@ -178,31 +227,32 @@ function Preview({ repo, run, error, tail, version, missing, localError, patch, 
       {action && (
         <Button variant="outline" size="sm" onClick={action.onClick} className="mt-3 font-normal">{action.label}</Button>
       )}
-      {run?.status === "failed" && patch && (
-        <div className="mt-5 flex max-w-[420px] flex-col items-center gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
-          <span>The pipeline edited {patch.files.length} file{patch.files.length === 1 ? "" : "s"} in the sandbox copy to try to make it run, but it still did not start.</span>
-          <Button variant="ghost" size="sm" onClick={() => setShowPatch(true)} className="h-7 px-2 font-normal">View the changes</Button>
-        </div>
-      )}
-      {run?.status === "failed" && missing.length > 0 && (
-        <div className="mt-5 flex max-w-[420px] flex-col items-center gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
-          <span>
-            The application started without {missing.length === 1 ? "a value it reads" : `${missing.length} values it reads`}:{" "}
-            <span className="font-mono text-foreground">{missing.join(", ")}</span>.
-          </span>
-          {localError && <span className="text-muted-foreground/80">A local Supabase was tried instead, but: {localError}</span>}
-          <Button variant="ghost" size="sm" onClick={onOpenEnvironment} className="h-7 px-2 font-normal">Add the values</Button>
-        </div>
-      )}
-      {run && isRunActive(run) && tail.length > 0 && (
-        <pre aria-label="Latest output" className="mt-4 w-full max-w-[520px] overflow-hidden rounded-md border bg-[#f6f6f6] px-3.5 py-2.5 text-left font-mono text-[11px] leading-[1.7] text-muted-foreground">
-          {tail.map((l, i) => (
-            <div key={i} className="truncate">{l.kind === "command" ? "$ " : ""}{l.text}</div>
-          ))}
-        </pre>
-      )}
+      <TrailInsight repo={repo} />
     </section>
   );
+}
+
+// What preparing will do, before it is done: replay this project's trail,
+// replay one from another project, or analyze from scratch.
+function TrailInsight({ repo }: { repo: Repo }) {
+  const [shared, setShared] = useState<SharedTrail | null | undefined>(undefined);
+  useEffect(() => {
+    if (repo.trail) return;
+    let live = true;
+    getSharedTrail(repo.id).then((r) => { if (live) setShared(r.ok ? r.trail : null); });
+    return () => { live = false; };
+  }, [repo.id, repo.trail]);
+
+  const when = formatDay;
+  const describe = (t: { at: string; commit: string | null; patchFiles: number }) =>
+    [`from ${when(t.at)}`, t.commit ? `at ${t.commit.slice(0, 7)}` : "", t.patchFiles ? `${t.patchFiles} patched file${t.patchFiles === 1 ? "" : "s"}` : "no edits needed"].filter(Boolean).join(", ");
+
+  let text: string | null = null;
+  if (repo.trail) text = `Known how to run: ${repo.trail.shared ? "a trail first captured in another project" : "this project's trail"} ${describe(repo.trail)}. Preparing replays it, usually within a few minutes.`;
+  else if (shared) text = `Known from another project: a trail ${describe(shared)}. Preparing replays it, usually within a few minutes.`;
+  else if (shared === null) text = "Not run anywhere yet. Preparing analyzes the repository from scratch; one with a database or missing values can take ten minutes.";
+  if (!text) return null;
+  return <p className="mt-4 max-w-[420px] rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs leading-relaxed text-muted-foreground">{text}</p>;
 }
 
 // The app in an iframe. A save in the Code tab, or the Reload button,

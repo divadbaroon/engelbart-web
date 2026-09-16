@@ -40,6 +40,12 @@ const WORKER_ID = process.env.WORKER_ID ?? `${os.hostname()}-${process.pid}`;
 const log = (entry: Record<string, unknown>) =>
   console.log(JSON.stringify({ at: new Date().toISOString(), scope: "worker", worker: WORKER_ID, ...entry }));
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
+// " from Sep 16 at a1b2c3d, 4 patched files"
+const describeTrail = (at: string, commit: string | null, files: number) => {
+  const when = at ? new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+  const parts = [when, commit ? `at ${commit.slice(0, 7)}` : "", files ? `${files} patched file${files === 1 ? "" : "s"}` : ""].filter(Boolean);
+  return parts.length ? ` from ${parts.join(", ")}` : "";
+};
 
 function config() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -52,8 +58,8 @@ function config() {
   return { url: url!, key: key! };
 }
 
-type RunWithRepo = RunRow & { worker_id: string | null; heartbeat_at: string | null; engelbart_repos: RepoRow & { launch_recipe: LaunchRecipe | null; recipe_at: string | null } };
-const SELECT = `${RUN_COLUMNS}, worker_id, heartbeat_at, engelbart_repos!engelbart_sandbox_runs_repo_id_fkey(${REPO_COLUMNS}, launch_recipe, recipe_at)`;
+type RunWithRepo = RunRow & { worker_id: string | null; heartbeat_at: string | null; engelbart_repos: RepoRow & { launch_recipe: LaunchRecipe | null } };
+const SELECT = `${RUN_COLUMNS}, worker_id, heartbeat_at, engelbart_repos!engelbart_sandbox_runs_repo_id_fkey(${REPO_COLUMNS}, launch_recipe)`;
 type SharedRecipeRow = { commit_sha: string; recipe: LaunchRecipe; captured_at: string };
 
 class Worker {
@@ -127,7 +133,7 @@ class Worker {
         });
         if (patch) await this.savePatch(repo.id, { ...(patch as RepoPatch), worked: launched.ok });
         log({ event: launched.ok ? "running" : "failed", run: run.id, repo: repo.fullName, replayed: !!recipe && !launched.recipeFailed, ...(launched.ok ? { previewUrl: launched.previewUrl } : { kind: launched.kind, message: launched.message }) });
-        await this.saveRecipe(repo, run.id, launched.ok ? launched.recipe : null, launched.recipeFailed, launchable.commit, origin);
+        await this.saveRecipe(repo, run.id, launched.ok ? launched.recipe : null, launched.recipeFailed, launchable.commit, origin, record);
         if (launched.ok) {
           this.inFlight.set(run.id, { ...launchable, status: "running", previewUrl: launched.previewUrl, port: launched.port, services: launched.services });
           await launched.done;   // stay attached until the app stops
@@ -157,12 +163,18 @@ class Worker {
       const origin: PatchOrigin = kept?.shared
         ? kept
         : { commit: typeof own.commit === "string" ? own.commit : null, at: typeof own.capturedAt === "string" ? own.capturedAt : "", shared: false };
+      const files = (own.patch as { files?: string[] } | undefined)?.files?.length ?? 0;
+      record.event("status", `replaying this project's trail${describeTrail(origin.at, origin.commit, files)}`, { phase: "trail", status: "own", commit: origin.commit, capturedAt: origin.at, files });
       return { recipe: own, origin };
     }
     const shared = await this.findSharedRecipe(repo, commit);
-    if (!shared) return { recipe: null, origin: null };
+    if (!shared) {
+      record.event("status", "no trail for this repository yet; the pipeline will analyze it", { phase: "trail", status: "none" });
+      return { recipe: null, origin: null };
+    }
     const same = shared.commit_sha === commit;
-    record.event("status", `replaying what brought ${repo.fullName} up in another project${same ? "" : ", captured on an earlier commit"}`, { commit: shared.commit_sha, capturedAt: shared.captured_at });
+    const files = (shared.recipe.patch as { files?: string[] } | undefined)?.files?.length ?? 0;
+    record.event("status", `replaying what brought ${repo.fullName} up in another project${describeTrail(shared.captured_at, shared.commit_sha, files)}${same ? "" : " (an earlier commit)"}`, { phase: "trail", status: "shared", commit: shared.commit_sha, capturedAt: shared.captured_at, files, sameCommit: same });
     return { recipe: shared.recipe, origin: { commit: shared.commit_sha, at: shared.captured_at, shared: true } };
   }
 
@@ -181,7 +193,7 @@ class Worker {
   // Keep what worked for next time; drop a saved recipe that failed to replay
   // unless this run produced a fresh one. A recipe from a shared one keeps
   // that origin, so the person can still see where its edits first came from.
-  private async saveRecipe(repo: Repo, runId: string, recipe: LaunchRecipe | null, recipeFailed: boolean, commit: string | null, origin: PatchOrigin | null) {
+  private async saveRecipe(repo: Repo, runId: string, recipe: LaunchRecipe | null, recipeFailed: boolean, commit: string | null, origin: PatchOrigin | null, record: Recorder) {
     const now = new Date().toISOString();
     const stamped = recipe ? { ...recipe, commit, capturedAt: now, ...(origin?.shared ? { origin } : {}) } : null;
     const patch = stamped
@@ -191,13 +203,14 @@ class Worker {
     const { error } = await this.supabase.from("engelbart_repos").update(patch).eq("id", repo.id);
     if (error) log({ level: "error", event: "recipe-save", run: runId, message: error.message });
     else log({ event: stamped ? "recipe-saved" : "recipe-dropped", run: runId, repo: repo.id });
-    if (stamped && commit) await this.shareRecipe(repo, runId, commit, stamped);
+    if (stamped && !error) record.event("status", "trail saved for next time", { phase: "trail", status: "saved" });
+    if (stamped && commit) await this.shareRecipe(repo, runId, commit, stamped, record);
   }
 
   // A recipe for a public repository is kept for every project, by commit.
   // Private repositories, and ones GitHub will not describe, stay with
   // their own row.
-  private async shareRecipe(repo: Repo, runId: string, commit: string, recipe: LaunchRecipe) {
+  private async shareRecipe(repo: Repo, runId: string, commit: string, recipe: LaunchRecipe, record: Recorder) {
     const isPublic = await isPublicRepo(repo.owner, repo.name);
     if (!isPublic) { log({ event: "recipe-kept-private", run: runId, repo: repo.fullName, reason: isPublic === null ? "visibility unknown" : "private" }); return; }
     const { error } = await this.supabase.from("engelbart_launch_recipes").upsert(
@@ -205,7 +218,7 @@ class Worker {
       { onConflict: "owner,name,commit_sha" },
     );
     if (error) log({ level: "error", event: "recipe-share", run: runId, repo: repo.fullName, message: error.message });
-    else log({ event: "recipe-shared", run: runId, repo: repo.fullName, commit });
+    else { log({ event: "recipe-shared", run: runId, repo: repo.fullName, commit }); record.event("status", "trail shared for other projects that add this repository", { phase: "trail", status: "shared", saved: true, commit }); }
   }
 
   // The values saved for a repository, for the pipeline. Read with the

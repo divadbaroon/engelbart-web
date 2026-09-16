@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { diffLines, type PatchOrigin, type RepoPatch } from "@/lib/patch";
+import { formatDay } from "@/lib/run-steps";
 import { Button } from "@/components/ui/button";
 
 type Props = {
@@ -65,7 +66,7 @@ export function PatchView({ patch, onBack, onRunWithoutPatch }: Props) {
 
 // "Made in an earlier run on Sep 16 at commit a1b2c3d, applied again here."
 function describeOrigin(origin: PatchOrigin): string {
-  const when = origin.at ? ` on ${new Date(origin.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : "";
+  const when = origin.at ? ` on ${formatDay(origin.at)}` : "";
   const where = origin.shared ? "in another project" : "in an earlier run";
   const commit = origin.commit ? ` at commit ${origin.commit.slice(0, 7)}` : "";
   return `Made ${where}${when}${commit}, applied again here.`;

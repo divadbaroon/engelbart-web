@@ -1,5 +1,10 @@
 import type { EnvReport } from "@/lib/environment";
-import type { RepoPatch } from "@/lib/patch";
+import type { PatchOrigin, RepoPatch } from "@/lib/patch";
+
+// What is known about running the repository: when a trail was last
+// captured, on which commit, how many files it patches, and whether it
+// first came from another project.
+export type RepoTrail = { at: string; commit: string | null; patchFiles: number; shared: boolean };
 
 // A GitHub repository attached to a project. Rows come from engelbart_repos.
 // Kept free of React and of Supabase so the desktop app can share it.
@@ -15,6 +20,7 @@ export type Repo = {
   createdAt: string;
   envReport: EnvReport | null;   // the latest run's environment scan
   patch: RepoPatch | null;       // edits the repair agent made to get it running
+  trail: RepoTrail | null;       // the saved way to run it, if any
 };
 
 export type RepoRow = {
@@ -28,14 +34,20 @@ export type RepoRow = {
   created_at: string;
   env_report: EnvReport | null;
   patch: RepoPatch | null;
+  recipe_at: string | null;
+  recipe_commit: string | null;              // launch_recipe->>commit
+  recipe_origin: PatchOrigin | null;         // launch_recipe->origin
+  recipe_patch_files: string[] | null;       // launch_recipe->patch->files
 };
 
-export const REPO_COLUMNS = "id, owner, name, url, default_branch, description, language, created_at, env_report, patch";
+// The recipe itself stays on the server; only what describes it is read.
+export const REPO_COLUMNS = "id, owner, name, url, default_branch, description, language, created_at, env_report, patch, recipe_at, recipe_commit:launch_recipe->>commit, recipe_origin:launch_recipe->origin, recipe_patch_files:launch_recipe->patch->files";
 
 export function toRepo(row: RepoRow): Repo {
   return {
     id: row.id, owner: row.owner, name: row.name, fullName: `${row.owner}/${row.name}`, url: row.url,
     defaultBranch: row.default_branch, description: row.description, language: row.language, createdAt: row.created_at, envReport: row.env_report ?? null, patch: row.patch ?? null,
+    trail: row.recipe_at ? { at: row.recipe_at, commit: row.recipe_commit ?? null, patchFiles: Array.isArray(row.recipe_patch_files) ? row.recipe_patch_files.length : 0, shared: !!row.recipe_origin?.shared } : null,
   };
 }
 
