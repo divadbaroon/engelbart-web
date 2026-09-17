@@ -58,7 +58,7 @@ function stepOf(e: SandboxEvent, seenReady: boolean): StepId | null {
     case "environment": return "environment";
     case "approval": return "start";
     case "run": return HEALTH_RUN_STATUS.has(String(d.status)) ? "health" : "start";
-    case "patch": return "health";
+    case "patch": case "visit": return "health";
     case "ready": return "live";
     // A pipeline error names the step it came from; before the app is up
     // that is where it belongs, not the health check.
@@ -174,6 +174,7 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined) {
       d.status === "own" ? `Replaying this project's trail${from ? ` from ${from}` : ""}`
       : d.status === "shared" ? `Replaying another project's trail${from ? ` from ${from}` : ""}`
       : d.status === "none" ? "No trail yet; analyzing from scratch"
+      : d.status === "fresh" ? "Starting over without the saved trail, as asked"
       : last("trail", (e) => e.data?.recipe === true) ? "Replaying the saved trail"
       : steps.trail.events.length ? "" : "";
     const rd = data(replay);
@@ -238,6 +239,8 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined) {
     const patch = last("health", (e) => e.data?.phase === "patch" && e.data?.status !== "starting");
     const starting = last("health", (e) => e.data?.phase === "patch" && e.data?.status === "starting");
     const need = last("health", (e) => e.data?.phase === "run" && e.data?.status === "needs_input");
+    const unhealthy = last("health", (e) => e.data?.phase === "run" && e.data?.status === "unhealthy");
+    const visited = last("health", (e) => e.data?.phase === "visit");
     const err = last("health", (e) => e.kind === "error");
     const d = data(patch);
     const files = Array.isArray(d.files) ? d.files.length : 0;
@@ -249,7 +252,9 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined) {
     else if (d.status === "stale") steps.health.summary = "The saved edits no longer fit the repository";
     else if (starting) steps.health.summary = `Repair attempt ${attempt ?? 1}: the agent is looking for a fix…`;
     else if (need) steps.health.summary = `Not answering: ${String(data(need).reason ?? "").slice(0, 160)}`;
+    else if (unhealthy) steps.health.summary = `Opened the page: ${String(data(unhealthy).reason ?? "").slice(0, 160)}`;
     else if (err) steps.health.summary = err.text.slice(0, 160);
+    else if (visited) steps.health.summary = `Opened the page in a browser${data(visited).title ? ` (${String(data(visited).title).slice(0, 60)})` : ""}`;
     else if (steps.health.events.length) steps.health.summary = "Checking…";
   }
 

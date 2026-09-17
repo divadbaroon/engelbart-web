@@ -12,7 +12,9 @@ export type RunSnapshot = { run: SandboxRun; events: SandboxEvent[] };
 
 // Queue a run for a repository. The worker process (worker/index.ts) picks
 // it up, clones and launches; the browser watches the run's events.
-export async function startRun(repoId: string): Promise<StartRunResult> {
+export type StartRunOptions = { fresh?: boolean };   // fresh: ignore any saved trail
+
+export async function startRun(repoId: string, options: StartRunOptions = {}): Promise<StartRunResult> {
   const supabase = await createClient();
   const { data: claims } = await supabase.auth.getClaims();
   const userId = claims?.claims.sub;
@@ -25,7 +27,7 @@ export async function startRun(repoId: string): Promise<StartRunResult> {
 
   const { data, error } = await supabase
     .from("engelbart_sandbox_runs")
-    .insert({ repo_id: repoId, project_id: (repoRow as { project_id: string }).project_id, user_id: userId, template: TEMPLATE })
+    .insert({ repo_id: repoId, project_id: (repoRow as { project_id: string }).project_id, user_id: userId, template: TEMPLATE, fresh: options.fresh === true })
     .select(RUN_COLUMNS)
     .single();
   if (error) return { ok: false, error: error.message };

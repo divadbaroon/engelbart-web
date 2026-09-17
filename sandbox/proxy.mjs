@@ -1,10 +1,12 @@
 // A loopback reverse proxy for the sandbox: each mapping listens on one port
-// and forwards to a service on another, rewriting the Host header to the
-// loopback address the service expects. Dev servers such as
-// webpack-dev-server and Vite refuse requests for hosts they don't know, and
-// the sandbox's public hostname is never one of them. WebSocket upgrades
-// (hot reload) pass through. The target address is whichever loopback the
-// service bound: 127.0.0.1 unless told otherwise (Vite, for one, prefers ::1).
+// and forwards to a service on another, rewriting the Host, Origin and
+// Referer headers to the loopback address the service expects. Dev servers
+// such as webpack-dev-server and Vite refuse requests for hosts they don't
+// know, Streamlit and Flask apps with a local-access guard refuse origins
+// that differ from their host, and the sandbox's public hostname is never
+// one of them. WebSocket upgrades (hot reload, Streamlit's channel) pass
+// through with the same rewriting. The target address is whichever loopback
+// the service bound: 127.0.0.1 unless told otherwise (Vite prefers ::1).
 //
 //   node proxy.mjs <listen-port>:<target-port>[:<target-address>] ...
 //
@@ -24,9 +26,20 @@ if (!mappings.length || mappings.some((m) => !m.listenPort || !m.targetPort)) {
 
 function serve({ listenPort, targetPort, targetAddress }) {
   const targetHost = `${targetAddress.includes(":") ? `[${targetAddress}]` : targetAddress}:${targetPort}`;
+  const targetOrigin = `http://${targetHost}`;
+
+  // The request as the service would see it from a browser on its own host.
+  const forwarded = (incoming) => {
+    const headers = { ...incoming, host: targetHost };
+    if (headers.origin) headers.origin = targetOrigin;
+    if (headers.referer) {
+      try { const u = new URL(headers.referer); headers.referer = `${targetOrigin}${u.pathname}${u.search}`; } catch { delete headers.referer; }
+    }
+    return headers;
+  };
 
   const server = http.createServer((req, res) => {
-    const headers = { ...req.headers, host: targetHost };
+    const headers = forwarded(req.headers);
     const upstream = http.request({ host: targetAddress, port: targetPort, method: req.method, path: req.url, headers }, (up) => {
       res.writeHead(up.statusCode ?? 502, up.headers);
       up.pipe(res);
@@ -41,7 +54,7 @@ function serve({ listenPort, targetPort, targetAddress }) {
   server.on("upgrade", (req, socket, head) => {
     const upstream = net.connect(targetPort, targetAddress, () => {
       const lines = [`${req.method} ${req.url} HTTP/${req.httpVersion}`];
-      for (const [name, value] of Object.entries({ ...req.headers, host: targetHost })) {
+      for (const [name, value] of Object.entries(forwarded(req.headers))) {
         for (const v of Array.isArray(value) ? value : [value]) lines.push(`${name}: ${v}`);
       }
       upstream.write(lines.join("\r\n") + "\r\n\r\n");

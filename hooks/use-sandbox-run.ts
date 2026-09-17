@@ -74,10 +74,10 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
   }, [applySnapshot]);
 
   // Queue a fresh run: clone into a new sandbox and launch.
-  const prepare = useCallback(async (repoId: string) => {
+  const prepare = useCallback(async (repoId: string, options: { fresh?: boolean } = {}) => {
     if (isRunActive(runs[repoId])) return;
     clearError(repoId);
-    const started = await startRun(repoId);
+    const started = await startRun(repoId, options);
     if (!started.ok) { setErrors((e) => ({ ...e, [repoId]: started.error })); return; }
     loaded.current.add(started.run.id);
     applySnapshot(started.run, []);

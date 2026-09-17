@@ -71,8 +71,12 @@ function runner({ docker }) {
     .runCmd("python3 -m pip install --no-cache-dir /opt/hc", { user: "root" })
     .copy("hc_run.py", "/opt/engelbart/hc_run.py", { user: "root" })
     .copy("proxy.mjs", "/opt/engelbart/proxy.mjs", { user: "root" })
+    // A headless browser for the health step: the page is loaded as a person
+    // would, so an app that crashes only once a browser connects is seen.
+    .copy("visit.mjs", "/opt/engelbart/visit.mjs", { user: "root" })
+    .runCmd("cd /opt/engelbart && npm init -y >/dev/null 2>&1 && npm install --no-audit --no-fund playwright@1 && PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright npx playwright install --with-deps chromium && chmod -R a+rX /opt/ms-playwright /opt/engelbart && apt-get clean && rm -rf /var/lib/apt/lists/*", { user: "root" })
     // Fail the build, not the first run, if anything is missing.
-    .runCmd(`node --version && claude --version && railpack --version && bun --version && pnpm --version && uv --version && python3 -c 'import human_compact.trajectory.project_run'${docker ? " && docker --version && docker compose version && supabase --version" : ""}`);
+    .runCmd(`node --version && claude --version && railpack --version && bun --version && pnpm --version && uv --version && python3 -c 'import human_compact.trajectory.project_run' && node /opt/engelbart/visit.mjs about:blank 100 | grep -q '"error":null'${docker ? " && docker --version && docker compose version && supabase --version" : ""}`);
 }
 
 // Both templates get the largest sandbox E2B allows. A front-end production

@@ -84,8 +84,9 @@ export function RepoTabs({ repo, tab, onTabChange, run, onClose }: RepoTabsProps
 // `readme` is undefined while it loads, null when the repo has none GitHub can serve.
 type RunControls = {
   onPrepare: () => void;                 // clone into a fresh sandbox and start
+  onPrepareFresh: () => void;            // the same, ignoring any saved trail
   onLaunch: (runId: string) => void;     // start the app in an existing cloned sandbox
-  onStop: (runId: string) => void;       // kill the sandbox
+  onStop: (runId: string) => void | Promise<void>;   // kill the sandbox
   onOpenEnvironment: () => void;         // switch to the Environment tab
   onRunWithoutPatch: () => void;         // drop the repair agent's edits and prepare again
 };
@@ -105,7 +106,7 @@ type RepoContentProps = RunControls & {
   onFileSaved: () => void;
 };
 
-export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, onPrepare, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch }: RepoContentProps) {
+export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch }: RepoContentProps) {
   // The environment scan and any repair edits from this run's log if it
   // has them, else the last ones saved on the repository.
   const envReport = (run && environmentFromEvents(events, run.id)) ?? repo.envReport;
@@ -136,7 +137,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   }
 
   if (tab === "preview") {
-    return <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} onPrepare={onPrepare} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onRunWithoutPatch={onRunWithoutPatch} />;
+    return <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onRunWithoutPatch={onRunWithoutPatch} />;
   }
 
   // The run's log, and a shell in its sandbox once there is one to open.
@@ -161,12 +162,12 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
 
 type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; events: SandboxEvent[]; version: number; missing: string[]; localError: string | null; patch: RepoPatch | null };
 
-function Preview({ repo, run, error, events, version, missing, localError, patch, onPrepare, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch }: PreviewProps) {
+function Preview({ repo, run, error, events, version, missing, localError, patch, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch }: PreviewProps) {
   const [showPatch, setShowPatch] = useState(false);
   if (showPatch && patch) {
     return <PatchView patch={patch} onBack={() => setShowPatch(false)} onRunWithoutPatch={run && isRunActive(run) ? null : () => { setShowPatch(false); onRunWithoutPatch(); }} />;
   }
-  if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} events={events} version={version} patch={patch} onShowPatch={() => setShowPatch(true)} onStop={onStop} />;
+  if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} events={events} version={version} patch={patch} onShowPatch={() => setShowPatch(true)} onStop={onStop} onStartOver={onPrepareFresh} />;
 
   const [title, detail, action] = error
     ? ["Could not prepare " + repo.fullName, error, { label: "Try again", onClick: onPrepare }]
@@ -197,6 +198,13 @@ function Preview({ repo, run, error, events, version, missing, localError, patch
     </div>
   );
 
+  // A run that replayed a saved trail can be redone without it: the trail
+  // may be what is wrong, and a fresh analysis that comes up replaces it.
+  const replayed = events.some((e) => e.data?.phase === "trail" && (e.data?.status === "own" || e.data?.status === "shared"));
+  const startOver = replayed && !isRunActive(run) && (
+    <Button variant="ghost" size="sm" onClick={onPrepareFresh} title="Analyze from scratch, ignoring the saved trail" className="shrink-0 font-normal text-muted-foreground">Start over without the trail</Button>
+  );
+
   // With a run to show, the steps take the page: where it is, what each
   // step found, and what to do next at the top.
   if (run) {
@@ -207,7 +215,10 @@ function Preview({ repo, run, error, events, version, missing, localError, patch
             <span className="text-[13px] text-foreground">{title}</span>
             <span className="text-xs leading-normal text-muted-foreground/70">{detail}</span>
           </div>
-          {action && <Button variant="outline" size="sm" onClick={action.onClick} className="shrink-0 font-normal">{action.label}</Button>}
+          <div className="flex shrink-0 items-center gap-2">
+            {startOver}
+            {action && <Button variant="outline" size="sm" onClick={action.onClick} className="shrink-0 font-normal">{action.label}</Button>}
+          </div>
         </div>
         <RunTimeline run={run} events={events} open className="border-y" />
         {(patchBox || missingBox) && (
@@ -261,7 +272,7 @@ function TrailInsight({ repo }: { repo: Repo }) {
 // reload covers both. A run with several services (a frontend and its API,
 // say) gets a picker; a service that forbids framing opens in a tab instead.
 // The steps that brought it up stay one click away above the page.
-function RunningPreview({ repo, run, events, version, patch, onShowPatch, onStop }: { repo: Repo; run: SandboxRun; events: SandboxEvent[]; version: number; patch: RepoPatch | null; onShowPatch: () => void; onStop: (runId: string) => void }) {
+function RunningPreview({ repo, run, events, version, patch, onShowPatch, onStop, onStartOver }: { repo: Repo; run: SandboxRun; events: SandboxEvent[]; version: number; patch: RepoPatch | null; onShowPatch: () => void; onStop: (runId: string) => void | Promise<void>; onStartOver: () => void }) {
   const services = useMemo<PreviewService[]>(
     () => (run.services?.length ? run.services : [{ id: "app", port: run.port ?? 0, previewUrl: run.previewUrl!, isEntry: true, embeddable: true }]),
     [run.services, run.port, run.previewUrl],
@@ -312,6 +323,9 @@ function RunningPreview({ repo, run, events, version, patch, onShowPatch, onStop
         <Button variant="ghost" size="icon" aria-label="Reload preview" title="Reload preview" disabled={!service.embeddable} onClick={reload} className="size-6 text-muted-foreground">
           <RotateCw className={cn("size-3", loading && service.embeddable && "animate-spin")} />
         </Button>
+        {events.some((e) => e.data?.phase === "trail" && (e.data?.status === "own" || e.data?.status === "shared")) && (
+          <Button variant="ghost" size="sm" onClick={async () => { await onStop(run.id); onStartOver(); }} title="Stop, then analyze from scratch ignoring the saved trail" className="h-6 px-2 font-normal text-muted-foreground">Start over</Button>
+        )}
         <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="h-6 px-2 font-normal text-muted-foreground">Stop</Button>
       </div>
       <RunTimeline run={run} events={events} open={false} className="max-h-[60%] shrink-0 overflow-y-auto border-b" />

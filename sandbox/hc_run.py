@@ -92,12 +92,18 @@ def main():
     # Last resort: let a tightly scoped agent edit this throwaway copy of the
     # repository, then run the pipeline again. Every edit is reported as a diff.
     attempt = 0
+    global ACCEPT_APP_ERRORS
     while outcome != "ready" and attempt < MAX_REPAIRS:
         attempt += 1
         failure = failure_of(PR, run_id)
         stop_leftovers(PR, run_id)
         if not repair(repo, failure, attempt):
-            break
+            # The server answered and the agent saw nothing to fix: the marks
+            # in its output were not a crash after all. Bring it back as it is.
+            if not failure.get("app"):
+                break
+            ACCEPT_APP_ERRORS = True
+            emit(phase="run", status="accepted", reason="the repair agent found nothing to change; keeping the application as it came up")
         reset_local_supabase(PS, cwd)
         run_id, cwd = pipeline(PA, PC, PO, repo)
         outcome = run(PR, PE, PS, run_id, cwd, repo)
@@ -365,7 +371,7 @@ def environment(PE, dirs, provided, ignored, local, local_error=None):
 def run(PR, PE, PS, run_id, cwd, root):
     """Start the record and follow it until the app is ready ("ready") or it
     gives up (the reason). On ready the recipe is emitted for saving."""
-    global LAST_LOCAL_ERROR, LAST_MISSING
+    global LAST_LOCAL_ERROR, LAST_MISSING, LAST_APP_ERROR
     dirs = plan_directories(PR, run_id, cwd, root)
     provided, ignored = hand_over(PE, dirs, load_env())
     local, local_error = local_supabase(PS, PE, cwd, root)
@@ -393,6 +399,25 @@ def run(PR, PE, PS, run_id, cwd, root):
                 emit(phase="approval", summary=approval.get("summary"), changes=approval.get("changes"))
                 PR.decide_approval(run_id, approval["id"], True)
         if state.get("status") == "running" and state.get("healthy") and state.get("url"):
+            # Open the page as a person would before its plan is kept as the
+            # trail: an app that runs its code only once a browser connects
+            # fails now, in the server's output or on the page itself.
+            if not ACCEPT_APP_ERRORS:
+                time.sleep(2)
+                report = visit(state["url"])
+                emit(phase="visit", status=report.get("status"), title=report.get("title"), text=(report.get("text") or "")[:300],
+                     consoleErrors=len(report.get("consoleErrors") or []), failedRequests=len(report.get("failedRequests") or []),
+                     error=report.get("error"))
+                time.sleep(2)
+                state = PR.view(run_id)
+                logs.update(state.get("stages", []))
+                error = app_error(state) or page_error(report, state)
+                if error:
+                    LAST_APP_ERROR = error
+                    emit(phase="run", status="unhealthy", stage=error["stage"], reason=error["reason"])
+                    return error["reason"]
+                if not (state.get("status") == "running" and state.get("healthy") and state.get("url")):
+                    continue
             recipe = capture(PR, run_id)
             if recipe:
                 if PATCH:
@@ -427,6 +452,56 @@ def services_of(state):
     return found
 
 
+# A server that answers HTTP while the application inside it crashed:
+# Streamlit, Flask's debugger and dev servers keep serving an error page,
+# so the health check alone would call it live. These marks in a service's
+# output right after it came up say otherwise.
+APP_ERROR_MARKERS = ("Traceback (most recent call last)", "ModuleNotFoundError", "UnhandledPromiseRejection", "Error: Cannot find module")
+# What a person would read on a page that is up but broken.
+PAGE_ERROR_MARKERS = ("Traceback (most recent call last)", "ModuleNotFoundError", "This app has encountered an error",
+                      "Internal Server Error", "Application error: a client-side exception", "Unhandled Runtime Error",
+                      "engelbart proxy: application not reachable")
+VISIT = "/opt/engelbart/visit.mjs"
+VISIT_WAIT_MS = 6000
+LAST_APP_ERROR = None
+ACCEPT_APP_ERRORS = False
+
+
+def app_error(state):
+    ids = {s["id"] for s in services_of(state)}
+    for st in state.get("stages") or []:
+        if st.get("stage") not in ids:
+            continue
+        text = ((st.get("stdout") or "")[-8000:] + "\n" + (st.get("stderr") or "")[-8000:])
+        if any(m in text for m in APP_ERROR_MARKERS):
+            return {"app": True, "reason": f"{st.get('stage')} answered on its port, but its output shows the application crashed inside",
+                    "stage": st.get("stage"), "command": st.get("command"), "output": text.strip()[-4000:]}
+    return None
+
+
+def visit(url):
+    """Load the page in the sandbox's headless browser, as a person would."""
+    try:
+        proc = subprocess.run(["node", VISIT, url, str(VISIT_WAIT_MS)], capture_output=True, text=True, timeout=60)
+        lines = [l for l in proc.stdout.splitlines() if l.startswith("{")]
+        return json.loads(lines[-1]) if lines else {"error": (proc.stderr or "no report")[-300:]}
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)[:300]}
+
+
+def page_error(report, state):
+    text = report.get("text") or ""
+    hit = next((m for m in PAGE_ERROR_MARKERS if m in text), None)
+    if not hit:
+        return None
+    entry = next((s for s in services_of(state) if s["isEntry"]), None)
+    stage = next((st for st in state.get("stages") or [] if entry and st.get("stage") == entry["id"]), {})
+    output = ((stage.get("stdout") or "")[-3000:] + "\n" + (stage.get("stderr") or "")[-4000:]).strip()
+    return {"app": True, "reason": f"the page answers, but shows an error to the person opening it ({hit})",
+            "stage": stage.get("stage"), "command": stage.get("command"),
+            "output": (f"Page text:\n{text[:2500]}\n\nServer output:\n{output}").strip()}
+
+
 MAX_REPAIRS = 2
 REPAIR_TIMEOUT_S = 12 * 60
 MAX_DIFF_BYTES = 200 * 1024
@@ -447,6 +522,10 @@ REPAIR_TOOLS = [
 def failure_of(PR, run_id):
     """What the pipeline has to say about the failed run, with the tail of
     the stage that was running."""
+    global LAST_APP_ERROR
+    if LAST_APP_ERROR:
+        error, LAST_APP_ERROR = LAST_APP_ERROR, None
+        return error
     try:
         state = PR.view(run_id)
     except Exception:  # noqa: BLE001
@@ -468,6 +547,11 @@ def repair_prompt(repo, failure, attempt):
     ]
     if failure.get("stage"):
         lines += ["", f"Stage that failed: {failure['stage']}" + (f" ({failure['command']})" if failure.get("command") else "")]
+    if failure.get("app"):
+        lines += ["", "The server came up and answered HTTP, but the application inside it crashed, most often on an import. "
+                  "Fix the cause in the repository: a package of this repository that is not installed can be made importable "
+                  "(an editable install line such as `-e ../..` in a requirements file the setup installs, or a sys.path entry), "
+                  "a missing file the README says to create can be created from its template. If the output is not a crash, change nothing."]
     if failure.get("output"):
         lines += ["", "Its last output:", failure["output"]]
     if LAST_LOCAL_ERROR:

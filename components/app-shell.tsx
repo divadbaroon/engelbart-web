@@ -296,6 +296,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
                   previewVersion={previewVersions[repo.id] ?? 0}
                   onFileSaved={() => setPreviewVersions((v) => ({ ...v, [repo.id]: (v[repo.id] ?? 0) + 1 }))}
                   onPrepare={() => sandbox.prepare(repo.id)}
+                  onPrepareFresh={() => sandbox.prepare(repo.id, { fresh: true })}
                   onLaunch={(runId) => sandbox.launch(runId, repo.id)}
                   onStop={(runId) => sandbox.stop(runId, repo.id)}
                   onOpenEnvironment={() => setRepoTabs((all) => ({ ...all, [repo.id]: "env" }))}

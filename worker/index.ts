@@ -123,7 +123,9 @@ class Worker {
       if (launchable) {
         this.inFlight.set(run.id, launchable);
         const env = await this.loadEnv(repo.id);
-        const { recipe, origin } = await this.pickRecipe(repo, repoRow.launch_recipe, launchable.commit, record);
+        const { recipe, origin } = launchable.fresh
+          ? (record.event("status", "starting over without the saved trail, as asked; the pipeline will analyze it", { phase: "trail", status: "fresh" }), { recipe: null, origin: null })
+          : await this.pickRecipe(repo, repoRow.launch_recipe, launchable.commit, record);
         let patch: RepoPatch | null = null;
         const launched = await this.runtime.launch(repo, launchable, record, {
           recipe, env,
