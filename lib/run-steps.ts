@@ -60,7 +60,16 @@ function stepOf(e: SandboxEvent, seenReady: boolean): StepId | null {
     case "run": return HEALTH_RUN_STATUS.has(String(d.status)) ? "health" : "start";
     case "patch": return "health";
     case "ready": return "live";
-    case "error": case "exited": return seenReady ? "live" : "health";
+    // A pipeline error names the step it came from; before the app is up
+    // that is where it belongs, not the health check.
+    case "error": {
+      const step = typeof d.step === "string" ? d.step : "";
+      if (step === "discover" || step === "order" || step === "plan") return "plan";
+      if (step === "environment") return "environment";
+      if (step === "supabase") return "services";
+      return seenReady ? "live" : "health";
+    }
+    case "exited": return seenReady ? "live" : "health";
   }
   // Stage commands and their output carry the stage, not a phase.
   // Once the app is up, its output belongs to the time it is live.
@@ -182,7 +191,8 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined) {
     const discovered = last("plan", (e) => e.data?.phase === "discover" && e.data?.status === "done");
     const comps = Array.isArray(data(discovered).components) ? (data(discovered).components as unknown[]).length : 0;
     const summary = typeof data(plan).summary === "string" ? String(data(plan).summary) : plan ? plan.text.replace(/^plan: /, "") : "";
-    steps.plan.summary = [comps ? count(comps, "component") : "", summary || (steps.plan.events.length ? "Analyzing…" : "")].filter(Boolean).join(" · ");
+    const failed = last("plan", (e) => e.data?.phase === "error");
+    steps.plan.summary = [comps ? count(comps, "component") : "", summary || (failed ? "" : steps.plan.events.length ? "Analyzing…" : "")].filter(Boolean).join(" · ");
   }
 
   // Services: the local Supabase, when the repository has one.
