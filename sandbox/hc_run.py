@@ -180,8 +180,11 @@ def pipeline(PA, PC, PO, repo):
                 break
             time.sleep(1)
         if view.get("status") != "done":
-            fail(view.get("reason") or view.get("error") or "Run-order assessment did not produce a plan",
-                 step="order", status=view.get("status"))
+            reason = view.get("reason") or view.get("error") or "Run-order assessment did not produce a plan"
+            commands = view.get("rejectedCommands") or []
+            if commands:
+                reason = f"{reason} · proposed: {' · '.join(commands)}"
+            fail(reason, step="order", status=view.get("status"), commands=commands)
         emit(phase="plan", source="run_order", summary=view.get("summary"), plan=view.get("plan"),
              rationale=view.get("orderingRationale"), selected=view.get("selectedComponents"))
         return order_id, discovery["root"]
@@ -218,15 +221,18 @@ def load_env():
     return {k: v for k, v in values.items() if isinstance(k, str) and isinstance(v, str) and v}
 
 
-def hand_over(PE, cwd, values):
+def hand_over(PE, dirs, values):
     """Give the pipeline the saved values it can use. It only accepts names
     its scan found; the rest come back as ignored."""
     try:
-        known = {v["name"] for v in PE.scan(cwd).get("variables", [])}
-        usable = {k: v for k, v in values.items() if k in known}
-        if usable:
-            PE.save(cwd, usable)
-        return usable, sorted(set(values) - known)
+        usable = {}
+        for d in dirs:
+            known = {v["name"] for v in PE.scan(d).get("variables", [])}
+            found = {k: v for k, v in values.items() if k in known}
+            if found:
+                PE.save(d, found)
+            usable.update(found)
+        return usable, sorted(set(values) - set(usable))
     except Exception as exc:  # noqa: BLE001
         emit(phase="environment", warning=f"saved values could not be handed over: {str(exc)[:200]}")
         return {}, []
@@ -303,25 +309,54 @@ def supabase_failure(PS, cwd, reason):
     return text
 
 
-def environment(PE, cwd, provided, ignored, local, local_error=None):
-    """Report every variable the app reads and its state. What is still
-    missing is skipped, since the sandbox cannot ask anyone."""
+def plan_directories(PR, run_id, cwd, root):
+    """Every directory a step runs from or reads its configuration in. The
+    pipeline checks values per directory, so each one needs its own skips."""
+    dirs = [cwd]
+    try:
+        view = PR.view(run_id)
+        dirs += [p for p in view.get("environmentPaths") or [] if isinstance(p, str)]
+        for stage in view.get("stages") or []:
+            dirs += [stage.get(k) for k in ("cwd", "environmentCwd") if isinstance(stage.get(k), str)]
+    except Exception:  # noqa: BLE001
+        pass
+    seen = []
+    for d in dirs:
+        path = Path(d) if Path(d).is_absolute() else Path(root) / d
+        try:
+            resolved = path.resolve(strict=True)
+        except OSError:
+            continue
+        if resolved.is_dir() and resolved.is_relative_to(Path(root).resolve()) and str(resolved) not in seen:
+            seen.append(str(resolved))
+    return seen
+
+
+def environment(PE, dirs, provided, ignored, local, local_error=None):
+    """Report every variable the app reads and its state, across the plan's
+    directories. What is still missing is skipped, since the sandbox cannot
+    ask anyone."""
     skips = {}
     try:
-        report = PE.scan(cwd)
-        variables = []
-        for v in report.get("variables", []):
-            name = v["name"]
-            saved = v.get("source") == SAVED_SOURCE
-            status = "local" if name in local else "provided" if saved else v.get("status")
-            variables.append({"name": name, "status": status, "requirement": v.get("requirement"), "group": v.get("group"),
-                              "source": "local Supabase" if name in local else "saved" if saved else v.get("source"),
-                              "public": bool(v.get("public"))})
-        missing = [v["name"] for v in variables if v["status"] == "missing"]
-        if missing:
-            skips[str(Path(cwd).resolve())] = missing
-        emit(phase="environment", variables=variables, skipped=missing, provided=sorted(provided),
-             ignored=ignored, local=sorted(local), localError=local_error)
+        variables = {}
+        for d in dirs:
+            report = PE.scan(d)
+            missing = []
+            for v in report.get("variables", []):
+                name = v["name"]
+                saved = v.get("source") == SAVED_SOURCE
+                status = "local" if name in local else "provided" if saved else v.get("status")
+                if status == "missing":
+                    missing.append(name)
+                if name not in variables or status == "missing":
+                    variables[name] = {"name": name, "status": status, "requirement": v.get("requirement"), "group": v.get("group"),
+                                       "source": "local Supabase" if name in local else "saved" if saved else v.get("source"),
+                                       "public": bool(v.get("public"))}
+            if missing:
+                skips[d] = missing
+        rows = list(variables.values())
+        emit(phase="environment", variables=rows, skipped=sorted({n for names in skips.values() for n in names}), provided=sorted(provided),
+             ignored=ignored, local=sorted(local), localError=local_error, directories=len(dirs))
     except Exception as exc:  # noqa: BLE001
         emit(phase="environment", warning=str(exc)[:300])
     return skips
@@ -331,9 +366,10 @@ def run(PR, PE, PS, run_id, cwd, root):
     """Start the record and follow it until the app is ready ("ready") or it
     gives up (the reason). On ready the recipe is emitted for saving."""
     global LAST_LOCAL_ERROR, LAST_MISSING
-    provided, ignored = hand_over(PE, cwd, load_env())
+    dirs = plan_directories(PR, run_id, cwd, root)
+    provided, ignored = hand_over(PE, dirs, load_env())
     local, local_error = local_supabase(PS, PE, cwd, root)
-    skips = environment(PE, cwd, provided, ignored, local, local_error)
+    skips = environment(PE, dirs, provided, ignored, local, local_error)
     LAST_LOCAL_ERROR = local_error
     LAST_MISSING = sorted(name for names in skips.values() for name in names)
 

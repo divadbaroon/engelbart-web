@@ -5,10 +5,11 @@
 //   node sandbox/build-template.mjs base       # just the small one
 //   node sandbox/build-template.mjs docker     # just the Docker one
 //
-// Two templates come out of this. The base one is what most repositories
-// get. The Docker one adds Docker, Compose and the Supabase CLI, with more
-// memory, for repositories that bring up their own services; the worker
-// picks it when the repository has a compose file or a Supabase config.
+// Two templates come out of this, both at the largest size E2B allows. The
+// base one is what most repositories get. The Docker one adds Docker,
+// Compose and the Supabase CLI for repositories that bring up their own
+// services; the worker picks it when the repository has a compose file or
+// a Supabase config.
 //
 // HC_SOURCE points at a checkout of hc (pyproject.toml, src/). E2B_TEMPLATE
 // names the base template; the app reads the same variable when creating
@@ -74,9 +75,15 @@ function runner({ docker }) {
     .runCmd(`node --version && claude --version && railpack --version && bun --version && pnpm --version && uv --version && python3 -c 'import human_compact.trajectory.project_run'${docker ? " && docker --version && docker compose version && supabase --version" : ""}`);
 }
 
+// Both templates get the largest sandbox E2B allows. A front-end production
+// build needs a few GiB on its own, and a run killed for memory wastes far
+// more in model calls than the sandbox costs. Disk is asked for the same
+// way: a Python app with PyTorch plus a React build ran a 10 GiB root
+// full; 25 GiB is the most E2B grants, and growth is best effort.
+const SIZE = { cpuCount: 8, memoryMB: 8192, minFreeDiskMb: 25 * 1024 };
 const builds = [
-  { key: "base", name, template: runner({ docker: false }), options: {} },
-  { key: "docker", name: `${name}-docker`, template: runner({ docker: true }), options: { cpuCount: 2, memoryMB: 4096 } },
+  { key: "base", name, template: runner({ docker: false }), options: SIZE },
+  { key: "docker", name: `${name}-docker`, template: runner({ docker: true }), options: SIZE },
 ].filter((b) => which === "both" || which === b.key);
 
 for (const b of builds) {

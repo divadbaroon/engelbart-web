@@ -13,7 +13,11 @@ const DOCKER_START_MS = 45_000;
 const CLONE_SANDBOX_TIMEOUT_MS = 15 * 60_000;   // killed if untouched after the clone
 const CLONE_TIMEOUT_MS = 5 * 60_000;
 const RUN_SANDBOX_TIMEOUT_MS = 60 * 60_000;     // how long a launched app stays up untouched
-const LAUNCH_DEADLINE_MS = 12 * 60_000;         // install, agents and start, end to end
+// Install, agents and start, end to end. A real app can need a PyTorch
+// install, a front-end build and two repair attempts; the sandbox itself
+// lives an hour, so the deadline stays under that with room to save the
+// trail.
+const LAUNCH_DEADLINE_MS = 45 * 60_000;
 const WRAPPER = "/opt/engelbart/hc_run.py";
 const PROXY = "/opt/engelbart/proxy.mjs";
 const PROXY_PORT = 43110;   // the first public port; each service gets the next one, and their own ports stay loopback-only
@@ -188,6 +192,9 @@ export const e2bRuntime: Runtime = {
           HC_CHAT_PROVIDER: "claude",
           HC_EXPERIMENTAL: "1",
           HUMAN_COMPACT_HOME: "/home/user/.human-compact",
+          // Every pip in the run inherits this; a cached copy of each wheel
+          // once helped fill a sandbox disk.
+          PIP_NO_CACHE_DIR: "1",
           ...(replaying ? { HC_RECIPE_FILE: RECIPE_FILE } : {}),
           ...(handedEnv ? { HC_ENV_FILE: ENV_FILE } : {}),
         },
@@ -199,7 +206,7 @@ export const e2bRuntime: Runtime = {
         .then((r) => ({ kind: "WrapperExit", message: `The pipeline exited with code ${r.exitCode} before the application was ready.` }))
         .catch((err) => ({ kind: errorKind(err), message: err instanceof CommandExitError ? `The pipeline exited with code ${err.exitCode}: ${lastLine(err.stderr) || lastLine(err.stdout)}` : errorMessage(err) }));
       const timeout = new Promise<{ kind: string; message: string }>((resolve) =>
-        setTimeout(() => resolve({ kind: "LaunchTimeout", message: "The application was not ready within 12 minutes." }), LAUNCH_DEADLINE_MS));
+        setTimeout(() => resolve({ kind: "LaunchTimeout", message: `The application was not ready within ${LAUNCH_DEADLINE_MS / 60_000} minutes.` }), LAUNCH_DEADLINE_MS));
       const result = await Promise.race([outcome, exited.then((e) => ({ exit: e })), timeout.then((e) => ({ exit: e }))]);
       if ("exit" in result) {
         lines.flush();
