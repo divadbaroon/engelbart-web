@@ -1,0 +1,385 @@
+[
+  {
+    "url": "https://github.com/ianarawjo/ChainForge",
+    "owner": "ianarawjo",
+    "name": "ChainForge",
+    "kind": "web_preview",
+    "constraints": "Opening the UI can work without paid credentials, generating responses requires a configured provider. Monorepo and optional RAG extras complicate installation.",
+    "repoId": "025ca32f-00a9-45a8-bcee-0168ca0682c8",
+    "runId": "a993db56-7f93-4f50-94cd-c44be7bc44d4",
+    "status": "failed",
+    "template": "engelbart-runner-docker",
+    "commit": "41a0db193e91d94892a50980729af3f93931978d",
+    "startedAt": "2026-09-16T23:51:00.657953+00:00",
+    "totalMs": 73399,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Runner with Docker · cloned 41a0db1",
+        "ms": 36094
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "No trail yet; analyzing from scratch",
+        "ms": 1569
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "4 components · Analyzing…",
+        "ms": 35146
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Not scanned",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "skipped",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "failed",
+        "summary": "The pipeline exited with code 1: {\"phase\": \"error\", \"step\": \"order\", \"message\": \"Run-order evidence request limit reached\", \"status\": \"error\"} · The pipeline exited with code 1: {\"phase\": \"error\", \"step\": \"order\", \"message\": \"Run-order evidence request limit reached\", \"status\": \"error\"}",
+        "ms": 590
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      }
+    ],
+    "docker": true,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "error": "The pipeline exited with code 1: {\"phase\": \"error\", \"step\": \"order\", \"message\": \"Run-order evidence request limit reached\", \"status\": \"error\"}"
+  },
+  {
+    "url": "https://github.com/mqo00/hypocompass",
+    "owner": "mqo00",
+    "name": "hypocompass",
+    "kind": "web_preview",
+    "constraints": "README suggests Node 16. Backend and frontend must both start. Do not infer credential requirement from an installed OpenAI client alone.",
+    "repoId": "af60e880-5d35-4fd4-9bea-1f895ff4c62f",
+    "runId": "a22b07b1-82b9-4b88-81be-227e243967f5",
+    "status": "running",
+    "template": "engelbart-runner",
+    "commit": "7bc855e7316aeb17e9919013a26aa0427138d480",
+    "startedAt": "2026-09-16T23:51:01.079461+00:00",
+    "totalMs": 169290,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 7bc855e",
+        "ms": 19155
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "No trail yet; analyzing from scratch",
+        "ms": 1515
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "3 components · Run the HypoCompass system: Flask backend and React frontend as documented in system/README.md",
+        "ms": 21552
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 173
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "/usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/95cb52a23e98fa5e404592d9/3.11-a843ecaa054b420685e4cc35e5a5372c · /home/user/.human-compact/project-environments/95cb52a23e98fa5e404592d9/3.11-a843ecaa054b420685e4cc35e5a5372c/bin/python -m pip install -r requirements.txt · npm install · /home/user/.human-compact/project-environments/95cb52a23e98fa5e404592d9/3.11-a843ecaa054b420685e4cc35e5a5372c/bin/python base.py · npm start",
+        "ms": 64115
+      },
+      {
+        "id": "health",
+        "state": "done",
+        "summary": "Answered on the first check",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "done",
+        "summary": "Live at https://43110-i1rvju2uw9f1q0m9delpn.e2b.app · 2 services · trail saved and shared",
+        "ms": 62780
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "shared",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": "https://43110-i1rvju2uw9f1q0m9delpn.e2b.app",
+    "http": {
+      "status": 200,
+      "title": "HypoCompass"
+    },
+    "screenshot": "p1/mqo00-hypocompass.png",
+    "error": null
+  },
+  {
+    "url": "https://github.com/joonspk-research/generative_agents",
+    "owner": "joonspk-research",
+    "name": "generative_agents",
+    "kind": "web_preview",
+    "constraints": "Replay and new simulation are distinct workflows. New simulation makes paid model calls, UI health alone does not validate agent behavior.",
+    "repoId": "0efff0fd-43c4-453b-a201-0338c0673fda",
+    "runId": "82222d58-4a92-435c-98c6-671227c9b8fb",
+    "status": "failed",
+    "template": "engelbart-runner",
+    "commit": "fe05a71d3e4ed7d10bf68aa4eda6dd995ec070f4",
+    "startedAt": "2026-09-16T23:51:01.441013+00:00",
+    "totalMs": 124843,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned fe05a71",
+        "ms": 105510
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "No trail yet; analyzing from scratch",
+        "ms": 1543
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "2 components · Analyzing…",
+        "ms": 17170
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Not scanned",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "skipped",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "failed",
+        "summary": "The pipeline exited with code 1: {\"phase\": \"error\", \"step\": \"order\", \"message\": \"[Errno 2] No such file or directory: '/home/user/generative_agents/reverie/back · The pipeline exited with code 1: {\"phase\": \"error\", \"step\": \"order\", \"message\": \"[Errno 2] No such file or directory: '/home/user/generative_agents/reverie/back",
+        "ms": 620
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "error": "The pipeline exited with code 1: {\"phase\": \"error\", \"step\": \"order\", \"message\": \"[Errno 2] No such file or directory: '/home/user/generative_agents/reverie/backend_server/utils.py'\", \"status\": \"error\"}"
+  },
+  {
+    "url": "https://github.com/stanford-oval/storm",
+    "owner": "stanford-oval",
+    "name": "storm",
+    "kind": "web_preview",
+    "constraints": "Core package and nested demo have distinct entry points. Cloud search and model credentials are needed for the corresponding article-generation example.",
+    "repoId": "759fa0cf-f3a3-47cb-9619-f80eef9ac8f2",
+    "runId": "8afd7dcf-d341-4ec4-afa2-7e05190f4db7",
+    "status": "failed",
+    "template": "engelbart-runner",
+    "commit": "fb951af7744dab086e34962e9bc6fe878e145f83",
+    "startedAt": "2026-09-16T23:51:01.737371+00:00",
+    "totalMs": 57082,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned fb951af",
+        "ms": 30769
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "No trail yet; analyzing from scratch",
+        "ms": 1323
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "2 components · Analyzing…",
+        "ms": 24278
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Not scanned",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "skipped",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "failed",
+        "summary": "The pipeline exited with code 1: {\"phase\": \"error\", \"step\": \"order\", \"message\": \"Command is outside supported local setup operations\", \"status\": \"error\"} · Command is outside supported local setup operations",
+        "ms": 712
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "error": "Command is outside supported local setup operations"
+  },
+  {
+    "url": "https://github.com/microsoft/autogen",
+    "owner": "microsoft",
+    "name": "autogen",
+    "kind": "web_preview",
+    "constraints": "Must choose a component such as Studio. Installing a root monorepo or importing the framework does not start the GUI.",
+    "repoId": "1e27caf0-a2d1-4792-b69f-c970e2dcf881",
+    "runId": "e2065b7a-f40d-498c-b67e-90b2992f198d",
+    "status": "failed",
+    "template": "engelbart-runner-docker",
+    "commit": "027ecf0a379bcc1d09956d46d12d44a3ad9cee14",
+    "startedAt": "2026-09-16T23:51:02.040559+00:00",
+    "totalMs": 105731,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Runner with Docker · cloned 027ecf0",
+        "ms": 77746
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "No trail yet; analyzing from scratch",
+        "ms": 1769
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "18 components · Analyzing…",
+        "ms": 25365
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Not scanned",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "skipped",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "failed",
+        "summary": "The pipeline exited with code 1: {\"phase\": \"error\", \"step\": \"order\", \"message\": \"This monorepo contains multiple independent, unrelated applications with no sin · The pipeline exited with code 1: {\"phase\": \"error\", \"step\": \"order\", \"message\": \"This monorepo contains multiple independent, unrelated applications with no sin",
+        "ms": 851
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      }
+    ],
+    "docker": true,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "error": "The pipeline exited with code 1: {\"phase\": \"error\", \"step\": \"order\", \"message\": \"This monorepo contains multiple independent, unrelated applications with no single declared root dev entry point: the AutoGen Studio web IDE (python/packages/autogen-studio + its frontend, which has yarn dev/start scripts and its own FastAPI backend), the agbench benchmarking CLI, the core_streaming_handoffs_fastapi sample (with a static/index.html frontend), the gitty sample, several other Python samples/packages, and separate .NET samples under dotnet/. These are not interdependent (README.md and python/README.md describe autogen-core/agentchat/ext/studio as a package workspace, not a single runnable app) and Railpack only reports build/start info for the autogen-studio frontend and the python workspace root, not a unified entry point. Please specify which application you want to run — for example, 'AutoGen Studio' (python/packages/autogen-studio backend + python/packages/autogen-studio/frontend) or the 'core_streaming_handoffs_fastapi' sample.\", \"status\": \"needs_input\"}"
+  }
+]
