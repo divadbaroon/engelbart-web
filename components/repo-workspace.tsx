@@ -166,7 +166,7 @@ function Preview({ repo, run, error, events, version, missing, localError, patch
   if (showPatch && patch) {
     return <PatchView patch={patch} onBack={() => setShowPatch(false)} onRunWithoutPatch={run && isRunActive(run) ? null : () => { setShowPatch(false); onRunWithoutPatch(); }} />;
   }
-  if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} version={version} patch={patch} onShowPatch={() => setShowPatch(true)} onStop={onStop} />;
+  if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} events={events} version={version} patch={patch} onShowPatch={() => setShowPatch(true)} onStop={onStop} />;
 
   const [title, detail, action] = error
     ? ["Could not prepare " + repo.fullName, error, { label: "Try again", onClick: onPrepare }]
@@ -260,7 +260,8 @@ function TrailInsight({ repo }: { repo: Repo }) {
 // servers push changes themselves; a plain file server never does, and the
 // reload covers both. A run with several services (a frontend and its API,
 // say) gets a picker; a service that forbids framing opens in a tab instead.
-function RunningPreview({ repo, run, version, patch, onShowPatch, onStop }: { repo: Repo; run: SandboxRun; version: number; patch: RepoPatch | null; onShowPatch: () => void; onStop: (runId: string) => void }) {
+// The steps that brought it up stay one click away above the page.
+function RunningPreview({ repo, run, events, version, patch, onShowPatch, onStop }: { repo: Repo; run: SandboxRun; events: SandboxEvent[]; version: number; patch: RepoPatch | null; onShowPatch: () => void; onStop: (runId: string) => void }) {
   const services = useMemo<PreviewService[]>(
     () => (run.services?.length ? run.services : [{ id: "app", port: run.port ?? 0, previewUrl: run.previewUrl!, isEntry: true, embeddable: true }]),
     [run.services, run.port, run.previewUrl],
@@ -313,6 +314,7 @@ function RunningPreview({ repo, run, version, patch, onShowPatch, onStop }: { re
         </Button>
         <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="h-6 px-2 font-normal text-muted-foreground">Stop</Button>
       </div>
+      <RunTimeline run={run} events={events} open={false} className="max-h-[60%] shrink-0 overflow-y-auto border-b" />
       {service.embeddable ? (
         <iframe key={`${service.id}:${reloads}`} src={service.previewUrl} title={`${repo.fullName} ${service.id} preview`} onLoad={() => setLoading(null)} className="min-h-0 w-full flex-1 bg-white" />
       ) : (
