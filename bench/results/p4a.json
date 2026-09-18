@@ -1,0 +1,127 @@
+[
+  {
+    "url": "https://github.com/ianarawjo/ChainForge",
+    "owner": "ianarawjo",
+    "name": "ChainForge",
+    "kind": "web_preview",
+    "constraints": "Opening the UI can work without paid credentials, generating responses requires a configured provider. Monorepo and optional RAG extras complicate installation.",
+    "repoId": "025ca32f-00a9-45a8-bcee-0168ca0682c8",
+    "runId": "57ab7865-48db-49f8-9534-14dc1c9ad51b",
+    "status": "killed",
+    "template": "engelbart-runner-docker",
+    "commit": "48aadbdfec7d55f03d6b57256e18df08af7f9988",
+    "startedAt": "2026-09-18T02:38:16.535417+00:00",
+    "totalMs": 808079,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Runner with Docker · cloned 48aadbd",
+        "ms": 48930
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 2394
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "4 components · Run ChainForge's Flask backend (chainforge/app.py) which serves the built React frontend as a single app on port 8000, per README's 'pip install chainforge; chainforge serve' workflow and the Docker build (build React, then serve via Flask).",
+        "ms": 62828
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "warned",
+        "summary": "1 missing",
+        "ms": 1617
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "/usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/9bebda77c77943165778b4cb/3.11-shared · npm install · npm run build (2 passes)",
+        "ms": 360252
+      },
+      {
+        "id": "health",
+        "state": "warned",
+        "summary": "Repair attempt 1 edited 2 files",
+        "ms": 332058
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": true,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [
+      "OMP_NUM_THREADS"
+    ],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 1,
+    "patch": {
+      "files": [
+        "chainforge/app.py",
+        "chainforge/react-server/package-lock.json"
+      ],
+      "summary": "Made `python app.py` work as the backend entry point: it now adds the checkout root to sys.path when run as a script (so `import chainforge` resolves without the package being pip-installed), and treats a bare invocation with no arguments as `serve` instead of printing help and exiting."
+    },
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/9bebda77c77943165778b4cb/3.11-shared",
+      "backend-deps: /home/user/.human-compact/project-environments/9bebda77c77943165778b4cb/3.11-shared/bin/python -m pip install -r requirements.txt",
+      "frontend-install: npm install",
+      "backend: /home/user/.human-compact/project-environments/9bebda77c77943165778b4cb/3.11-shared/bin/python app.py",
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/9bebda77c77943165778b4cb/3.11-shared",
+      "install-frontend: npm install",
+      "build-frontend: npm run build"
+    ],
+    "failures": [
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "failed: Setup recovery stopped after 5 repair attempts. Repair repeats the failed component configuration (command, runtime and manifests). Change a relevant input before retrying.",
+        "stage": "compatibility",
+        "detail": {
+          "agent": {
+            "call": 1,
+            "name": "Setup Repair Agent",
+            "model": "sonnet",
+            "phase": "Model response received",
+            "status": "done",
+            "outcome": "plan",
+            "seconds": 18.33
+          },
+          "attempt": 6
+        }
+      },
+      {
+        "step": "worker",
+        "source": "worker",
+        "reason": "[unavailable] the connection to sandbox i9yvtx0dxnugtfaapbcnm ended before the stream completed: This error is likely due to sandbox timeout. You can modify the sandbox timeout by passing 'timeoutMs' when starting the sandbox or calling '.setTimeout' on the sandbox with the desired timeout.",
+        "stage": null,
+        "detail": {
+          "kind": "TimeoutError"
+        }
+      }
+    ],
+    "output": "src/JoinNode.tsx 34ms (unchanged)\nsrc/LLMEvalNode.tsx 33ms (unchanged)\nsrc/LLMItemButtonGroup.tsx 4ms (unchanged)\nsrc/LLMListComponent.tsx 26ms (unchanged)\nsrc/LLMListItem.tsx 18ms (unchanged)\nsrc/LLMResponseInspector.tsx 105ms (unchanged)\nsrc/LLMResponseInspectorDrawer.tsx 3ms (unchanged)\nsrc/LLMResponseInspectorModal.tsx 6ms (unchanged)\nsrc/MediaNode.tsx 57ms (unchanged)\nsrc/mediaThumbnails.ts 9ms (unchanged)\nsrc/ModelSettingSchemas.tsx 84ms (unchanged)\nsrc/ModelSettingsModal.tsx 20ms (unchanged)\nsrc/MultiEvalNode.tsx 45ms (unchanged)\nsrc/NestedMenu.tsx 11ms (unchanged)\nsrc/NodeLabelComponent.tsx 9ms (unchanged)\nsrc/pdfjs-webpack.d.ts 3ms (unchanged)\nsrc/PlotLegend.tsx 4ms (unchanged)\nsrc/PromptNode.tsx 95ms (unchanged)\nsrc/RagChatNode.tsx 61ms (unchanged)\nsrc/RemoveEdge.tsx 14ms (unchanged)\nsrc/RenameValueModal.tsx 5ms (unchanged)\nsrc/reportWebVitals.js 2ms (unchanged)\nsrc/RequestClarificationModal.tsx 4ms (unchanged)\nsrc/RerankMethodListComponent.tsx 16ms (unchanged)\nsrc/RerankMethodSchemas.tsx 11ms (unchanged)\nsrc/RerankNode.tsx 29ms (unchanged)\nsrc/ResizeHandle.tsx 6ms (unchanged)\nsrc/ResponseBoxes.tsx 28ms (unchanged)\nsrc/ResponseGridView.tsx 69ms (unchanged)\nsrc/ResponseRatingToolbar.tsx 15ms (unchanged)\nsrc/RetrievalMethodListComponent.tsx 51ms (unchanged)\nsrc/RetrievalMethodSchemas.tsx 21ms (unchanged)\nsrc/RetrievalNode.tsx 28ms (unchanged)\nsrc/runDownstream.ts 2ms (unchanged)\nsrc/ScriptNode.tsx 8ms (unchanged)\nsrc/SelectVarsNode.tsx 18ms (unchanged)\nsrc/setupTests.js 4ms (unchanged)\nsrc/SimpleEvalNode.tsx 26ms (unchanged)\nsrc/SplitNode.tsx 20ms (unchanged)\nsrc/StatusIndicatorComponent.tsx 4ms (unchanged)\nsrc/store.tsx 60ms (unchanged)\nsrc/StrictModeDroppable.js 4ms (unchanged)\nsrc/styles.css 137ms (unchanged)\nsrc/TableResponseCell.tsx 24ms (unchanged)\nsrc/TabularDataNode.tsx 47ms (unchanged)\nsrc/TemplateHighlightTextarea.tsx 12ms (unchanged)\nsrc/TemplateHooksComponent.tsx 9ms (unchanged)\nsrc/TextFieldsNode.tsx 25ms (unchanged)\nsrc/UploadFileModal.tsx 17ms (unchanged)\nsrc/UploadNode.tsx 17ms (unchanged)\nsrc/useAIFeatures.ts 3ms (unchanged)\nsrc/useEdgePreview.ts 6ms (unchanged)\nsrc/useMediaUrl.ts 7ms (unchanged)\nsrc/useNodeRunner.ts 6ms (unchanged)\nsrc/useUndoAIOverwrite.ts 5ms (unchanged)\nsrc/VirtualResponseGrid.tsx 27ms (unchanged)\nsrc/VisNode.tsx 81ms (unchanged)\nsrc/VisNodeAIPlot.tsx 20ms (unchanged)\ntsconfig.json 1ms (unchanged)\nCreating an optimized production build..."
+  }
+]

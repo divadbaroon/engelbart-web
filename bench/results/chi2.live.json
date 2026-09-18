@@ -1,0 +1,47 @@
+{
+  "55127478-cd20-4bb9-b5da-8dde7205dd2e": {
+    "at": "2026-09-18T07:32:10.802Z",
+    "previewUrl": "https://43110-isuftfzpv7sc9fa7r9dkm.e2b.app/vipera",
+    "http": {
+      "status": 200,
+      "title": ""
+    },
+    "screenshot": "chi2/56eb2ed6-0227-4181-83ec-09783a333129.png"
+  },
+  "5c7cac04-beaf-4d2e-87fe-08cd43baf237": {
+    "at": "2026-09-18T07:58:22.335Z",
+    "previewUrl": "https://43110-iub7pk0octt88n2qa8upe.e2b.app",
+    "http": {
+      "status": 200,
+      "title": "Vue App"
+    },
+    "screenshot": "chi2/206cc8f0-8fc8-41ae-be85-fad34af0524a.png"
+  },
+  "dba5607e-c272-41be-ae00-29795a21a6d7": {
+    "at": "2026-09-18T08:06:52.343Z",
+    "previewUrl": "https://43110-iox8zg94utb0mw8gq3wtf.e2b.app",
+    "http": {
+      "status": 200,
+      "title": "Dashboard"
+    },
+    "screenshot": "chi2/b30ab341-30bc-4b20-9fd9-787a3684b5f2.png"
+  },
+  "3bf4e5ca-6357-4fc9-9058-b05c414b2379": {
+    "at": "2026-09-18T08:17:04.482Z",
+    "previewUrl": "https://43110-ixrz6juugx0g3b0nr5z6f.e2b.app",
+    "http": {
+      "status": 200,
+      "title": "Children chatbot"
+    },
+    "screenshot": "chi2/b9d81481-4532-4135-a4c0-aa47b68cb789.png"
+  },
+  "f3652404-0ab8-4c5e-bf48-364443cfd5de": {
+    "at": "2026-09-18T08:29:33.190Z",
+    "previewUrl": "https://43110-i4bs66c87pfp5ui0vu2h8.e2b.app",
+    "http": {
+      "status": 200,
+      "title": "Rambler"
+    },
+    "screenshot": "chi2/03a9b026-c4f6-4b07-af7f-c32e1036edd9.png"
+  }
+}

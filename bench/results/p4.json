@@ -1,0 +1,3073 @@
+[
+  {
+    "url": "https://github.com/stanford-oval/storm",
+    "owner": "stanford-oval",
+    "name": "storm",
+    "kind": "web_preview",
+    "constraints": "Core package and nested demo have distinct entry points. Cloud search and model credentials are needed for the corresponding article-generation example.",
+    "repoId": "759fa0cf-f3a3-47cb-9619-f80eef9ac8f2",
+    "runId": "4002c9e3-379c-4f9c-a79a-4755cbd79d81",
+    "status": "expired",
+    "template": "engelbart-runner",
+    "commit": "fb951af7744dab086e34962e9bc6fe878e145f83",
+    "startedAt": "2026-09-18T02:51:46.853437+00:00",
+    "totalMs": 446621,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned fb951af",
+        "ms": 22259
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1357
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "2 components · The root 'storm' component is a Python library/CLI package (knowledge-storm) with no HTTP application of its own; the only runnable HTTP app is the Streamlit demo in frontend/demo_light, which the demo_light README documents as run via `streamlit run storm.py`. Root package must be installed into demo_light's environment so it imports the local knowledge_storm code.",
+        "ms": 33829
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "warned",
+        "summary": "11 missing",
+        "ms": 498
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "/usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared · /home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/bin/python -m pip install -e ../.. · /home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/bin/python -m pip install -r requirements.txt · /home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/bin/streamlit run storm.py --server.port 8501 --server.address 127.0.0.1 (2 passes)",
+        "ms": 278847
+      },
+      {
+        "id": "health",
+        "state": "warned",
+        "summary": "Repair attempt 1 edited 1 file",
+        "ms": 107467
+      },
+      {
+        "id": "live",
+        "state": "done",
+        "summary": "Up · trail saved and shared · stopped",
+        "ms": 2364
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [
+      "AZURE_AI_SEARCH_API_KEY",
+      "AZURE_AI_SEARCH_INDEX_NAME",
+      "AZURE_AI_SEARCH_URL",
+      "BING_SEARCH_API_KEY",
+      "BRAVE_API_KEY",
+      "GOOGLE_CSE_ID",
+      "GOOGLE_SEARCH_API_KEY",
+      "LITELLM_LOCAL_MODEL_COST_MAP",
+      "SERPER_API_KEY",
+      "TAVILY_API_KEY",
+      "YDC_API_KEY"
+    ],
+    "trail": "shared",
+    "replayHeld": null,
+    "repairAttempts": 1,
+    "patch": {
+      "files": [
+        "requirements.txt"
+      ],
+      "summary": "Added the missing `lxml_html_clean` dependency to requirements.txt (lxml 5.x moved `lxml.html.clean` into a separate package, which trafilatura/justext import at module load), and created the `frontend/demo_light/.streamlit/secrets.toml` file the demo's README says to create, using placeholder values."
+    },
+    "previewUrl": "https://43110-i483sywnl8qu2fj25yfet.e2b.app",
+    "http": {
+      "status": 200,
+      "title": "Streamlit"
+    },
+    "screenshot": "p4/759fa0cf-f3a3-47cb-9619-f80eef9ac8f2.png",
+    "liveAt": "2026-09-18T02:59:30.518Z",
+    "error": null,
+    "next": null,
+    "stages": [
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared",
+      "install-root: /home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/bin/python -m pip install -e ../..",
+      "install-demo: /home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/bin/python -m pip install -r requirements.txt",
+      "demo_light: /home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/bin/streamlit run storm.py --server.port 8501 --server.address 127.0.0.1",
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared",
+      "install-root: /home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/bin/python -m pip install -e ../..",
+      "install-demo: /home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/bin/python -m pip install -r requirements.txt",
+      "demo_light: /home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/bin/streamlit run storm.py --server.port 8501 --server.address 127.0.0.1"
+    ],
+    "failures": [
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "unhealthy: demo_light answered on its port, but its output shows the application crashed inside",
+        "stage": "demo_light",
+        "detail": {}
+      }
+    ],
+    "output": "Collecting usage statistics. To deactivate, set browser.gatherUsageStats to False.\n  You can now view your Streamlit app in your browser.\n  URL: http://127.0.0.1:8501\n2026-09-18 02:56:43.038 Uncaught app exception\nTraceback (most recent call last):\n  File \"/home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/lib/python3.11/site-packages/streamlit/runtime/scriptrunner/script_runner.py\", line 535, in _run_script\n    exec(code, module.__dict__)\n  File \"/home/user/storm/frontend/demo_light/storm.py\", line 6, in <module>\n    import demo_util\n  File \"/home/user/storm/frontend/demo_light/demo_util.py\", line 16, in <module>\n    from knowledge_storm import (\n  File \"/home/user/storm/knowledge_storm/__init__.py\", line 1, in <module>\n    from .storm_wiki import *\n  File \"/home/user/storm/knowledge_storm/storm_wiki/__init__.py\", line 1, in <module>\n    from .engine import *\n  File \"/home/user/storm/knowledge_storm/storm_wiki/engine.py\", line 9, in <module>\n    from .modules.article_generation import StormArticleGenerationModule\n  File \"/home/user/storm/knowledge_storm/storm_wiki/modules/__init__.py\", line 1, in <module>\n    from .knowledge_curation import *\n  File \"/home/user/storm/knowledge_storm/storm_wiki/modules/knowledge_curation.py\", line 11, in <module>\n    from .storm_dataclass import DialogueTurn, StormInformationTable\n  File \"/home/user/storm/knowledge_storm/storm_wiki/modules/storm_dataclass.py\", line 10, in <module>\n    from ...interface import Information, InformationTable, Article, ArticleSectionNode\n  File \"/home/user/storm/knowledge_storm/interface.py\", line 12, in <module>\n    from .utils import ArticleTextProcessing\n  File \"/home/user/storm/knowledge_storm/utils.py\", line 16, in <module>\n    from trafilatura import extract\n  File \"/home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/lib/python3.11/site-packages/trafilatura/__init__.py\", line 16, in <module>\n    from .core import bare_extraction, extract, extract_with_metadata\n  File \"/home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/lib/python3.11/site-packages/trafilatura/core.py\", line 20, in <module>\n    from .external import compare_extraction, justext_rescue\n  File \"/home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/lib/python3.11/site-packages/trafilatura/external.py\", line 10, in <module>\n    from justext.core import ParagraphMaker, classify_paragraphs, revise_paragraph_classification\n  File \"/home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/lib/python3.11/site-packages/justext/__init__.py\", line 12, in <module>\n    from .core import justext\n  File \"/home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/lib/python3.11/site-packages/justext/core.py\", line 21, in <module>\n    from lxml.html.clean import Cleaner\n  File \"/home/user/.human-compact/project-environments/7d81b3bddd16f5bcbbb053f9/3.11-shared/lib/python3.11/site-packages/lxml/html/clean.py\", line 18, in <module>\n    raise ImportError(\nImportError: lxml.html.clean module is now a separate project lxml_html_clean.\nInstall lxml[html-clean] or lxml_html_clean directly.\nCollecting usage statistics. To deactivate, set browser.gatherUsageStats to False.\n  You can now view your Streamlit app in your browser.\n  URL: http://127.0.0.1:8501"
+  },
+  {
+    "url": "https://github.com/stanfordnlp/dspy",
+    "owner": "stanfordnlp",
+    "name": "dspy",
+    "kind": "library_or_cli",
+    "constraints": "Library import is a different contract from a web server. Selecting a usage example is necessary for a functional test.",
+    "repoId": "121cccb7-61f0-4b22-8f46-21e07227036e",
+    "runId": "e31ad290-1224-4d39-a0f1-3008e985089f",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "2a4c921602730cb97d54b619ed65bf55cd3af8bb",
+    "startedAt": "2026-09-18T02:51:47.196384+00:00",
+    "totalMs": 48274,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 2a4c921",
+        "ms": 30760
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1491
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "3 components · Nothing to serve: DSPy is a Python framework/library for programming with language models (installed via 'pip install dspy' and used as an import in Python code, per README.md and pyproject.toml). '.github/.internal_ds",
+        "ms": 15844
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 179
+      },
+      {
+        "id": "health",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "DSPy is a Python framework/library for programming with language models (installed via 'pip install dspy' and used as an import in Python code, per README.md and pyproject.toml). '.github/.internal_dspyai' is a compatibility alias package with no server code. 'docs' is a MkDocs documentation site (docs/requirements.txt: mkdocs-material, mkdocstrings, etc.) built with 'mkdocs build' and previewed via 'mkdocs serve', which is a documentation tooling workflow, not an application to run persistently. None of the three components expose an HTTP application; there is nothing to launch as a service.",
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/microsoft/autogen",
+    "owner": "microsoft",
+    "name": "autogen",
+    "kind": "web_preview",
+    "constraints": "Must choose a component such as Studio. Installing a root monorepo or importing the framework does not start the GUI.",
+    "repoId": "1e27caf0-a2d1-4792-b69f-c970e2dcf881",
+    "runId": "013b07b4-d99a-42f8-b93f-ea0258e702c1",
+    "status": "killed",
+    "template": "engelbart-runner-docker",
+    "commit": "027ecf0a379bcc1d09956d46d12d44a3ad9cee14",
+    "startedAt": "2026-09-18T02:51:47.535882+00:00",
+    "totalMs": 1266891,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Runner with Docker · cloned 027ecf0",
+        "ms": 41755
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1079
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "18 components · Run AutoGen Studio (python/packages/autogen-studio) via its `autogenstudio ui` CLI entrypoint, per personHint. Sibling workspace libraries (autogen-core, autogen-agentchat, autogen-ext) are installed editable into the same virtualenv so Studio imports the local repo code instead of a released package, but they are not run as separate services. The bundled frontend is served internally by the CLI, so it is not launched as its own process.",
+        "ms": 151246
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "warned",
+        "summary": "2 missing",
+        "ms": 2417
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "/usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared · /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e ../autogen-core · /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e ../autogen-agentchat · /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e ../autogen-ext · /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e . · /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -r requirements.txt · /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/uvicorn autogenstudio.web.app:app --host 127.0.0.1 --port 8081 (3 passes)",
+        "ms": 859013
+      },
+      {
+        "id": "health",
+        "state": "warned",
+        "summary": "Repair attempt 1 edited 3 files",
+        "ms": 211381
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": true,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [
+      "AUTOGENSTUDIO_API_DOCS",
+      "AUTOGENSTUDIO_TEAM_FILE"
+    ],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 1,
+    "patch": {
+      "files": [
+        "python/packages/autogen-ext/pyproject.toml",
+        "python/packages/autogen-studio/pyproject.toml",
+        "python/uv.lock"
+      ],
+      "summary": "Pinned the `mcp` dependency to the 1.x line (`mcp>=1.11.0,<2`) in autogen-studio and autogen-ext, plus the matching specifiers in python/uv.lock. The unbounded requirement let pip install mcp 2.2.0, where `streamablehttp_client` was renamed, so importing `autogen_ext.tools.mcp` (and `autogenstudio.web.routes.mcp`) crashed at startup."
+    },
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared",
+      "install-core: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e ../autogen-core",
+      "install-agentchat: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e ../autogen-agentchat",
+      "install-ext: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e ../autogen-ext",
+      "install-requirements: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -r requirements.txt",
+      "install-studio: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e .",
+      "autogen-studio: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/autogenstudio ui",
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared",
+      "install-core: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e ../autogen-core",
+      "install-agentchat: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e ../autogen-agentchat",
+      "install-ext: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e ../autogen-ext",
+      "install-studio: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e .",
+      "install-reqs: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -r requirements.txt",
+      "studio: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/autogenstudio ui --port 8081 --host 127.0.0.1",
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared",
+      "install-core: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e ../autogen-core",
+      "install-agentchat: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e ../autogen-agentchat",
+      "install-ext: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e ../autogen-ext",
+      "install-studio: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -e .",
+      "install-reqs: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/python -m pip install -r requirements.txt",
+      "studio: /home/user/.human-compact/project-environments/0aa1d2264c9e6ac7f4efab75/3.11-shared/bin/uvicorn autogenstudio.web.app:app --host 127.0.0.1 --port 8081"
+    ],
+    "failures": [
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "failed: Setup evidence budget exceeded",
+        "stage": "setup",
+        "detail": {
+          "attempt": 3
+        }
+      }
+    ],
+    "output": "INFO:     127.0.0.1:56806 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:56820 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:56828 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:56844 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:56846 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:56854 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:56866 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:56874 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:56888 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:56902 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40030 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40038 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40054 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40060 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40068 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40082 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40090 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40106 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40116 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40126 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40130 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40138 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40144 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40160 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40166 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40174 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40186 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40198 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40200 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40214 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40218 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40220 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40232 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40242 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40244 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40254 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40260 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40276 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40278 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40290 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40302 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40316 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40318 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40320 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40328 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40334 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40340 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40346 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40360 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40376 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40388 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40396 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40404 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40420 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40424 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40438 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40446 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40454 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40468 - \"GET / HTTP/1.1\" 404 Not Found\nINFO:     127.0.0.1:40478 - \"GET / HTTP/1.1\" 404 Not Found"
+  },
+  {
+    "url": "https://github.com/SWE-agent/SWE-agent",
+    "owner": "SWE-agent",
+    "name": "SWE-agent",
+    "kind": "library_or_cli",
+    "constraints": "Launching the inspector does not prove an agent completed a coding task. Running tasks executes external code and consumes configured model resources.",
+    "repoId": "83acae4c-424a-4ff3-847f-5427fe20eb01",
+    "runId": "0b0c1760-41d0-444e-a027-3981fc5dc934",
+    "status": "no_service",
+    "template": "engelbart-runner-docker",
+    "commit": "3ea751c087f32b16e039a2233dd6eefecef325d5",
+    "startedAt": "2026-09-18T02:51:48.006462+00:00",
+    "totalMs": 52804,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Runner with Docker · cloned 3ea751c",
+        "ms": 33421
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1440
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "5 components · Nothing to serve: SWE-agent (repository root) is a Python CLI/library for running LM-driven coding agents, invoked via the `sweagent` console script (pyproject.toml: [project.scripts] sweagent = \"sweagent.run.run:main\"",
+        "ms": 17617
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 326
+      },
+      {
+        "id": "health",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": true,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "SWE-agent (repository root) is a Python CLI/library for running LM-driven coding agents, invoked via the `sweagent` console script (pyproject.toml: [project.scripts] sweagent = \"sweagent.run.run:main\") as documented in README.md's Get Started section — it exposes no HTTP application. sweagent/inspector is a static trajectory-viewer page meant to be opened locally alongside CLI-generated trajectory files (sweagent/inspector/README.md), not a primary demo the README promotes. The docker-compose.yml files under tests/test_data/data_sources/ctf/* are CTF challenge fixtures consumed by the test suite/benchmark harness (their READMEs describe them as challenge descriptions with flags/points, e.g. tests/test_data/data_sources/ctf/pwn/warmup/README.md), not part of an application to launch, and none is presented as primary. This repository is used by installing the package (`pip install -e .`) and running `sweagent run ...` from the command line, or by using its Python API as a library — there",
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/ServiceNow/WorkArena",
+    "owner": "ServiceNow",
+    "name": "WorkArena",
+    "kind": "library_or_cli",
+    "constraints": "Gated remote service access is an expected prerequisite. The HF artifact contains instance access information, not a replacement for a ServiceNow deployment.",
+    "repoId": "316096b1-39a7-45f5-9aa4-b80ff2075c5f",
+    "runId": "a40e3750-f025-4fbc-90a8-7dc92a26bcc2",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "a772230a94cf1caf4166b8ead3983f3b3786455b",
+    "startedAt": "2026-09-18T02:51:48.352625+00:00",
+    "totalMs": 53093,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned a772230",
+        "ms": 30345
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1588
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "2 components · Nothing to serve: WorkArena is a Python benchmark library (browsergym-workarena) exposing browser-based tasks against ServiceNow instances, installed via pip and driven programmatically through the BrowserGym API (typi",
+        "ms": 20852
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 308
+      },
+      {
+        "id": "health",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "WorkArena is a Python benchmark library (browsergym-workarena) exposing browser-based tasks against ServiceNow instances, installed via pip and driven programmatically through the BrowserGym API (typically orchestrated by AgentLab). It has no HTTP server or standalone application entrypoint of its own. The 'dev' directory only holds development/test tooling (black, pytest, pre-commit) plus an editable install of the root package for contributors, not a runnable service. The scripts under src/browsergym/workarena/tasks/scripts are config-generation/validation utilities, not an application. Usage is: pip install browsergym-workarena; playwright install; then invoke it from Python (e.g., via BrowserGym/AgentLab) against a configured ServiceNow instance.",
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/vega/vega-lite",
+    "owner": "vega",
+    "name": "vega-lite",
+    "kind": "library_or_cli",
+    "constraints": "A successful compiler build is not a server. Jekyll site dependencies are additional to the JavaScript library.",
+    "repoId": "1739b887-e2d4-4575-a83b-b566febdc1d4",
+    "runId": "bd4fc4e5-e774-4283-97d4-91d63f1943d8",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "831e308cf9feba791db0c279dea5f7983ca98445",
+    "startedAt": "2026-09-18T02:51:48.735185+00:00",
+    "totalMs": 75816,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 831e308",
+        "ms": 60849
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1006
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "2 components · Nothing to serve: vega-lite is a TypeScript/JavaScript library (package.json:1-3) that compiles Vega-Lite specifications into Vega specifications, exposing a programmatic API and CLI binaries (vl2pdf, vl2png, vl2svg, v",
+        "ms": 13756
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 205
+      },
+      {
+        "id": "health",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "vega-lite is a TypeScript/JavaScript library (package.json:1-3) that compiles Vega-Lite specifications into Vega specifications, exposing a programmatic API and CLI binaries (vl2pdf, vl2png, vl2svg, vl2vg) built via 'npm run build'. It is meant to be imported as a module or used via its CLI tools, not run as a server. The 'site' component (site/Gemfile) is the Jekyll-based documentation/examples site launched via 'bundle exec jekyll serve' (package.json script 'site:only'); this is documentation content, not the repository's primary application. Neither component is an HTTP application intended to run persistently for end users.",
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/uwdata/voyager",
+    "owner": "uwdata",
+    "name": "voyager",
+    "kind": "web_preview",
+    "constraints": "This is the original Voyager repository, not the Voyager 2 paper. Legacy Bower/Gulp compatibility is an intentional stress case.",
+    "repoId": "939cf273-48c5-4463-b7d7-6e06116e6a51",
+    "runId": "5cfed0c4-589b-4fc5-9138-c1d445f6260a",
+    "status": "failed",
+    "template": "engelbart-runner",
+    "commit": "b3c8be7db5975f8b26d356e1e747ae3d0af74e9b",
+    "startedAt": "2026-09-18T02:51:49.065432+00:00",
+    "totalMs": 57276,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned b3c8be7",
+        "ms": 15875
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1112
+      },
+      {
+        "id": "plan",
+        "state": "failed",
+        "summary": "2 components · The declared default start script is `npm start` -> `gulp serve` (package.json:20), which launches a browser-sync/gulp dev server for the root Voyager app. The ",
+        "ms": 40289
+      },
+      {
+        "id": "services",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "The declared default start script is `npm start` -> `gulp serve` (package.json:20), which launches a browser-sync/gulp dev server for the root Voyager app. The actual listen port is configured in gulp/config.js and gulp/serve.js, which are not part of the allowed evidence set (only setup manifests, README, and bounded source excerpts can be requested) and were not retrievable. Without a documented port/health endpoint for the gulp serve task, a loopback healthUrl cannot be established without inventing one. The `src` component (src/index.html) is only the Angular app source consumed by the gulp build/serve pipeline, not an independent static deployment, so it should not be treated as a separate service. Please provide the port the local dev server listens on (e.g., from gulp/config.js `browserSync.port` or equivalent) so a valid healthUrl can be set for the `npm start` service.",
+    "next": null,
+    "stages": [],
+    "failures": [
+      {
+        "step": "order",
+        "source": "pipeline",
+        "reason": "The declared default start script is `npm start` -> `gulp serve` (package.json:20), which launches a browser-sync/gulp dev server for the root Voyager app. The actual listen port is configured in gulp/config.js and gulp/serve.js, which are not part of the allowed evidence set (only setup manifests, README, and bounded source excerpts can be requested) and were not retrievable. Without a documented port/health endpoint for the gulp serve task, a loopback healthUrl cannot be established without inventing one. The `src` component (src/index.html) is only the Angular app source consumed by the gul",
+        "stage": null,
+        "detail": {
+          "status": "needs_input",
+          "commands": []
+        }
+      }
+    ],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/cmudig/draco2",
+    "owner": "cmudig",
+    "name": "draco2",
+    "kind": "library_or_cli",
+    "constraints": "Core solver usage and optional HTTP API are separate workflows. A correct diagnosis can be library-only or require the server extra.",
+    "repoId": "05d0af58-427f-4101-9b18-b7d5486dba5f",
+    "runId": "b4c73199-12d4-40b6-b331-93565298f916",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "cd1fa698af8c37e66d5bc655aedc59efcf8b2658",
+    "startedAt": "2026-09-18T02:51:49.592087+00:00",
+    "totalMs": 39445,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned cd1fa69",
+        "ms": 19727
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1402
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "1 component · python → start command pending",
+        "ms": 3433
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 175
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 548
+      },
+      {
+        "id": "health",
+        "state": "done",
+        "summary": "Nothing to serve: draco2 is a Python constraint-solving library for visualization recommendation (import draco), distributed with an optional 'server' extra (fastapi/uvicorn/tabulate) and a Jupyter Book documentation s",
+        "ms": 14160
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "draco2 is a Python constraint-solving library for visualization recommendation (import draco), distributed with an optional 'server' extra (fastapi/uvicorn/tabulate) and a Jupyter Book documentation site. Railpack's declared workflow only runs 'uv sync' install/build stages with no start command, and there is no committed application entrypoint (no server module, no __main__.py, no documented 'uvicorn <module>:app' invocation) that the repo itself wires up to that optional server extra. The FastAPI/uvicorn dependencies being present is not evidence of a runnable service without a concrete entrypoint file/module to serve; running one would require guessing an undocumented module path, which these rules prohibit. The repository is meant to be used as an importable Python package and via notebooks/docs, not as a standalone HTTP service.",
+    "next": null,
+    "stages": [
+      "plan: "
+    ],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/jessevig/bertviz",
+    "owner": "jessevig",
+    "name": "bertviz",
+    "kind": "notebook_or_visualization",
+    "constraints": "Notebook output is not a standalone web application. Visualizing supplied attention tensors can avoid downloading a model.",
+    "repoId": "26ae5265-2b23-4f96-9414-7e3b885529ed",
+    "runId": "55d1c700-7b78-4107-9d39-03b1dc7a4cde",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "79dbaebfe31ada110c1268de7bb6509b14fe9df3",
+    "startedAt": "2026-09-18T02:51:49.988+00:00",
+    "totalMs": 17786,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 79dbaeb",
+        "ms": 14958
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 2083
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "Nothing to serve: No runnable component was found: nothing in the repository declares an application to start",
+        "ms": 515
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 230
+      },
+      {
+        "id": "health",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "No runnable component was found: nothing in the repository declares an application to start",
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/PAIR-code/lit",
+    "owner": "PAIR-code",
+    "name": "lit",
+    "kind": "web_preview",
+    "constraints": "Choose a documented demo or model wrapper. HTTP health does not verify salience/model computations.",
+    "repoId": "02dfd904-9b1b-48f7-997a-a16df7adc8b1",
+    "runId": "8cb75bcd-578e-489d-a5ee-f718d50519a6",
+    "status": "killed",
+    "template": "engelbart-runner",
+    "commit": "3debb609cf1b9e8775471c262026e0a1a1f87a28",
+    "startedAt": "2026-09-18T02:51:50.332282+00:00",
+    "totalMs": 1092772,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 3debb60",
+        "ms": 32867
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1369
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "6 components · Run the LIT penguin tabular-data demo (python -m lit_nlp.examples.penguin_demo) as requested by personHint, installing the root lit-nlp package with its discriminative-ai example extras into a venv and serving it on port 5432.",
+        "ms": 151076
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 2958
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "/usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared · /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared/bin/python -m pip install -e . · /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared/bin/python -m pip install -r requirements_examples_discriminative_ai.txt · /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared/bin/python -m lit_nlp.examples.penguin_demo --port 5432 (3 passes)",
+        "ms": 200861
+      },
+      {
+        "id": "health",
+        "state": "warned",
+        "summary": "Repair attempt 2 edited 3 files",
+        "ms": 703641
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 2,
+    "patch": {
+      "files": [
+        "lit_nlp/examples/penguin_demo.py",
+        "pyproject.toml",
+        "requirements_examples_discriminative_ai.txt"
+      ],
+      "summary": "Fixed the crash that stopped the penguin demo: the sandbox's tensorflow-datasets lazily imports the `importlib_resources` backport, which isn't installed, so TFDS died while resolving the penguins dataset checksums path. The entry point now aliases the Python 3.11 stdlib `importlib.resources` (same `files()`/`abc.Traversable` API) when the backport is absent, and the backport is added to the example dependency manifests so a fresh install gets the real package. Note: the frontend bundle is still unbuilt in this sandbox (no `lit_nlp/client/build/default`, no node_modules, no yarn), so the server will bind port 5432 but `/` returns 404 until setup runs the documented `(cd lit_nlp; yarn && yarn build)` — that build needs node deps from the network and cannot be produced by editing the repo."
+    },
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared",
+      "install: /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared/bin/python -m pip install -e .",
+      "install-examples: /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared/bin/python -m pip install -r requirements_examples_discriminative_ai.txt",
+      "penguin: /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared/bin/python -m lit_nlp.examples.penguin_demo --port 5432",
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared",
+      "install-base: /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared/bin/python -m pip install -r requirements.txt",
+      "install-extra: /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared/bin/python -m pip install 'lit-nlp[examples-discriminative-ai]'",
+      "penguin-demo: /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared/bin/python -m lit_nlp.examples.penguin_demo --port 5432",
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared",
+      "install-root: /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared/bin/python -m pip install -e .",
+      "install-extras: /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared/bin/python -m pip install -r requirements_examples_discriminative_ai.txt",
+      "penguin-demo: /home/user/.human-compact/project-environments/2bd120f9a46b17e002070069/3.11-shared/bin/python -m lit_nlp.examples.penguin_demo --port 5432"
+    ],
+    "failures": [
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "failed: [Errno 2] No such file or directory: '/home/user/lit/lit_nlp/examples/penguin_demo.py'",
+        "stage": "setup",
+        "detail": {
+          "agent": {
+            "call": 1,
+            "name": "Setup Repair Agent",
+            "model": "sonnet",
+            "phase": "Model response received",
+            "status": "done",
+            "outcome": "read_more",
+            "seconds": 6.69
+          },
+          "attempt": 2
+        }
+      },
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "failed: Setup recovery stopped after 5 repair attempts. Repair repeats the failed component configuration (command, runtime and manifests). Change a relevant input before retrying.",
+        "stage": "compatibility",
+        "detail": {
+          "agent": {
+            "call": 1,
+            "name": "Setup Repair Agent",
+            "model": "sonnet",
+            "phase": "Model response received",
+            "status": "done",
+            "outcome": "plan",
+            "seconds": 7.87
+          },
+          "attempt": 6
+        }
+      }
+    ],
+    "output": "39691675999104 wsgi_app.py:54] IOError [Errno 2] No such file or directory: '/home/user/lit/lit_nlp/client/build/default/static/index.html' on path /home/user/lit/lit_nlp/client/build/default/static/index.html\nI0918 03:12:54.782638 139691675999104 wsgi_app.py:144] path /home/user/lit/lit_nlp/client/build/default/static/index.html not found, sending 404\nI0918 03:12:54.782882 139691675999104 _internal.py:97] 127.0.0.1 - - [18/Sep/2026 03:12:54] \"\u001b[33mGET / HTTP/1.1\u001b[0m\" 404 -\nW0918 03:12:54.938033 139691675999104 wsgi_app.py:54] IOError [Errno 2] No such file or directory: '/home/user/lit/lit_nlp/client/build/default/static/index.html' on path /home/user/lit/lit_nlp/client/build/default/static/index.html\nI0918 03:12:54.938160 139691675999104 wsgi_app.py:144] path /home/user/lit/lit_nlp/client/build/default/static/index.html not found, sending 404\nI0918 03:12:54.938303 139691675999104 _internal.py:97] 127.0.0.1 - - [18/Sep/2026 03:12:54] \"\u001b[33mGET / HTTP/1.1\u001b[0m\" 404 -\nW0918 03:12:55.092989 139691675999104 wsgi_app.py:54] IOError [Errno 2] No such file or directory: '/home/user/lit/lit_nlp/client/build/default/static/index.html' on path /home/user/lit/lit_nlp/client/build/default/static/index.html\nI0918 03:12:55.093113 139691675999104 wsgi_app.py:144] path /home/user/lit/lit_nlp/client/build/default/static/index.html not found, sending 404\nI0918 03:12:55.093258 139691675999104 _internal.py:97] 127.0.0.1 - - [18/Sep/2026 03:12:55] \"\u001b[33mGET / HTTP/1.1\u001b[0m\" 404 -\nW0918 03:12:55.248027 139691675999104 wsgi_app.py:54] IOError [Errno 2] No such file or directory: '/home/user/lit/lit_nlp/client/build/default/static/index.html' on path /home/user/lit/lit_nlp/client/build/default/static/index.html\nI0918 03:12:55.248154 139691675999104 wsgi_app.py:144] path /home/user/lit/lit_nlp/client/build/default/static/index.html not found, sending 404\nI0918 03:12:55.248303 139691675999104 _internal.py:97] 127.0.0.1 - - [18/Sep/2026 03:12:55] \"\u001b[33mGET / HTTP/1.1\u001b[0m\" 404 -\nW0918 03:12:55.403045 139691675999104 wsgi_app.py:54] IOError [Errno 2] No such file or directory: '/home/user/lit/lit_nlp/client/build/default/static/index.html' on path /home/user/lit/lit_nlp/client/build/default/static/index.html\nI0918 03:12:55.403192 139691675999104 wsgi_app.py:144] path /home/user/lit/lit_nlp/client/build/default/static/index.html not found, sending 404\nI0918 03:12:55.403375 139691675999104 _internal.py:97] 127.0.0.1 - - [18/Sep/2026 03:12:55] \"\u001b[33mGET / HTTP/1.1\u001b[0m\" 404 -\nW0918 03:12:55.558167 139691675999104 wsgi_app.py:54] IOError [Errno 2] No such file or directory: '/home/user/lit/lit_nlp/client/build/default/static/index.html' on path /home/user/lit/lit_nlp/client/build/default/static/index.html\nI0918 03:12:55.558316 139691675999104 wsgi_app.py:144] path /home/user/lit/lit_nlp/client/build/default/static/index.html not found, sending 404\nI0918 03:12:55.558526 139691675999104 _internal.py:97] 127.0.0.1 - - [18/Sep/2026 03:12:55] \"\u001b[33mGET / HTTP/1.1\u001b[0m\" 404 -\nW0918 03:12:55.714550 139691675999104 wsgi_app.py:54] IOError [Errno 2] No such file or directory: '/home/user/lit/lit_nlp/client/build/default/static/index.html' on path /home/user/lit/lit_nlp/client/build/default/static/index.html\nI0918 03:12:55.714709 139691675999104 wsgi_app.py:144] path /home/user/lit/lit_nlp/client/build/default/static/index.html not found, sending 404\nI0918 03:12:55.714973 139691675999104 _internal.py:97] 127.0.0.1 - - [18/Sep/2026 03:12:55] \"\u001b[33mGET / HTTP/1.1\u001b[0m\" 404 -\nW0918 03:12:55.869598 139691675999104 wsgi_app.py:54] IOError [Errno 2] No such file or directory: '/home/user/lit/lit_nlp/client/build/default/static/index.html' on path /home/user/lit/lit_nlp/client/build/default/static/index.html\nI0918 03:12:55.869740 139691675999104 wsgi_app.py:144] path /home/user/lit/lit_nlp/client/build/default/static/index.html not found, sending 404\nI0918 03:12:55.869882 139691675999104 _internal.py:97] 127.0.0.1 - - [18/Sep/2026 03:12:55] \"\u001b[33mGET / HTTP/1.1\u001b[0m\" 404 -\nW0918 03:12:56.024424 139691675999104 wsgi_app.py:54] IOError [Errno 2] No such file or directory: '/home/user/lit/lit_nlp/client/build/default/static/index.html' on path /home/user/lit/lit_nlp/client/build/default/static/index.html\nI0918 03:12:56.024590 139691675999104 wsgi_app.py:144] path /home/user/lit/lit_nlp/client/build/default/static/index.html not found, sending 404\nI0918 03:12:56.024745 139691675999104 _internal.py:97] 127.0.0.1 - - [18/Sep/2026 03:12:56] \"\u001b[33mGET / HTTP/1.1\u001b[0m\" 404 -\nW0918 03:12:56.179150 139691675999104 wsgi_app.py:54] IOError [Errno 2] No such file or directory: '/home/user/lit/lit_nlp/client/build/default/static/index.html' on path /home/user/lit/lit_nlp/client/build/default/static/index.html\nI0918 03:12:56.179275 139691675999104 wsgi_app.py:144] path /home/user/lit/lit_nlp/client/build/default/static/index.html not found, sending 404\nI0918 03:12:56.179409 139691675999104 _internal.py:97] 127.0.0.1 - - [18/Sep/2026 03:12:56] \"\u001b[33mGET / HTTP/1.1\u001b[0m\" 404 -\nW0918 03:12:56.334094 139691675999104 wsgi_app.py:54] IOError [Errno 2] No such file or directory: '/home/user/lit/lit_nlp/client/build/default/static/index.html' on path /home/user/lit/lit_nlp/client/build/default/static/index.html\nI0918 03:12:56.334222 139691675999104 wsgi_app.py:144] path /home/user/lit/lit_nlp/client/build/default/static/index.html not found, sending 404\nI0918 03:12:56.334367 139691675999104 _internal.py:97] 127.0.0.1 - - [18/Sep/2026 03:12:56] \"\u001b[33mGET / HTTP/1.1\u001b[0m\" 404 -\nW0918 03:12:56.489098 139691675999104 wsgi_app.py:54] IOError [Errno 2] No such file or directory: '/home/user/lit/lit_nlp/client/build/default/static/index.html' on path /home/user/lit/lit_nlp/client/build/default/static/index.html\nI0918 03:12:56.489220 139691675999104 wsgi_app.py:144] path /home/user/lit/lit_nlp/client/build/default/static/index.html not found, sending 404\nI0918 03:12:56.489355 139691675999104 _internal.py:97] 127.0.0.1 - - [18/Sep/2026 03:12:56] \"\u001b[33mGET / HTTP/1.1\u001b[0m\" 404 -"
+  },
+  {
+    "url": "https://github.com/jalammar/ecco",
+    "owner": "jalammar",
+    "name": "ecco",
+    "kind": "notebook_or_visualization",
+    "constraints": "Notebook-first library, do not require an HTTP listener to recognize it. Older model APIs can fail against newer Transformers releases.",
+    "repoId": "38ba954f-84bb-4f72-9c3b-560a51fc5cb4",
+    "runId": "731263e8-11d3-48b1-956a-e49272117a59",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "2a38a1360c8edb2e4ff4a08fba404b5164c21e06",
+    "startedAt": "2026-09-18T02:51:50.6438+00:00",
+    "totalMs": 39148,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 2a38a13",
+        "ms": 21753
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1256
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "2 components · Nothing to serve: Ecco is a Python library for exploring and explaining NLP Transformer models, intended to be used via `import ecco` inside Jupyter notebooks (readme.md:20-24). It has no HTTP server or application ent",
+        "ms": 15972
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 167
+      },
+      {
+        "id": "health",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "Ecco is a Python library for exploring and explaining NLP Transformer models, intended to be used via `import ecco` inside Jupyter notebooks (readme.md:20-24). It has no HTTP server or application entrypoint of its own; Railpack for both '.' and 'docs' shows only venv setup and pip install with no startCommand. The 'docs' component is a mkdocs documentation site (docs/requirements.txt: mkdocs, mkdocs-material, mkdocstrings), which is documentation, not an application. Usage is via installing the package and importing it in notebooks, not via a served process.",
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/mesa/mesa",
+    "owner": "mesa",
+    "name": "mesa",
+    "kind": "simulation",
+    "constraints": "A specific example model must be selected for visualization. The current source runtime floor differs from older Mesa releases.",
+    "repoId": "1897ea78-a8fc-4f35-a818-79fcea31fac8",
+    "runId": "5ee3b031-e321-4f08-b974-abe55f84ab20",
+    "status": "failed",
+    "template": "engelbart-runner",
+    "commit": "20841b12559ef920dd4c8263a09fe75ceac7250c",
+    "startedAt": "2026-09-18T02:51:51.144382+00:00",
+    "totalMs": 537796,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 20841b1",
+        "ms": 26425
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1587
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "1 component · python → start command pending",
+        "ms": 7549
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 2151
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": " · python -m venv /app/.venv · /usr/local/bin/uv python install 3.12 --no-bin --no-registry · /home/user/.human-compact/project-environments/python/cpython-3.12-linux-x86_64-gnu/bin/python3.12 -m venv /home/user/.human-compact/project-environments/41afc55dacc904de7d259d18/3.12-shared · /home/user/.human-compact/project-environments/41afc55dacc904de7d259d18/3.12-shared/bin/python -m pip install -r requirements.txt · /home/user/.human-compact/project-environments/41afc55dacc904de7d259d18/3.12-shared/bin/solara run mesa/examples/basic/boltzmann_wealth_model/app.py (2 passes)",
+        "ms": 78452
+      },
+      {
+        "id": "health",
+        "state": "warned",
+        "summary": "Repair attempt 2 edited 2 files",
+        "ms": 396421
+      },
+      {
+        "id": "live",
+        "state": "failed",
+        "summary": "Up · The sandbox is no longer running: [unavailable] the connection to sandbox i18fz6hoi4b1tuvy0xxnd ended before the stream completed: This error is likely due to s",
+        "ms": 25211
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 2,
+    "patch": {
+      "files": [
+        "pyproject.toml",
+        "requirements.txt"
+      ],
+      "summary": "Moved the visualization runtime dependencies (matplotlib, solara, altair, starlette<1.0, networkx) from the optional `viz` extra into mesa's base `dependencies`, and added a root `requirements.txt` (`-e .`) so the project installs from a plain path target. Kept the previous attempt's networkx addition to the `viz` extra. I could not run pip/python in this sandbox, so the install was not executed end-to-end here."
+    },
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "The sandbox is no longer running: [unavailable] the connection to sandbox i18fz6hoi4b1tuvy0xxnd ended before the stream completed: This error is likely due to sandbox timeout. You can modify the sandbox timeout by passing 'timeoutMs' when starting the sandbox or calling '.setTimeout' on the sandbox with the desired timeout.",
+    "next": null,
+    "stages": [
+      "plan: ",
+      "plan: ",
+      "install: python -m venv /app/.venv",
+      "runtime-download-0: /usr/local/bin/uv python install 3.12 --no-bin --no-registry",
+      "runtime-create-0: /home/user/.human-compact/project-environments/python/cpython-3.12-linux-x86_64-gnu/bin/python3.12 -m venv /home/user/.human-compact/project-environments/41afc5",
+      "install: /home/user/.human-compact/project-environments/41afc55dacc904de7d259d18/3.12-shared/bin/python -m pip install -r requirements.txt",
+      "web: /home/user/.human-compact/project-environments/41afc55dacc904de7d259d18/3.12-shared/bin/solara run mesa/examples/basic/boltzmann_wealth_model/app.py"
+    ],
+    "failures": [
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "failed: [Errno 2] No such file or directory: '/home/user/mesa/.[viz]'",
+        "stage": "setup",
+        "detail": {
+          "agent": {
+            "call": 1,
+            "name": "Setup Repair Agent",
+            "model": "sonnet",
+            "phase": "Model response received",
+            "status": "done",
+            "outcome": "plan",
+            "seconds": 11.39
+          },
+          "attempt": 1
+        }
+      },
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "failed: [Errno 2] No such file or directory: '/home/user/mesa/.[viz]'",
+        "stage": "setup",
+        "detail": {
+          "agent": {
+            "call": 1,
+            "name": "Setup Repair Agent",
+            "model": "sonnet",
+            "phase": "Model response received",
+            "status": "done",
+            "outcome": "plan",
+            "seconds": 14.96
+          },
+          "attempt": 1
+        }
+      },
+      {
+        "step": "worker",
+        "source": "worker",
+        "reason": "The application is running but the preview URL did not answer: 502 {\"sandboxId\":\"i18fz6hoi4b1tuvy0xxnd\",\"message\":\"The sandbox is running but port is not open\",\"port\":43110,\"code\":502}",
+        "stage": null,
+        "detail": {
+          "kind": "ProxyError"
+        }
+      },
+      {
+        "step": "worker",
+        "source": "worker",
+        "reason": "The sandbox is no longer running: [unavailable] the connection to sandbox i18fz6hoi4b1tuvy0xxnd ended before the stream completed: This error is likely due to sandbox timeout. You can modify the sandbox timeout by passing 'timeoutMs' when starting the sandbox or calling '.setTimeout' on the sandbox with the desired timeout.",
+        "stage": null,
+        "detail": {
+          "kind": "SandboxGone"
+        }
+      }
+    ],
+    "output": "y.whl (639 kB)\n   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 639.0/639.0 kB 82.3 MB/s eta 0:00:00\nDownloading jupyter_core-5.9.1-py3-none-any.whl (29 kB)\nDownloading jupyterlab_widgets-3.0.17-py3-none-any.whl (217 kB)\nDownloading matplotlib_inline-0.2.2-py3-none-any.whl (9.5 kB)\nDownloading nest_asyncio2-1.7.2-py3-none-any.whl (7.8 kB)\nDownloading psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl (155 kB)\nDownloading pyzmq-27.2.0-cp312-abi3-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (872 kB)\n   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 872.3/872.3 kB 26.7 MB/s eta 0:00:00\nDownloading rich-15.0.0-py3-none-any.whl (310 kB)\nDownloading tornado-6.5.10-cp39-abi3-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (467 kB)\nDownloading traitlets-5.16.1-py3-none-any.whl (86 kB)\nDownloading urllib3-2.8.0-py3-none-any.whl (135 kB)\nDownloading widgetsnbextension-4.0.16-py3-none-any.whl (2.2 MB)\n   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.2/2.2 MB 131.5 MB/s eta 0:00:00\nDownloading pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (807 kB)\n   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 807.9/807.9 kB 114.0 MB/s eta 0:00:00\nDownloading ipython_pygments_lexers-1.1.1-py3-none-any.whl (8.1 kB)\nDownloading jedi-0.20.0-py2.py3-none-any.whl (4.9 MB)\n   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.9/4.9 MB 195.7 MB/s eta 0:00:00\nDownloading markdown_it_py-4.2.0-py3-none-any.whl (91 kB)\nDownloading pexpect-4.9.0-py2.py3-none-any.whl (63 kB)\nDownloading platformdirs-4.11.10-py3-none-any.whl (24 kB)\nDownloading prompt_toolkit-3.0.53-py3-none-any.whl (392 kB)\nDownloading stack_data-0.6.3-py3-none-any.whl (24 kB)\nDownloading asttokens-3.0.2-py3-none-any.whl (28 kB)\nDownloading mdurl-0.1.2-py3-none-any.whl (10.0 kB)\nDownloading parso-0.8.7-py2.py3-none-any.whl (107 kB)\nDownloading ptyprocess-0.7.0-py2.py3-none-any.whl (13 kB)\nDownloading wcwidth-0.8.4-py3-none-any.whl (299 kB)\nDownloading pure_eval-0.2.4-py3-none-any.whl (11 kB)\nBuilding wheels for collected packages: Mesa\n  Building editable for Mesa (pyproject.toml): started\n  Building editable for Mesa (pyproject.toml): finished with status 'done'\n  Created wheel for Mesa: filename=mesa-4.0.0a0-py3-none-any.whl size=9586 sha256=cb41df1489a99103d10d5da509ed4fe12f995a83b19166141da3eff552262b20\n  Stored in directory: /tmp/pip-ephem-wheel-cache-ey493n2l/wheels/10/50/63/2e5f7f7755e69e8a41aa3edd2bd349b434faa89ae894dfdd3d\nSuccessfully built Mesa\nInstalling collected packages: pure-eval, ptyprocess, widgetsnbextension, websockets, wcwidth, watchdog, urllib3, typing-extensions, traitlets, tqdm, tornado, six, rpds-py, pyzmq, pyyaml, pyparsing, pygments, psutil, platformdirs, pillow, pexpect, parso, packaging, numpy, networkx, nest-asyncio2, narwhals, mdurl, MarkupSafe, markdown, kiwisolver, jupyterlab_widgets, idna, humanize, h11, fonttools, filelock, fastjsonschema, executing, debugpy, cycler, comm, click, charset_normalizer, certifi, cachetools, attrs, asttokens, uvicorn, stack_data, scipy, requests, referencing, python-dateutil, pymdown-extensions, prompt_toolkit, matplotlib-inline, markdown-it-py, jupyter-core, jinja2, jedi, ipython-pygments-lexers, contourpy, anyio, watchfiles, starlette, rich, pandas, matplotlib, jupyter-client, jsonschema-specifications, ipython, rich-click, jsonschema, ipywidgets, ipykernel, reacton, nbformat, ipyvue, altair, ipyvuetify, solara-ui, solara-server, solara, Mesa\nSuccessfully installed MarkupSafe-3.0.3 Mesa-4.0.0a0 altair-6.3.0 anyio-4.15.1 asttokens-3.0.2 attrs-26.1.0 cachetools-7.2.0 certifi-2026.7.22 charset_normalizer-3.5.1 click-8.5.0 comm-0.2.3 contourpy-1.4.0 cycler-0.12.1 debugpy-1.8.22 executing-2.2.1 fastjsonschema-2.22.2 filelock-4.0.0 fonttools-4.65.0 h11-0.16.0 humanize-4.16.0 idna-3.20 ipykernel-7.3.0 ipython-9.17.1 ipython-pygments-lexers-1.1.1 ipyvue-3.0.0 ipyvuetify-3.0.0 ipywidgets-8.1.9 jedi-0.20.0 jinja2-3.1.6 jsonschema-4.26.0 jsonschema-specifications-2025.9.1 jupyter-client-8.10.0 jupyter-core-5.9.1 jupyterlab_widgets-3.0.17 kiwisolver-1.5.1 markdown-3.10.3 markdown-it-py-4.2.0 matplotlib-3.11.2 matplotlib-inline-0.2.2 mdurl-0.1.2 narwhals-2.26.0 nbformat-5.11.1 nest-asyncio2-1.7.2 networkx-3.6.1 numpy-2.5.3 packaging-26.3 pandas-3.0.6 parso-0.8.7 pexpect-4.9.0 pillow-12.3.0 platformdirs-4.11.10 prompt_toolkit-3.0.53 psutil-7.2.2 ptyprocess-0.7.0 pure-eval-0.2.4 pygments-2.21.0 pymdown-extensions-12.0.1 pyparsing-3.3.2 python-dateutil-2.9.0.post0 pyyaml-6.0.3 pyzmq-27.2.0 reacton-1.10.3 referencing-0.37.0 requests-2.34.2 rich-15.0.0 rich-click-1.9.9 rpds-py-2026.6.3 scipy-1.18.1 six-1.17.0 solara-1.62.0 solara-server-1.62.0 solara-ui-1.62.0 stack_data-0.6.3 starlette-0.52.1 tornado-6.5.10 tqdm-4.70.1 traitlets-5.16.1 typing-extensions-4.16.0 urllib3-2.8.0 uvicorn-0.53.0 watchdog-6.0.0 watchfiles-1.2.0 wcwidth-0.8.4 websockets-17.1 widgetsnbextension-4.0.16\n[notice] A new release of pip is available: 25.0.1 -> 26.2.1\n[notice] To update, run: pip install --upgrade pip\nSolara server is starting at http://localhost:8765\n/home/user/.human-compact/project-environments/41afc55dacc904de7d259d18/3.12-shared/lib/python3.12/site-packages/solara/server/starlette.py:602: UserWarning: Cookies with samesite=none require https, but according to the asgi framework, the scheme is 'http'\nand the x-forwarded-proto header is 'http'. We will fallback to samesite=lax.\nIf you embed solara in an iframe, make sure you forward the x-forwarded-proto header correctly so that the session cookie can be set.\nSee https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie/SameSite for more information on samesite cookies.\nAlso check out the following Solara documentation:\n * https://solara.dev/documentation/getting_started/deploying/self-hosted\n * https://solara.dev/documentation/advanced/howto/embed\n  warnings.warn(f\"\"\"Cookies with samesite=none require https, but according to the asgi framework, the scheme is {request.scope[\"scheme\"]!r}"
+  },
+  {
+    "url": "https://github.com/Farama-Foundation/Gymnasium",
+    "owner": "Farama-Foundation",
+    "name": "Gymnasium",
+    "kind": "simulation",
+    "constraints": "Core environment reset/step can run headlessly. Rendering or all-extras installation introduces additional platform requirements.",
+    "repoId": "025d0e79-46a9-489e-b3e7-fd40a2365405",
+    "runId": "546ee42a-bc48-44b2-b425-cbe92bf1393b",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "8af0918fad36de24e88cabe3738dfe1052a784f5",
+    "startedAt": "2026-09-18T02:51:51.626108+00:00",
+    "totalMs": 60462,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 8af0918",
+        "ms": 40500
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1870
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "2 components · Nothing to serve: Gymnasium is a Python library (pyproject.toml) providing a standard API for reinforcement learning environments; it has no HTTP server component. The 'docs' component is a Sphinx documentation site (d",
+        "ms": 17640
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 452
+      },
+      {
+        "id": "health",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "Gymnasium is a Python library (pyproject.toml) providing a standard API for reinforcement learning environments; it has no HTTP server component. The 'docs' component is a Sphinx documentation site (docs/README.md, docs/requirements.txt) built via 'cd docs && make dirhtml' or previewed with sphinx-autobuild for local documentation editing, not a persistent application. Intended usage is 'pip install gymnasium' and importing the package in Python scripts/notebooks, not running a service.",
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/Farama-Foundation/Minigrid",
+    "owner": "Farama-Foundation",
+    "name": "Minigrid",
+    "kind": "simulation",
+    "constraints": "README officially supports Linux/macOS and does not claim Windows support. Grid stepping and interactive rendering are distinct checks.",
+    "repoId": "e5f49100-d0bf-4334-81f2-ad2006b51205",
+    "runId": "85702ef8-004c-4587-9552-d2bcbc9d7f4a",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "8ea099e114b7d6465afabc76957e3d689663534c",
+    "startedAt": "2026-09-18T02:51:52.04964+00:00",
+    "totalMs": 46570,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 8ea099e",
+        "ms": 30149
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1192
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "2 components · Nothing to serve: Minigrid is a Python library (pyproject.toml, package name 'minigrid') providing Gymnasium-compatible gridworld RL environments; it is used via `pip install minigrid` or `pip install -e .` and importe",
+        "ms": 14821
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 408
+      },
+      {
+        "id": "health",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "Minigrid is a Python library (pyproject.toml, package name 'minigrid') providing Gymnasium-compatible gridworld RL environments; it is used via `pip install minigrid` or `pip install -e .` and imported in RL code/scripts, not run as a server. The 'docs' component is a Sphinx documentation site (docs/requirements.txt, docs/README.md) built with `sphinx-autobuild -b dirhtml . _build` or `make dirhtml` to produce static HTML docs, not an HTTP application. Neither component exposes a runnable HTTP service.",
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/HumanCompatibleAI/overcooked_ai",
+    "owner": "HumanCompatibleAI",
+    "name": "overcooked_ai",
+    "kind": "simulation",
+    "constraints": "Tight Python pin and optional training GPU stack. A running demo does not prove human-AI coordination results reproduce.",
+    "repoId": "30a33528-437d-4b2a-8855-f964dcc674ce",
+    "runId": "11f4b657-8358-4091-b05a-9bdaaf495078",
+    "status": "killed",
+    "template": "engelbart-runner-docker",
+    "commit": "739950a079cdaed5a44fcc662efc40244c205d06",
+    "startedAt": "2026-09-18T02:51:52.529789+00:00",
+    "totalMs": 709082,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Runner with Docker · cloned 739950a",
+        "ms": 55812
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1872
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "4 components · Run the Overcooked-Demo Flask/SocketIO web application (server/app.py), which is the primary runnable application in this repository (the README's first-presented usage) after installing the root overcooked_ai package into its environment so the demo imports local game logic instead of a released package. The static templates folder is served by the Flask app itself, not as a standalone static site.",
+        "ms": 56147
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 2833
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "/usr/local/bin/uv python install 3.10 --no-bin --no-registry · /home/user/.human-compact/project-environments/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 -m venv /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared · /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/bin/python -m pip install -e ../../.. · /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/bin/python -m pip install -r requirements.txt · /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/bin/python app.py",
+        "ms": 136597
+      },
+      {
+        "id": "health",
+        "state": "warned",
+        "summary": "Repair attempt 2 edited 1 file",
+        "ms": 455821
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": true,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 2,
+    "patch": {
+      "files": [
+        "src/overcooked_demo/server/requirements.txt"
+      ],
+      "summary": "Added the missing `eventlet` dependency to the demo server's requirements.txt (it was only ever installed by the Dockerfile's separate production-build line, not by the manifest), and bumped the stale `dnspython==1.16.0` pin to 2.x so modern eventlet's greendns resolves/imports cleanly alongside the already-bumped greenlet 3.1.1."
+    },
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [
+      "runtime-download-0: /usr/local/bin/uv python install 3.10 --no-bin --no-registry",
+      "runtime-create-0: /home/user/.human-compact/project-environments/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 -m venv /home/user/.human-compact/project-environments/7e693e",
+      "install-root: /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/bin/python -m pip install -e ../../..",
+      "install-reqs: /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/bin/python -m pip install -r requirements.txt",
+      "runtime-create-0: /home/user/.human-compact/project-environments/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 -m venv /home/user/.human-compact/project-environments/7e693e",
+      "install-root-pkg: /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/bin/python -m pip install -e ../../..",
+      "install-server-reqs: /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/bin/python -m pip install -r requirements.txt",
+      "server: /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/bin/python app.py",
+      "runtime-create-0: /home/user/.human-compact/project-environments/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 -m venv /home/user/.human-compact/project-environments/7e693e",
+      "install-root-pkg: /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/bin/python -m pip install -e ../../..",
+      "install-server-reqs: /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/bin/python -m pip install -r requirements.txt"
+    ],
+    "failures": [
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "needs_input: requirements.txt pins tensorflow==2.0.3, which has no wheel for any installed or downloadable Python version (only 2.8.0+ is available on PyPI). This is an application dependency defect, not a runner limitation: the pinned version predates all currently distributed TensorFlow wheels. No compatible Python runtime selection resolves this. Please confirm how to proceed: relax/upgrade the tensorflow pin in src/overcooked_demo/server/requirements.txt to an available 2.x version, or provide an internal package index/wheel source for tensorflow==2.0.3.",
+        "stage": "setup",
+        "detail": {
+          "agent": {
+            "call": 1,
+            "name": "Setup Repair Agent",
+            "model": "sonnet",
+            "phase": "Model response received",
+            "status": "done",
+            "outcome": "needs_input",
+            "seconds": 4.96
+          },
+          "attempt": 2
+        }
+      },
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "failed: Setup recovery stopped after 5 repair attempts. Repair repeats the failed component configuration (command, runtime and manifests). Change a relevant input before retrying.",
+        "stage": "compatibility",
+        "detail": {
+          "agent": {
+            "call": 1,
+            "name": "Setup Repair Agent",
+            "model": "sonnet",
+            "phase": "Model response received",
+            "status": "done",
+            "outcome": "plan",
+            "seconds": 7.18
+          },
+          "attempt": 6
+        }
+      }
+    ],
+    "output": "2.0.3)\nRequirement already satisfied: tensorflow==2.19.0 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from -r requirements.txt (line 17)) (2.19.0)\nRequirement already satisfied: requests==2.23.0 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from -r requirements.txt (line 18)) (2.23.0)\nRequirement already satisfied: protobuf>=3.20.3 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from -r requirements.txt (line 19)) (5.29.6)\nRequirement already satisfied: h5py>=3.11.0 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (3.16.0)\nRequirement already satisfied: termcolor>=1.1.0 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (3.3.0)\nRequirement already satisfied: tensorboard~=2.19.0 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (2.19.0)\nRequirement already satisfied: grpcio<2.0,>=1.24.3 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (1.84.0)\nRequirement already satisfied: libclang>=13.0.0 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (18.1.1)\nRequirement already satisfied: packaging in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (26.3)\nRequirement already satisfied: google-pasta>=0.1.1 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (0.2.0)\nRequirement already satisfied: ml-dtypes<1.0.0,>=0.5.1 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (0.6.0)\nRequirement already satisfied: keras>=3.5.0 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (3.12.4)\nRequirement already satisfied: opt-einsum>=2.3.2 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (3.4.0)\nRequirement already satisfied: astunparse>=1.6.0 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (1.6.3)\nRequirement already satisfied: wrapt>=1.11.0 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (2.4.1)\nRequirement already satisfied: flatbuffers>=24.3.25 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (25.12.19)\nRequirement already satisfied: absl-py>=1.0.0 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (2.5.0)\nRequirement already satisfied: typing-extensions>=3.6.6 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (4.16.0)\nRequirement already satisfied: setuptools in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (79.0.1)\nRequirement already satisfied: numpy<2.2.0,>=1.26.0 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (1.26.4)\nRequirement already satisfied: tensorflow-io-gcs-filesystem>=0.23.1 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (0.37.1)\nRequirement already satisfied: gast!=0.5.0,!=0.5.1,!=0.5.2,>=0.2.1 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from tensorflow==2.19.0->-r requirements.txt (line 17)) (0.7.0)\nRequirement already satisfied: chardet<4,>=3.0.2 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from requests==2.23.0->-r requirements.txt (line 18)) (3.0.4)\nRequirement already satisfied: urllib3!=1.25.0,!=1.25.1,<1.26,>=1.21.1 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from requests==2.23.0->-r requirements.txt (line 18)) (1.25.11)\nRequirement already satisfied: idna<3,>=2.5 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from requests==2.23.0->-r requirements.txt (line 18)) (2.10)\nRequirement already satisfied: wheel<1.0,>=0.23.0 in /home/user/.human-compact/project-environments/7e693e22228197b6b9632440/3.10-shared/lib/python3.10/site-packages (from astunparse>=1.6.0->tensorflow==2.19.0->-r requirements.txt (line 17)) (0.48.0)"
+  },
+  {
+    "url": "https://github.com/google-deepmind/mujoco",
+    "owner": "google-deepmind",
+    "name": "mujoco",
+    "kind": "simulation",
+    "constraints": "Desktop/OpenGL rendering differs from a web preview. Source compilation and pip wheels are different setup paths.",
+    "repoId": "d5a40bfb-800b-424e-ada1-9f8ea2b51b0b",
+    "runId": "2ec91895-da11-45dc-956f-6b13e5ec51b1",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "2fec922375a5e001a4d844c06ebfdb0f5c5e823b",
+    "startedAt": "2026-09-18T02:51:53.160293+00:00",
+    "totalMs": 72860,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 2fec922",
+        "ms": 42196
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1537
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "9 components · Nothing to serve: This repository is the MuJoCo physics engine and toolkit: a native C library with Python (python/), JAX/MJX (mjx/), Unity (unity/), and JavaScript/WASM (wasm/) bindings, plus Sphinx documentation (doc",
+        "ms": 28887
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 240
+      },
+      {
+        "id": "health",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "This repository is the MuJoCo physics engine and toolkit: a native C library with Python (python/), JAX/MJX (mjx/), Unity (unity/), and JavaScript/WASM (wasm/) bindings, plus Sphinx documentation (doc/). The root README's 'Getting Started' section names the two intended ways to use it: running the native `simulate` GUI viewer (simulate/README.md, an OpenGL desktop application, not an HTTP service) or exploring Colab-hosted IPython notebooks (README.md tutorial links). No component declares or documents an HTTP server: `mjx` and `python` are importable libraries/CLIs (mjx/pyproject.toml declares console scripts mjx-testspeed/mjx-viewer, not a web server), `unity` is a game-engine plugin, `doc` is documentation source, and `wasm` is a JS/WASM bindings library meant to be consumed by a bundler or dev server the consuming application provides (wasm/README.md explicitly says 'Ensure your bundler or dev server serves the .wasm asset'). The static folders (wasm/demo_app, wasm/tests/sandbox, p",
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/jspsych/jsPsych",
+    "owner": "jspsych",
+    "name": "jsPsych",
+    "kind": "web_preview",
+    "constraints": "Do not mistake a documentation server for an experiment. Build/release example assets must resolve for a meaningful browser check.",
+    "repoId": "78396b4a-33fb-44bf-bdac-1af728b76a2a",
+    "runId": "5fb9b737-1ebf-4d4e-bbe9-3a5894315f84",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "3e24c16c04dc3d2c6406c219126a9c9dc4737627",
+    "startedAt": "2026-09-18T02:51:53.510226+00:00",
+    "totalMs": 62574,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 3e24c16",
+        "ms": 40980
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1368
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "61 components · Nothing to serve: jsPsych is a monorepo of JavaScript library packages (core library packages/jspsych, plugins, and extensions) for building browser-based behavioral experiments. It has no server or HTTP application of",
+        "ms": 19853
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 373
+      },
+      {
+        "id": "health",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "jsPsych is a monorepo of JavaScript library packages (core library packages/jspsych, plugins, and extensions) for building browser-based behavioral experiments. It has no server or HTTP application of its own. It is built via `npm run build` (turbo) and consumed by embedding the built library in a static experiment HTML page, or tried via static example HTML files opened directly in a browser (per package READMEs, e.g. packages/extension-mouse-tracking/README.md: 'Several example experiments and plugin demonstrations are available in the /examples folder... opened directly'). The only other runnable script is documentation (`docs:serve` via poetry/mkdocs/mike), which is a docs site, not the application. No inventory component declares a start/serve script for an HTTP app; all scripts are build/test only.",
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/NeuroTechX/moabb",
+    "owner": "NeuroTechX",
+    "name": "moabb",
+    "kind": "dataset_or_pipeline",
+    "constraints": "Downloads vary greatly across EEG datasets. Repository checkout does not include the raw recordings or establish cross-subject reproducibility.",
+    "repoId": "b41d8272-7114-4e09-8f57-863cd6a66ec8",
+    "runId": "ebdbf2e7-7cde-4c3e-93e9-904ff08c7ab0",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "a2dcaca16ae6f194865dba924972fb6e04138585",
+    "startedAt": "2026-09-18T02:51:54.021559+00:00",
+    "totalMs": 57778,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned a2dcaca",
+        "ms": 26819
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1441
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "1 component · python → start command pending",
+        "ms": 6880
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 1890
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 947
+      },
+      {
+        "id": "health",
+        "state": "done",
+        "summary": "Nothing to serve: MOABB (pyproject.toml, README.md) is a Python library/benchmark harness for Brain-Computer Interface algorithms — it provides importable modules (moabb.datasets, moabb.evaluations, moabb.paradigms, et",
+        "ms": 19801
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "MOABB (pyproject.toml, README.md) is a Python library/benchmark harness for Brain-Computer Interface algorithms — it provides importable modules (moabb.datasets, moabb.evaluations, moabb.paradigms, etc.) used programmatically via pip install and Python scripts/notebooks, as shown in the README Quickstart. There is no web framework dependency, no server entrypoint, no console_scripts defined for a service, and Railpack found no start command because none exists. This is an application-level fact, not a runner limitation: no supported preparation/service combination (npm, bun, pnpm, yarn, python venv + entrypoint) can produce an HTTP service from a library with no server code. It should be used by installing it and importing it in a script, not run as a hosted service.",
+    "next": null,
+    "stages": [
+      "plan: "
+    ],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/mne-tools/mne-python",
+    "owner": "mne-tools",
+    "name": "mne-python",
+    "kind": "dataset_or_pipeline",
+    "constraints": "Headless numerical analysis and desktop 3D visualization have different dependency requirements.",
+    "repoId": "c26b8f69-bfe4-4401-b29d-cc0881d187f1",
+    "runId": "e0c375d8-e929-4f4c-97c7-b8f0ce3d8a87",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "2ceb25ba8c6a710a95964332d225d1cd727315f4",
+    "startedAt": "2026-09-18T02:51:54.407104+00:00",
+    "totalMs": 101364,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 2ceb25b",
+        "ms": 42482
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1493
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "1 component · python → start command pending",
+        "ms": 19444
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "warned",
+        "summary": "17 missing",
+        "ms": 7940
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 905
+      },
+      {
+        "id": "health",
+        "state": "done",
+        "summary": "Nothing to serve: mne-python is a Python library for MEG/EEG data analysis, packaged via pyproject.toml with hatchling as an importable package (mne) plus dev/doc/test dependency groups. Railpack found no start command",
+        "ms": 29100
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [
+      "GITHUB_EVENT_PATH",
+      "MNE_3D_BACKEND",
+      "MNE_3D_OPTION_THEME",
+      "MNE_BROWSER_OVERVIEW_MODE",
+      "MNE_BROWSER_THEME",
+      "MNE_CACHE_DIR",
+      "MNE_DATA",
+      "MNE_MEMMAP_MIN_SIZE",
+      "MNE_MPL_TESTING_BACKEND",
+      "MNE_STIM_CHANNEL",
+      "MNE_STIM_CHANNEL_1",
+      "NUMBA_CAPTURED_ERRORS",
+      "PYDEVD_DISABLE_FILE_VALIDATION",
+      "PYTEST_QT_API",
+      "QT_API",
+      "SUBJECT",
+      "SUBJECTS_DIR"
+    ],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "mne-python is a Python library for MEG/EEG data analysis, packaged via pyproject.toml with hatchling as an importable package (mne) plus dev/doc/test dependency groups. Railpack found no start command because the repo defines no HTTP application, web framework, or service entrypoint anywhere in pyproject.toml or the source tree. It is consumed by importing `mne` in scripts, notebooks, or pipelines, not by running a persistent server; the missing start command is a correct reflection of the application's nature, not a runner limitation.",
+    "next": null,
+    "stages": [
+      "plan: "
+    ],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/braindecode/braindecode",
+    "owner": "braindecode",
+    "name": "braindecode",
+    "kind": "dataset_or_pipeline",
+    "constraints": "Model construction can be tested without large data, reproducing EEG decoding results requires data and a specified evaluation pipeline.",
+    "repoId": "9b2c5cab-ad42-4c7d-a87b-fe2a6a0b21d8",
+    "runId": "b5be002e-eef5-492c-9c1d-eb1a76b47ba1",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "f6144d3ad9fa2913de3ca9e9050058ba54fc046e",
+    "startedAt": "2026-09-18T02:51:54.76005+00:00",
+    "totalMs": 55602,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned f6144d3",
+        "ms": 30377
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1079
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "1 component · python → start command pending",
+        "ms": 6293
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "warned",
+        "summary": "4 missing",
+        "ms": 1627
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 964
+      },
+      {
+        "id": "health",
+        "state": "done",
+        "summary": "Nothing to serve: braindecode is a Python deep learning library for decoding EEG/ECG/MEG signals, packaged via setuptools (pyproject.toml: dynamic version, dependencies torch/mne/skorch/etc). It exposes importable APIs",
+        "ms": 15262
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [
+      "BRAINDECODE_BROWSER_OVERVIEW_MODE",
+      "BRAINDECODE_BROWSER_THEME",
+      "DOCSTRING_INHERITANCE_ENABLE",
+      "_BRAINDECODE_BROWSER_NO_BLOCK"
+    ],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "braindecode is a Python deep learning library for decoding EEG/ECG/MEG signals, packaged via setuptools (pyproject.toml: dynamic version, dependencies torch/mne/skorch/etc). It exposes importable APIs for scripts and notebooks and has no web server, ASGI/WSGI app, or CLI daemon entrypoint. Railpack's empty install/build stages and missing start command confirm there is nothing to serve; this is an application-shape fact, not a runner limitation, so no service plan applies.",
+    "next": null,
+    "stages": [
+      "plan: "
+    ],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/SWE-bench/SWE-bench",
+    "owner": "SWE-bench",
+    "name": "SWE-bench",
+    "kind": "dataset_or_pipeline",
+    "constraints": "Full harness runs are storage-intensive, a small dataset read is not a successful patch evaluation. ARM image setup differs from x86.",
+    "repoId": "37353023-3ced-4416-857e-ace0e4a0f43a",
+    "runId": "96ee7702-cc8b-4fa1-8daf-e087cb1f8b9e",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "02e7a74ffd0b707aab73d203fe87bdc7c76afc8e",
+    "startedAt": "2026-09-18T02:51:55.127415+00:00",
+    "totalMs": 44975,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 02e7a74",
+        "ms": 25396
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1141
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "1 component · python → start command pending",
+        "ms": 3762
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 210
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 689
+      },
+      {
+        "id": "health",
+        "state": "done",
+        "summary": "Nothing to serve: SWE-bench (pyproject.toml project.scripts: swebench = swebench.cli.cli:main) is a CLI benchmark harness and Python library for evaluating LMs on SWE tasks via Docker-based test execution. Railpack's i",
+        "ms": 13777
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "SWE-bench (pyproject.toml project.scripts: swebench = swebench.cli.cli:main) is a CLI benchmark harness and Python library for evaluating LMs on SWE tasks via Docker-based test execution. Railpack's install/build stages (uv sync) only prepare the package; there is no ASGI/WSGI app, no web framework dependency, and no documented HTTP entrypoint anywhere in pyproject.toml or README. It is used as `swebench <subcommand>` from the CLI or imported as a library, not served over HTTP, so the missing start command is expected application behavior, not a runner limitation.",
+    "next": null,
+    "stages": [
+      "plan: "
+    ],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/openai/human-eval",
+    "owner": "openai",
+    "name": "human-eval",
+    "kind": "dataset_or_pipeline",
+    "constraints": "Repository deliberately disables execution by default pending explicit setup. Dataset inspection is a separate check from executing generated code.",
+    "repoId": "bf6ed14d-ce40-43c4-99a6-62e8093e029a",
+    "runId": "c5ca9b30-96e6-4362-a575-84116d3da3ff",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "6d43fb980f9fee3c892a914eda09951f772ad10d",
+    "startedAt": "2026-09-18T02:51:55.492093+00:00",
+    "totalMs": 26145,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 6d43fb9",
+        "ms": 5329
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1027
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "1 component · python → start command pending",
+        "ms": 3184
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "warned",
+        "summary": "1 missing",
+        "ms": 165
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 754
+      },
+      {
+        "id": "health",
+        "state": "done",
+        "summary": "Nothing to serve: HumanEval is a CLI/library evaluation harness (human_eval package) exposing the `evaluate_functional_correctness` console script and data helpers (read_problems/write_jsonl) used to score model-genera",
+        "ms": 15686
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [
+      "OMP_NUM_THREADS"
+    ],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "HumanEval is a CLI/library evaluation harness (human_eval package) exposing the `evaluate_functional_correctness` console script and data helpers (read_problems/write_jsonl) used to score model-generated code samples against a jsonl dataset; it has no HTTP server code anywhere in the repo. The originalFailure is a runner limitation, not an application defect: the Railpack install step invokes `python -m venv /app/.venv`, a container-absolute path that is invalid outside the Railpack container, so venv creation fails before requirements.txt (tqdm, fire, numpy) can even be installed. Correcting that to a relative `.venv` would only complete preparation of the CLI tool—there is still no service entrypoint (no app.py, no web framework in requirements.txt, no server script in README) to launch as a long-running process. Since no service can be identified regardless of the venv path fix, no_service is the correct terminal status rather than a repaired service plan.",
+    "next": null,
+    "stages": [
+      "install: python -m venv /app/.venv"
+    ],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/openai/grade-school-math",
+    "owner": "openai",
+    "name": "grade-school-math",
+    "kind": "dataset",
+    "constraints": "Intentional incomplete-manifest case. Treat dataset availability independently of training-code executability.",
+    "repoId": "fab39d85-328a-4227-9c14-e3040be70434",
+    "runId": "d2212ba5-3ac9-46f2-9185-88fe83cccdc6",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "3101c7d5072418e28b9008a6636bde82a006892c",
+    "startedAt": "2026-09-18T02:51:55.878561+00:00",
+    "totalMs": 12571,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 3101c7d",
+        "ms": 10050
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1749
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "Nothing to serve: No runnable component was found: nothing in the repository declares an application to start",
+        "ms": 529
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 243
+      },
+      {
+        "id": "health",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "No runnable component was found: nothing in the repository declares an application to start",
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/hendrycks/test",
+    "owner": "hendrycks",
+    "name": "test",
+    "kind": "dataset_or_pipeline",
+    "constraints": "This records the original external distribution even though mirrors exist elsewhere. Archive retrieval and evaluation are separate stages.",
+    "repoId": "7bdb8149-d0c8-4547-b388-8c632f9a09bd",
+    "runId": "273e36e5-e03a-4772-943d-76d692ec6a72",
+    "status": "no_service",
+    "template": "engelbart-runner",
+    "commit": "4450500f923c49f1fb1dd3d99108a0bd9717b660",
+    "startedAt": "2026-09-18T02:51:56.435409+00:00",
+    "totalMs": 8483,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 4450500",
+        "ms": 6201
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1520
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "Nothing to serve: No runnable component was found: nothing in the repository declares an application to start",
+        "ms": 537
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 1)…",
+        "ms": 225
+      },
+      {
+        "id": "health",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "skipped",
+        "summary": "Nothing to serve",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "No runnable component was found: nothing in the repository declares an application to start",
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/allenai/natural-instructions",
+    "owner": "allenai",
+    "name": "natural-instructions",
+    "kind": "dataset",
+    "constraints": "Large task collection with source-specific data licenses. Cloning and checking JSON do not reproduce cross-task generalization.",
+    "repoId": "bea5a270-fa37-4e5d-844e-673364141032",
+    "runId": "f3501f1d-3b60-4d71-9974-bda3483c660a",
+    "status": "killed",
+    "template": "engelbart-runner",
+    "commit": null,
+    "startedAt": "2026-09-18T02:51:56.850642+00:00",
+    "totalMs": 112686,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloning…",
+        "ms": 112686
+      },
+      {
+        "id": "trail",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "plan",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "services",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [],
+    "failures": [
+      {
+        "step": "worker",
+        "source": "worker",
+        "reason": "[unknown] terminated: The sandbox was killed or reached its end of life while the request was in flight.",
+        "stage": null,
+        "detail": {
+          "kind": "TimeoutError"
+        }
+      }
+    ],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/yizhongw/Tk-Instruct",
+    "owner": "yizhongw",
+    "name": "Tk-Instruct",
+    "kind": "dataset_or_pipeline",
+    "constraints": "Paired with natural-instructions-data to test one paper with multiple repositories. HF artifact here is model weights, not an HF dataset.",
+    "repoId": "ee25add4-986c-4462-b956-974cfd697dfa",
+    "runId": "9621ac92-4ff5-49ca-a55e-fc1219994f3f",
+    "status": "killed",
+    "template": "engelbart-runner",
+    "commit": null,
+    "startedAt": "2026-09-18T02:51:57.346909+00:00",
+    "totalMs": 0,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloning…",
+        "ms": 0
+      },
+      {
+        "id": "trail",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "plan",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "services",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/poloclub/diffusiondb",
+    "owner": "poloclub",
+    "name": "diffusiondb",
+    "kind": "dataset",
+    "constraints": "Use a bounded subset, full data retrieval is not a reasonable smoke test. Detect README dependencies omitted from requirements.txt.",
+    "repoId": "eeb583e5-4873-4805-9879-01544111052b",
+    "runId": "c85fdb8e-5776-4d92-a395-1c35bb8ebe10",
+    "status": "killed",
+    "template": "engelbart-runner",
+    "commit": null,
+    "startedAt": "2026-09-18T02:51:57.708821+00:00",
+    "totalMs": 0,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloning…",
+        "ms": 0
+      },
+      {
+        "id": "trail",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "plan",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "services",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/allenai/scifact",
+    "owner": "allenai",
+    "name": "scifact",
+    "kind": "dataset_or_pipeline",
+    "constraints": "Old binary dependencies stress modern Python/Apple Silicon. Data download, model loading and claim verification need distinct outcomes.",
+    "repoId": "dbd2db5c-ccd3-4baf-a263-167f9977d5c9",
+    "runId": "f59ef63f-0cae-4918-80dc-d7e98fb504ed",
+    "status": "killed",
+    "template": "engelbart-runner",
+    "commit": null,
+    "startedAt": "2026-09-18T02:51:58.119296+00:00",
+    "totalMs": 0,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloning…",
+        "ms": 0
+      },
+      {
+        "id": "trail",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "plan",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "services",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/huggingface/sentence-transformers",
+    "owner": "huggingface",
+    "name": "sentence-transformers",
+    "kind": "library_or_cli",
+    "constraints": "Repository moved from UKPLab to Hugging Face. Current package differs from the original 2019 implementation, reviewed revision is recorded.",
+    "repoId": "94b3c030-67d9-4eb1-91dd-7eb061a4c960",
+    "runId": "3b4b30c1-737e-4c8c-9c1f-a3cf33dbee11",
+    "status": "killed",
+    "template": "engelbart-runner",
+    "commit": null,
+    "startedAt": "2026-09-18T02:51:58.453558+00:00",
+    "totalMs": 0,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloning…",
+        "ms": 0
+      },
+      {
+        "id": "trail",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "plan",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "services",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/EleutherAI/lm-evaluation-harness",
+    "owner": "EleutherAI",
+    "name": "lm-evaluation-harness",
+    "kind": "dataset_or_pipeline",
+    "constraints": "Paper is Lessons from the Trenches, written by harness developers,do not substitute the software Zenodo DOI for its paper DOI. Task/model/configuration must accompany any score.",
+    "repoId": "f835fe3d-ce9b-4c97-86e3-bae742700d7c",
+    "runId": "4dc3c0e9-ab29-4ae1-bfd6-be4c85acbdaa",
+    "status": "killed",
+    "template": "engelbart-runner",
+    "commit": null,
+    "startedAt": "2026-09-18T02:51:58.828888+00:00",
+    "totalMs": 0,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloning…",
+        "ms": 0
+      },
+      {
+        "id": "trail",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "plan",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "services",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/huggingface/datasets",
+    "owner": "huggingface",
+    "name": "datasets",
+    "kind": "dataset_or_pipeline",
+    "constraints": "Library is not a single dataset. Use a specified small public dataset/revision for functional testing, load success is not model evaluation.",
+    "repoId": "ca8f4c4f-c57a-4ee2-a713-264e33fc0ca9",
+    "runId": "214aba5b-63ed-44a0-9981-276e18eb8e0d",
+    "status": "killed",
+    "template": "engelbart-runner",
+    "commit": null,
+    "startedAt": "2026-09-18T02:51:59.161096+00:00",
+    "totalMs": 0,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloning…",
+        "ms": 0
+      },
+      {
+        "id": "trail",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "plan",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "services",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/facebookresearch/faiss",
+    "owner": "facebookresearch",
+    "name": "faiss",
+    "kind": "library_or_cli",
+    "constraints": "Native source build and precompiled CPU wheels are different cases. Synthetic-vector smoke tests avoid billion-vector dataset downloads.",
+    "repoId": "f359ab9e-10ff-4590-929c-75b364b42b7c",
+    "runId": "5680f107-5a46-421e-926a-22dd8786da1f",
+    "status": "killed",
+    "template": "engelbart-runner",
+    "commit": null,
+    "startedAt": "2026-09-18T02:51:59.514966+00:00",
+    "totalMs": 0,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloning…",
+        "ms": 0
+      },
+      {
+        "id": "trail",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "plan",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "services",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/mwaskom/seaborn",
+    "owner": "mwaskom",
+    "name": "seaborn",
+    "kind": "notebook_or_visualization",
+    "constraints": "A static generated plot is a valid artifact, absence of a long-running server is expected.",
+    "repoId": "69f08a3c-94d4-40e0-a9c8-81b44e6b3c06",
+    "runId": "728ded0b-293f-4a5b-9dd6-378c4bbed691",
+    "status": "killed",
+    "template": "engelbart-runner",
+    "commit": null,
+    "startedAt": "2026-09-18T02:51:59.868235+00:00",
+    "totalMs": 0,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloning…",
+        "ms": 0
+      },
+      {
+        "id": "trail",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "plan",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "services",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  },
+  {
+    "url": "https://github.com/lmcinnes/umap",
+    "owner": "lmcinnes",
+    "name": "umap",
+    "kind": "notebook_or_visualization",
+    "constraints": "Numba JIT warmup affects first-run latency. Local data transformation and optional plotting need separate checks.",
+    "repoId": "45136b3e-4d04-40fe-9236-e705eddd3e7d",
+    "runId": "55646512-6be0-4f31-ba83-721037499427",
+    "status": "killed",
+    "template": "engelbart-runner",
+    "commit": null,
+    "startedAt": "2026-09-18T02:52:00.264042+00:00",
+    "totalMs": 0,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloning…",
+        "ms": 0
+      },
+      {
+        "id": "trail",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "plan",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "services",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "health",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "stopped",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": ""
+  }
+]

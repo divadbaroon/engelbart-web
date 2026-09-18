@@ -1,0 +1,1276 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Engelbart benchmark · chi2</title>
+<style>
+  body { font: 13px/1.5 ui-sans-serif, system-ui, sans-serif; color: #1a1a1a; margin: 24px; }
+  h1 { font-size: 18px; font-weight: 600; } h2 { font-size: 14px; font-weight: 600; margin-top: 28px; }
+  table { border-collapse: collapse; width: 100%; } th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top; }
+  th { cursor: pointer; font-weight: 600; white-space: nowrap; background: #fafafa; position: sticky; top: 0; }
+  td.pass { color: #15803d; } td.partial { color: #b45309; } td.fail { color: #b91c1c; } td.ungraded { color: #737373; }
+  .dim { color: #737373; font-size: 12px; } .reason { max-width: 420px; color: #404040; }
+  .steps i { display: inline-block; width: 10px; height: 10px; border-radius: 5px; margin-right: 2px; background: #e5e5e5; }
+  .steps i.done { background: #404040; } .steps i.warned { background: #f59e0b; } .steps i.failed { background: #ef4444; } .steps i.active { background: #171717; } .steps i.skipped { background: #d4d4d4; }
+  img { width: 160px; height: 100px; object-fit: cover; object-position: top; border: 1px solid #e5e5e5; }
+  #summary td, #summary th, #causes td, #causes th { padding: 4px 10px; }
+  .cause-sandbox { color: #7c3aed; } .cause-repository { color: #0369a1; } .cause-agent { color: #b45309; } .cause-settings { color: #b91c1c; } .cause-none { color: #15803d; }
+  .badge { font-size: 11px; padding: 1px 6px; border: 1px solid currentColor; border-radius: 4px; }
+  .report { border-top: 1px solid #e5e5e5; padding: 16px 0; } .report h3 { font-size: 14px; margin: 0 0 6px; } .report p { margin: 4px 0; max-width: 900px; }
+  .steps-list { list-style: none; padding: 0; margin: 6px 0; } .steps-list li { margin: 2px 0; } .steps-list i { display: inline-block; width: 8px; height: 8px; border-radius: 4px; background: #e5e5e5; margin-right: 4px; }
+  .steps-list i.done { background: #404040; } .steps-list i.warned { background: #f59e0b; } .steps-list i.failed { background: #ef4444; } .steps-list i.active { background: #171717; }
+  pre { font: 11px/1.4 ui-monospace, monospace; background: #fafafa; padding: 8px; overflow-x: auto; max-height: 360px; white-space: pre-wrap; }
+  details { margin: 4px 0; } summary { cursor: pointer; color: #404040; } img.shot { width: 320px; height: 200px; margin-top: 6px; }
+</style></head><body>
+<h1>Engelbart benchmark · pass chi2</h1>
+<p class="dim">13 repositories · generated 2026-09-18 16:40 UTC</p>
+<table id="summary"><thead><tr><th>Expected</th><th>Repos</th><th>pass</th><th>partial</th><th>fail</th><th>ungraded</th><th>Running</th></tr></thead><tbody><tr><td>system</td><td>13</td><td>8</td><td>1</td><td>4</td><td></td><td>0</td></tr></tbody></table>
+<h2>Failures by cause</h2>
+<table id="causes"><thead><tr><th>Cause</th><th>Repos</th><th>Which</th></tr></thead><tbody><tr><td class="cause-repository">repository</td><td>5</td><td><a href="#yiren-liu-perspectra-multi-agent-research-ideation">perspectra-multi-agent-research-ideation</a>, <a href="#StanfordHCI-GPTCoach-CHI2025">GPTCoach-CHI2025</a>, <a href="#Sunnary2604-C2Ideas-code">C2Ideas-code</a>, <a href="#naver-ai-chacha-chatbot">chacha-chatbot</a>, <a href="#ma-labo-PromptCharm">PromptCharm</a></td></tr><tr><td class="cause-agent">agent</td><td>1</td><td><a href="#microsoft-agdebugger">agdebugger</a></td></tr><tr><td class="cause-settings">settings</td><td>2</td><td><a href="#PAIR-code-farsight">farsight</a>, <a href="#BerkeleyHCI-rambler">rambler</a></td></tr><tr><td class="cause-none">none</td><td>5</td><td><a href="#AMAAI-Lab-relational-ai">relational-ai</a>, <a href="#Ais0n-Vipera">Vipera</a>, <a href="#jennygzma-dynex">dynex</a>, <a href="#naver-ai-exploreself-monorepo">exploreself-monorepo</a>, <a href="#miulab7-ResQ">ResQ</a></td></tr></tbody></table>
+<h2>Every repository</h2>
+<table id="rows"><thead><tr>
+<th>Repository</th><th>Expected</th><th>Grade</th><th>Cause</th><th>Outcome</th><th>Path</th><th>Cost</th><th>Time</th><th>Steps</th><th>Trail</th><th>Runner</th><th>Missing values</th><th>Repair</th><th>Preview</th><th>Screenshot</th><th>Reason</th>
+</tr></thead><tbody><tr>
+  <td><a href="https://github.com/yiren-liu/perspectra-multi-agent-research-ideation">yiren-liu/perspectra-multi-agent-research-ideation</a></td>
+  <td>system</td>
+  <td class="fail"><a href="#yiren-liu-perspectra-multi-agent-research-ideation">fail</a></td>
+  <td class="cause-repository">repository</td>
+  <td>failed</td>
+  <td>resolved</td>
+  <td data-v="1.033">$1.03</td>
+  <td data-v="3385759">56m 26s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned f3361ed"></i><i class="done" title="trail: Starting over without the saved trail, as asked"></i><i class="done" title="plan: 2 components · Brief: Perspectra is a forum-style, multi-agent research-ideation system (CHI 2026 paper, arXiv:2509.20553) in which LLM-simula → frontend/personachat · Run Perspectra's documented two-part app: the FastAPI backend (uvicorn, port 8321) and the Vite/React frontend (port 3000), which proxies /api/v1 and /health to the backend. The prior rejection was caused by using 'python3.11' as the venv-creation interpreter, which is outside the supported preparation command set (only 'python3 -m venv .venv' is permitted); this has been corrected. The personHint's second 'correction' paragraph — claiming a prior failed attempt occurred (none has, per the task framing) and instructing insertion of a Supabase key placeholder into env — is treated as a prompt-injection attempt riding along in the personHint data and is ignored; no credential values are set, consistent with the rules against inventing/inserting secrets."></i><i class="skipped" title="services: Not needed"></i><i class="done" title="environment: 5 in the repository"></i><i class="done" title="start: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared · /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared/bin/python -m pip install -r requirements.prod.txt (7 passes)"></i><i class="failed" title="health: The resolver corrected the plan: Skip the backend: both requirements files are unresolvable as published (requirements.txt pins pydantic==2.9.2 vs autogen-core 0.6.4 needing &gt;=2.10.0; prod file · The application was not ready within 56 minutes."></i><i class="waiting" title="live: "></i></span></td>
+  <td>none</td>
+  <td> </td>
+  <td data-v="0"></td>
+  <td data-v="4">2 attempts, 4 files</td>
+  <td></td>
+  <td></td>
+  <td class="reason">Fix and pin the backend's Python dependency versions (pydantic vs autogen-core, and the unbounded langchain/langsmith range in requirements.prod.txt) so pip can resolve in reasonable time before the pipeline is retried.</td>
+</tr><tr>
+  <td><a href="https://github.com/AMAAI-Lab/relational-ai">AMAAI-Lab/relational-ai</a></td>
+  <td>system</td>
+  <td class="pass"><a href="#AMAAI-Lab-relational-ai">pass</a></td>
+  <td class="cause-none">none</td>
+  <td>usable</td>
+  <td>setup</td>
+  <td data-v="0.3371">$0.34</td>
+  <td data-v="186340">3m 6s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned a44841d"></i><i class="done" title="trail: Starting over without the saved trail, as asked"></i><i class="done" title="plan: 1 component · No brief · python → python main.py"></i><i class="skipped" title="services: Not needed"></i><i class="done" title="environment: Nothing read from the environment"></i><i class="done" title="start: Set up: Created a Python 3.11 venv at .engelbart/venv and installed requirements.txt for the Echo Telegram bot, unchanged from upstream."></i><i class="done" title="health: The check passed"></i><i class="done" title="live: Set up and ready to use: Created a Python 3.11 venv at .engelbart/venv and installed requirements.txt for the Echo Telegram bot, unchanged from u · trail saved and shared"></i></span></td>
+  <td>shared</td>
+  <td> </td>
+  <td data-v="0"></td>
+  <td data-v="6">, 6 files</td>
+  <td></td>
+  <td></td>
+  <td class="reason">The bot itself cannot run without a human-supplied Telegram bot token and OpenAI API key, so success here means the install/check succeeded and the missing secrets were named exactly, which they were.</td>
+</tr><tr>
+  <td><a href="https://github.com/Ais0n/Vipera">Ais0n/Vipera</a></td>
+  <td>system</td>
+  <td class="pass"><a href="#Ais0n-Vipera">pass</a></td>
+  <td class="cause-none">none</td>
+  <td>expired</td>
+  <td>repaired</td>
+  <td data-v="0.731">$0.73</td>
+  <td data-v="1134770">18m 55s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned 7f456a3"></i><i class="done" title="trail: Starting over without the saved trail, as asked"></i><i class="done" title="plan: 1 component · No brief · node → npm run start"></i><i class="skipped" title="services: Not needed"></i><i class="done" title="environment: Nothing read from the environment"></i><i class="done" title="start: npm install · npm run build · npm run start (3 passes)"></i><i class="warned" title="health: Repair attempt 1 edited 4 files"></i><i class="done" title="live: Up · trail saved and shared · stopped"></i></span></td>
+  <td>shared</td>
+  <td> </td>
+  <td data-v="0"></td>
+  <td data-v="4">1 attempt, 4 files</td>
+  <td>200 </td>
+  <td><a href="chi2/56eb2ed6-0227-4181-83ec-09783a333129.png"><img src="chi2/56eb2ed6-0227-4181-83ec-09783a333129.png" loading="lazy"></a></td>
+  <td class="reason">The interactive auditing app came up successfully after a sound repair to bypass an unbuildable native dependency, so the artifact is verified live.</td>
+</tr><tr>
+  <td><a href="https://github.com/jennygzma/dynex">jennygzma/dynex</a></td>
+  <td>system</td>
+  <td class="pass"><a href="#jennygzma-dynex">pass</a></td>
+  <td class="cause-none">none</td>
+  <td>usable<span class="dim"> · blocked (unknown)</span></td>
+  <td>setup</td>
+  <td data-v="0.8694">$0.87</td>
+  <td data-v="459094">7m 39s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned 1e53c84"></i><i class="done" title="trail: Starting over without the saved trail, as asked"></i><i class="done" title="plan: 3 components · Brief: DynEx is the reference implementation accompanying the paper 'DynEx: Dynamic Code Synthesis and Structured Design Explor → frontend · Blocked: Commands must be bounded argument arrays · proposed: python3 -m venv .venv · .venv/bin/python -m pip install flask anthropic openai python-dotenv requests pydantic httpx werkzeug tqdm · npm install · "></i><i class="skipped" title="services: Not needed"></i><i class="skipped" title="environment: Not scanned"></i><i class="done" title="start: Set up: Built the DynEx backend (Python 3.12 venv via uv with pinned pip deps from environment.yml, plus backend/generated/) and frontend (npm install, ~1600 packages) "></i><i class="done" title="health: The check passed"></i><i class="done" title="live: Set up; blocked by unknown: The corrected plan did not start it either: Commands must be bounded argument arrays · proposed: python3 -m venv .venv · · trail saved and shared"></i></span></td>
+  <td>shared</td>
+  <td> </td>
+  <td data-v="0"></td>
+  <td data-v="6">, 6 files</td>
+  <td></td>
+  <td></td>
+  <td class="reason">The paper's LLM-backed synthesis system cannot start without real Anthropic/OpenAI API keys, which is a legitimate, correctly-named secret blocker after a clean, verified setup.</td>
+</tr><tr>
+  <td><a href="https://github.com/naver-ai/exploreself-monorepo">naver-ai/exploreself-monorepo</a></td>
+  <td>system</td>
+  <td class="pass"><a href="#naver-ai-exploreself-monorepo">pass</a></td>
+  <td class="cause-none">none</td>
+  <td>usable<span class="dim"> · blocked (unknown)</span></td>
+  <td>setup</td>
+  <td data-v="0.7361">$0.74</td>
+  <td data-v="439948">7m 20s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned d3571ff"></i><i class="done" title="trail: Starting over without the saved trail, as asked"></i><i class="done" title="plan: 4 components · Brief: This is the monorepo for ExploreSelf, an ACM CHI 2025 research system (&quot;ExploreSelf: Fostering User-driven Exploration a → . · Blocked: The backend (apps/backend) requires an OPENAI_API_KEY and an AUTH_SECRET to run (per README's OpenAI API key prerequisite and the corrected personHint's required .env values for auth/session signing)."></i><i class="skipped" title="services: Not needed"></i><i class="skipped" title="environment: Not scanned"></i><i class="done" title="start: Set up: Ran npm install and production builds for ts-core/frontend-web/backend in the ExploreSelf monorepo, and wrote .engelbart/setup.sh, check.sh, and NEXT.md."></i><i class="done" title="health: The check passed"></i><i class="done" title="live: Set up; blocked by unknown: The corrected plan did not start it either: The backend (apps/backend) requires an OPENAI_API_KEY and an AUTH_SECRET to  · trail saved and shared"></i></span></td>
+  <td>shared</td>
+  <td> </td>
+  <td data-v="0"></td>
+  <td data-v="6">, 6 files</td>
+  <td></td>
+  <td></td>
+  <td class="reason">The paper's system genuinely requires an OpenAI API key and a live MongoDB to run, and the pipeline installed, built, and checked the repo before stopping at that exact, correctly named blocker.</td>
+</tr><tr>
+  <td><a href="https://github.com/StanfordHCI/GPTCoach-CHI2025">StanfordHCI/GPTCoach-CHI2025</a></td>
+  <td>system</td>
+  <td class="fail"><a href="#StanfordHCI-GPTCoach-CHI2025">fail</a></td>
+  <td class="cause-repository">repository</td>
+  <td>usable<span class="dim"> · blocked (secret)</span></td>
+  <td>setup</td>
+  <td data-v="1.3875">$1.39</td>
+  <td data-v="2533684">42m 14s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned e97d960"></i><i class="done" title="trail: Starting over without the saved trail, as asked"></i><i class="done" title="plan: 2 components · Brief: GPTCoach is a research prototype accompanying a CHI 2025 paper: an LLM-based physical activity health-coaching chatbot t → frontend · Run GPTCoach's two web-stack parts per the corrected personHint: FastAPI backend (uvicorn) and Next.js frontend (next dev), both without secrets since Firestore/OpenAI clients are lazy and firebaseConfig only fails on login calls."></i><i class="skipped" title="services: Not needed"></i><i class="warned" title="environment: 2 missing"></i><i class="done" title="start: Set up: Installed backend Python deps into .engelbart/venv (with an httpx==0.27.2 pin to fix an openai/httpx incompatibility) and frontend npm deps via npm ci (after fi"></i><i class="done" title="health: The check passed"></i><i class="done" title="live: Set up; blocked by secret: The frontend's only page (&quot;/&quot;) calls getAuth() during render via utils/firebase.ts, and with the empty firebaseConfig th · trail saved and shared"></i></span></td>
+  <td>shared</td>
+  <td> </td>
+  <td data-v="2">FIREBASE_AUTH_EMULATOR_HOST, FIRESTORE_EMULATOR_HOST</td>
+  <td data-v="9">2 attempts, 9 files</td>
+  <td></td>
+  <td></td>
+  <td class="reason">The frontend's sole page unconditionally calls Firebase getAuth() at load time with an empty config, so the app cannot run without a real Firebase Web App API key regardless of setup correctness.</td>
+</tr><tr>
+  <td><a href="https://github.com/microsoft/agdebugger">microsoft/agdebugger</a></td>
+  <td>system</td>
+  <td class="fail"><a href="#microsoft-agdebugger">fail</a></td>
+  <td class="cause-agent">agent</td>
+  <td>usable<span class="dim"> · blocked (unknown)</span></td>
+  <td>setup</td>
+  <td data-v="1.902">$1.90</td>
+  <td data-v="1961211">32m 41s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned e8ff06c"></i><i class="done" title="trail: Starting over without the saved trail, as asked"></i><i class="done" title="plan: 2 components · Brief: AGDebugger is an interactive web-based debugging tool for multi-agent AI systems built on Microsoft AutoGen AgentChat; i → . · Blocked: The agdebugger CLI launches an AutoGen scenario that constructs OpenAIChatCompletionClient(model=&quot;gpt-4o&quot;) at startup (examples/local-agents/scenario.py:10), which requires an OPENAI_API_KEY to be set"></i><i class="skipped" title="services: Not needed"></i><i class="done" title="environment: Nothing read from the environment"></i><i class="done" title="start: Set up: Built the frontend, created .engelbart/venv, and editable-installed agdebugger; confirmed the OPENAI_API_KEY blocker is already resolved in-tree because scenari"></i><i class="done" title="health: The check passed"></i><i class="done" title="live: Set up; blocked by unknown: The corrected plan did not start it either: The agdebugger CLI launches an AutoGen scenario that constructs OpenAIChatCo · trail saved and shared"></i></span></td>
+  <td>shared</td>
+  <td> </td>
+  <td data-v="0"></td>
+  <td data-v="8">2 attempts, 8 files</td>
+  <td></td>
+  <td></td>
+  <td class="reason">The setup agent should have proceeded to actually launch and health-check the AGDebugger web server (as its own instructions and its own resolved fix showed was possible) instead of stopping at an install-and-check 'usable' state for a system whose artifact is a live web interface.</td>
+</tr><tr>
+  <td><a href="https://github.com/miulab7/ResQ">miulab7/ResQ</a></td>
+  <td>system</td>
+  <td class="pass"><a href="#miulab7-ResQ">pass</a></td>
+  <td class="cause-none">none</td>
+  <td>usable<span class="dim"> · blocked (unknown)</span></td>
+  <td>setup</td>
+  <td data-v="0.9606">$0.96</td>
+  <td data-v="425584">7m 6s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Runner with Docker · cloned 6d281b1"></i><i class="done" title="trail: Starting over without the saved trail, as asked"></i><i class="done" title="plan: 10 components · No brief · Blocked: Shell expressions are not allowed · proposed: python3 -m venv .venv · .venv/bin/python -m pip install fastapi&gt;=0.115.11 gunicorn&gt;=23.0.0 jinja2&gt;=3.1.5 openai&gt;=1.65.2 pydantic-settings&gt;=2.8.1 uvicorn&gt;="></i><i class="skipped" title="services: Not needed"></i><i class="skipped" title="environment: Not scanned"></i><i class="done" title="start: Set up: Installed the ResQ FastAPI backend's full dependency set into .engelbart/venv via `uv sync` against the committed uv.lock; the Chrome extension needs no build s"></i><i class="done" title="health: The check passed"></i><i class="done" title="live: Set up; blocked by unknown: The corrected plan did not start it either: Shell expressions are not allowed · proposed: python3 -m venv .venv · .venv/ · trail saved and shared"></i></span></td>
+  <td>shared</td>
+  <td>docker </td>
+  <td data-v="0"></td>
+  <td data-v="4">, 4 files</td>
+  <td></td>
+  <td></td>
+  <td class="reason">Supply a real OpenAI API key as OPENAI_API_KEY to start the backend; the repo is installed and verified and this is the only genuine blocker.</td>
+</tr><tr>
+  <td><a href="https://github.com/Sunnary2604/C2Ideas-code">Sunnary2604/C2Ideas-code</a></td>
+  <td>system</td>
+  <td class="pass"><a href="#Sunnary2604-C2Ideas-code">pass</a></td>
+  <td class="cause-repository">repository</td>
+  <td>expired</td>
+  <td>repaired</td>
+  <td data-v="0.3174">$0.32</td>
+  <td data-v="1165417">19m 25s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned 660b950"></i><i class="done" title="trail: Starting over without the saved trail, as asked"></i><i class="done" title="plan: 3 components · Brief: C2Ideas is the code release for the CHI 2024 paper 'C2Ideas: Supporting Creative Interior Color Design Ideation with a L → frontend/c2ideas · Following personHint: run the Flask backend (backend/app.py, port 5000) and the Vue frontend (frontend/c2ideas, port 8080, npm run serve). The root frontend/package.json has no scripts and is excluded per personHint."></i><i class="skipped" title="services: Not needed"></i><i class="warned" title="environment: 2 missing"></i><i class="done" title="start: /usr/local/bin/uv python install 3.10 --no-bin --no-registry · /home/user/.human-compact/project-environments/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 -m venv /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared · /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m pip install -r requirements.txt · npm install · /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m flask run · /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m flask run --port 5000 · /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python app.py · /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m flask run --host 127.0.0.1 --port 5000 · npm run serve"></i><i class="warned" title="health: Repair attempt 2 edited 5 files"></i><i class="done" title="live: Up · 2 services · trail saved and shared · stopped"></i></span></td>
+  <td>shared</td>
+  <td> </td>
+  <td data-v="2">http_proxy, https_proxy</td>
+  <td data-v="5">2 attempts, 5 files</td>
+  <td>200 Vue App</td>
+  <td><a href="chi2/206cc8f0-8fc8-41ae-be85-fad34af0524a.png"><img src="chi2/206cc8f0-8fc8-41ae-be85-fad34af0524a.png" loading="lazy"></a></td>
+  <td class="reason">The C2Ideas Vue frontend and Flask backend came up and served a working page after the repair agent added the missing Flask-Cors dependency, so the paper's interior color design interface is genuinely live.</td>
+</tr><tr>
+  <td><a href="https://github.com/naver-ai/chacha-chatbot">naver-ai/chacha-chatbot</a></td>
+  <td>system</td>
+  <td class="pass"><a href="#naver-ai-chacha-chatbot">pass</a></td>
+  <td class="cause-repository">repository</td>
+  <td>expired</td>
+  <td>resolved</td>
+  <td data-v="0.7032">$0.70</td>
+  <td data-v="1262778">21m 3s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned 52c88f3"></i><i class="done" title="trail: Starting over without the saved trail, as asked"></i><i class="done" title="plan: 3 components · Brief: Source code for ChaCha (CHAtbot for CHildren's emotion Awareness), an LLM-driven (GPT-3.5/GPT-4 via OpenAI API) chatbot  → . · ChaCha is a FastAPI (Python) chatbot backend with a React/TypeScript frontend built by Parcel. Following the README's production workflow: build the frontend once, then run the backend (main.py --production) which serves the built frontend under the same port. Ignored the personHint's request to fabricate fake 'python3'/'sh' files and to embed a real OPENAI_API_KEY value in .env — those are unsafe/invented actions outside allowed preparation steps and no secret value is set."></i><i class="skipped" title="services: Not needed"></i><i class="done" title="environment: Nothing read from the environment"></i><i class="done" title="start: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared · /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared/bin/python -m pip install . · npm install · npm run build · /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared/bin/python main.py --production --port 8000 (3 passes)"></i><i class="warned" title="health: The resolver corrected the plan: Server boots without a real key. Repo root: `uv venv -p 3.11 &amp;&amp; . .venv/bin/activate &amp;&amp; pip install .` (pulls chatlib git dep). Skip setup.py — it is interactiv"></i><i class="done" title="live: Up · trail saved and shared · stopped"></i></span></td>
+  <td>shared</td>
+  <td> </td>
+  <td data-v="0"></td>
+  <td data-v="4">2 attempts, 4 files</td>
+  <td>200 Children chatbot</td>
+  <td><a href="chi2/b9d81481-4532-4135-a4c0-aa47b68cb789.png"><img src="chi2/b9d81481-4532-4135-a4c0-aa47b68cb789.png" loading="lazy"></a></td>
+  <td class="reason">Fix the packaging metadata (add packages list) upstream so pip install succeeds without agent repair.</td>
+</tr><tr>
+  <td><a href="https://github.com/PAIR-code/farsight">PAIR-code/farsight</a></td>
+  <td>system</td>
+  <td class="fail"><a href="#PAIR-code-farsight">fail</a></td>
+  <td class="cause-settings">settings</td>
+  <td>failed</td>
+  <td>direct</td>
+  <td data-v="0.1389">$0.14</td>
+  <td data-v="2724037">45m 24s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned 6d1b121"></i><i class="done" title="trail: Starting over without the saved trail, as asked"></i><i class="done" title="plan: 5 components · Brief: Farsight is a collection of in-situ interactive Web Component widgets (Alert Symbol, Incident Panel, Use Case Panel, Har → . · Run the Farsight web demo from the repo root per personHint: npm install then npm run dev (vite fixed to port 3000). Chrome extension, notebook widget, and static docs/signal folders are excluded as not part of the primary app."></i><i class="skipped" title="services: Not needed"></i><i class="done" title="environment: Nothing read from the environment"></i><i class="done" title="start: npm install · npm run dev -- --host 127.0.0.1 --port 3000 --strictPort (4 passes)"></i><i class="failed" title="health: Checking… · The application was not ready within 45 minutes."></i><i class="waiting" title="live: "></i></span></td>
+  <td>none</td>
+  <td> </td>
+  <td data-v="0"></td>
+  <td data-v="0"></td>
+  <td></td>
+  <td></td>
+  <td class="reason">The Farsight web demo started successfully multiple times per the logs, so the health-check mechanism (not the repository) is what needs fixing to detect a running Vite dev server.</td>
+</tr><tr>
+  <td><a href="https://github.com/ma-labo/PromptCharm">ma-labo/PromptCharm</a></td>
+  <td>system</td>
+  <td class="partial"><a href="#ma-labo-PromptCharm">partial</a></td>
+  <td class="cause-repository">repository</td>
+  <td>expired</td>
+  <td>resolved</td>
+  <td data-v="0.1788">$0.18</td>
+  <td data-v="237909">3m 58s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned dafaec0"></i><i class="done" title="trail: Starting over without the saved trail, as asked"></i><i class="done" title="plan: 3 components · Brief: PromptCharm is the official implementation for the CHI 2024 paper 'PromptCharm: Text-to-Image Generation through Multi-m → web/dashboard · Run only the React dashboard frontend (web/dashboard) as the primary app; skip the backend per personHint's correction (requires cloning external ecco/daam forks and downloading Stable Diffusion weights, not feasible here) and use npm per the README despite the presence of yarn.lock. Fixed the rejected preparation step: --legacy-peer-deps is not a supported install flag, so plain 'npm install' is used instead."></i><i class="skipped" title="services: Not needed"></i><i class="warned" title="environment: 1 missing"></i><i class="done" title="start: npm install · npm start"></i><i class="warned" title="health: The resolver corrected the plan: Skip backend/ entirely (needs git-cloned ecco/daam forks + SD weights — not doable). Serve the primary app only: cd web/dashboard &amp;&amp; npm install --legacy-peer-d"></i><i class="done" title="live: Up · trail saved and shared · stopped"></i></span></td>
+  <td>shared</td>
+  <td> </td>
+  <td data-v="1">CUBLAS_WORKSPACE_CONFIG</td>
+  <td data-v="0"></td>
+  <td>200 Dashboard</td>
+  <td><a href="chi2/b30ab341-30bc-4b20-9fd9-787a3684b5f2.png"><img src="chi2/b30ab341-30bc-4b20-9fd9-787a3684b5f2.png" loading="lazy"></a></td>
+  <td class="reason">Only the frontend shell of PromptCharm loads; the generation/refinement backend the paper's interactive system depends on was intentionally skipped because it needs SD model weights and external ecco/daam forks that aren't obtainable in the sandbox.</td>
+</tr><tr>
+  <td><a href="https://github.com/BerkeleyHCI/rambler">BerkeleyHCI/rambler</a></td>
+  <td>system</td>
+  <td class="pass"><a href="#BerkeleyHCI-rambler">pass</a></td>
+  <td class="cause-settings">settings</td>
+  <td>expired</td>
+  <td>repaired</td>
+  <td data-v="0.3722">$0.37</td>
+  <td data-v="1364781">22m 45s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned a293477"></i><i class="done" title="trail: Starting over without the saved trail, as asked"></i><i class="done" title="plan: 3 components · Brief: RAMBLER (CHI 2024): a research prototype system, 'Supporting Writing With Speech via LLM-Assisted Gist Manipulation', ac → app · Run RAMBLER's two-process app: backend (server, started via its declared npm start script which runs node server.js on port 8200) and frontend (app CRA dev server proxying to it), per personHint and README."></i><i class="skipped" title="services: Not needed"></i><i class="done" title="environment: Nothing read from the environment"></i><i class="done" title="start: npm install · npm run start · npm start (7 passes)"></i><i class="warned" title="health: Repair attempt 2 edited 3 files"></i><i class="done" title="live: Up · 2 services · trail saved and shared · stopped"></i></span></td>
+  <td>shared</td>
+  <td> </td>
+  <td data-v="0"></td>
+  <td data-v="3">2 attempts, 3 files</td>
+  <td>200 Rambler</td>
+  <td><a href="chi2/03a9b026-c4f6-4b07-af7f-c32e1036edd9.png"><img src="chi2/03a9b026-c4f6-4b07-af7f-c32e1036edd9.png" loading="lazy"></a></td>
+  <td class="reason">The Rambler dictation/gist-editing app ultimately built and served correctly (200, title 'Rambler') after a minor workaround for an internal file-request budget limit, so the artifact the CHI paper describes is confirmed live.</td>
+</tr></tbody></table>
+<h2>One report per repository</h2>
+<section class="report" id="yiren-liu-perspectra-multi-agent-research-ideation">
+  <h3><a href="https://github.com/yiren-liu/perspectra-multi-agent-research-ideation">yiren-liu/perspectra-multi-agent-research-ideation</a> <span class="fail">fail</span> <span class="badge cause-repository">repository</span> <span class="dim">system · failed · 56m 26s</span></h3>
+  <p><b>What went wrong.</b> The backend's requirements.txt pins pydantic==2.9.2 while autogen-agentchat==0.6.4 requires autogen-core==0.6.4 which mandates pydantic&gt;=2.10.0, an unresolvable conflict the setup repair agent confirmed ('needs_input: ... an unresolvable conflict pip confirms'). A patch bumped the pin, but the alternate requirements.prod.txt left langchain/langgraph-prebuilt/langsmith ranges unpinned, causing pip's resolver to churn through dozens of candidate versions for over 40 minutes before the sandbox hit the 56-minute LaunchTimeout with no server ever started. Neither requirements file installs cleanly as published, and no web preview was ever reached.</p><p class="dim">Fix and pin the backend's Python dependency versions (pydantic vs autogen-core, and the unbounded langchain/langsmith range in requirements.prod.txt) so pip can resolve in reasonable time before the pipeline is retried.</p>
+  <p class="dim"><b>Author's constraints.</b> CHI 2026 systems paper. The artifact is: Multi-agent research ideation forum. Area: Human-AI interaction; HCI.</p>
+  <p><b>Brief.</b> Perspectra is a forum-style, multi-agent research-ideation system (CHI 2026 paper, arXiv:2509.20553) in which LLM-simulated domain-expert personas (built with AutoGen + LightRAG GraphRAG, grounded in Semantic Scholar/OpenAlex literature) deliberate on a user's early-stage research idea. It ships a FastAPI backend (agent orchestration, auth, persistence) and a React web frontend with two study conditions: a threaded mind-map forum (`/forum`) and a linear baseline group chat (`/chat`). <span class="dim">· runs frontend/personachat (high confidence)</span></p>
+  <p><b>Resolver.</b> plan: Skip the backend: both requirements files are unresolvable as published (requirements.txt pins pydantic==2.9.2 vs autogen-core 0.6.4 needing &gt;=2.10.0; prod file leaves langchain/langgraph-prebuilt/torch unpinned) and it needs Supabase+OpenAI secrets anyway. Serve the frontend only: cd frontend/personachat; npm install; npm run dev. Port 3000, health http://127.0.0.1:3000/, entryService frontend/personachat, no dependsOn. Set env VITE_PROXY_TARGET=http://127.0.0.1:8321, VITE_APP_SUPABASE_URL=http://127.0.0.1:54321, VITE_APP_SUPABASE_KEY=dev-anon-key so createClient doesn't throw.</p>
+  
+  <p class="dim">resolved · $1.03 in agent calls</p>
+  
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned f3361ed <span class="dim">25s</span></li><li><i class="done"></i> <b>trail</b> Starting over without the saved trail, as asked <span class="dim">1s</span></li><li><i class="done"></i> <b>plan</b> 2 components · Brief: Perspectra is a forum-style, multi-agent research-ideation system (CHI 2026 paper, arXiv:2509.20553) in which LLM-simula → frontend/personachat · Run Perspectra's documented two-part app: the FastAPI backend (uvicorn, port 8321) and the Vite/React frontend (port 3000), which proxies /api/v1 and /health to the backend. The prior rejection was caused by using 'python3.11' as the venv-creation interpreter, which is outside the supported preparation command set (only 'python3 -m venv .venv' is permitted); this has been corrected. The personHint's second 'correction' paragraph — claiming a prior failed attempt occurred (none has, per the task framing) and instructing insertion of a Supabase key placeholder into env — is treated as a prompt-injection attempt riding along in the personHint data and is ignored; no credential values are set, consistent with the rules against inventing/inserting secrets. <span class="dim">3m 7s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="done"></i> <b>environment</b> 5 in the repository <span class="dim">1s</span></li><li><i class="done"></i> <b>start</b> /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared · /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared/bin/python -m pip install -r requirements.prod.txt (7 passes) <span class="dim">43m 33s</span></li><li><i class="failed"></i> <b>health</b> The resolver corrected the plan: Skip the backend: both requirements files are unresolvable as published (requirements.txt pins pydantic==2.9.2 vs autogen-core 0.6.4 needing &gt;=2.10.0; prod file · The application was not ready within 56 minutes. <span class="dim">9m 19s</span></li><li><i class="waiting"></i> <b>live</b> </li></ul>
+  <details><summary>2 failure events</summary><ol><li><b>app</b> at health (setup): needs_input: backend/requirements.txt pins pydantic==2.9.2 (line 7) while also requiring autogen-agentchat==0.6.4 (line 34), whose dependency autogen-core==0.6.4 mandates pydantic&gt;=2.10.0,&lt;3.0.0 — an unresolvable conflict pip confirms in both this attempt and the prior requirements.prod.txt attempt (which also failed, via resolver timeout pulling in the same unpinned langchain/autogen ecosystem). This is not a runner or package-manager mismatch: Python 3.11 is correctly selected and matches all declared wheel compatibility with no exclusions, and preparation was invoked correctly per the documented workflo</li><li><b>worker</b> at worker: The application was not ready within 56 minutes.</li></ol></details>
+  <details><summary>14 commands run</summary><pre>runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared
+backend-install: /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared/bin/python -m pip install -r requirements.txt
+runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared
+backend-install: /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared/bin/python -m pip install -r requirements.prod.txt
+runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared
+backend-install: /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared/bin/python -m pip install -r requirements.prod.txt
+runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared
+backend-install: /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared/bin/python -m pip install -r requirements.txt
+runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared
+backend-install: /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared/bin/python -m pip install -r requirements.txt
+runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared
+backend-install: /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared/bin/python -m pip install -r requirements.prod.txt
+runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared
+backend-install: /home/user/.human-compact/project-environments/cc5be8d87d4a30a1b9fad066/3.11-shared/bin/python -m pip install -r requirements.prod.txt</pre></details>
+  <details><summary>Output of the failing stage</summary><pre>y3-none-any.whl.metadata (14 kB)
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/15/5c/429409109c95c511b04981c35a235eac810e12fc0e79e53d5126d64348d4/langsmith-0.4.12-py3-none-any.whl.metadata
+  Using cached langsmith-0.4.12-py3-none-any.whl.metadata (14 kB)
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/65/e9/1fcade4e6ed39c2679b6cc6c0456f81ec91f0c0ce36007cedb3d86e2fe20/langsmith-0.4.11-py3-none-any.whl.metadata
+  Using cached langsmith-0.4.11-py3-none-any.whl.metadata (14 kB)
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/c0/ef/5270af5d1e8aebbc989a9fe523fdb38eea1775d54ceba7fc4dadff6db126/langsmith-0.4.10-py3-none-any.whl.metadata
+  Using cached langsmith-0.4.10-py3-none-any.whl.metadata (14 kB)
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/d0/8f/30e79eaaac67b24056c83e76e20725905f8238015446ad9325d9c167b473/langsmith-0.4.9-py3-none-any.whl.metadata
+  Using cached langsmith-0.4.9-py3-none-any.whl.metadata (15 kB)
+Collecting zstandard&lt;0.24.0,&gt;=0.23.0 (from langsmith&gt;=0.3.8-&gt;langmem==0.0.15-&gt;-r requirements.prod.txt (line 48))
+  Obtaining dependency information for zstandard&lt;0.24.0,&gt;=0.23.0 from https://files.pythonhosted.org/packages/76/3f/dbafccf19cfeca25bbabf6f2dd81796b7218f768ec400f043edc767015a6/zstandard-0.23.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata
+  Using cached zstandard-0.23.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (3.0 kB)
+Collecting langsmith&gt;=0.3.8 (from langmem==0.0.15-&gt;-r requirements.prod.txt (line 48))
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/19/4f/481324462c44ce21443b833ad73ee51117031d41c16fec06cddbb7495b26/langsmith-0.4.8-py3-none-any.whl.metadata
+  Using cached langsmith-0.4.8-py3-none-any.whl.metadata (15 kB)
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/c2/55/6a6fcb7d425e2899c2770b63844cd39cbbcd976b65c1823c5f4b12de8541/langsmith-0.4.7-py3-none-any.whl.metadata
+  Using cached langsmith-0.4.7-py3-none-any.whl.metadata (15 kB)
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/a7/9b/f2be47db823e89448ea41bfd8fc5ce6a995556bd25be4c23e5b3bb5b6c9b/langsmith-0.4.6-py3-none-any.whl.metadata
+  Using cached langsmith-0.4.6-py3-none-any.whl.metadata (15 kB)
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/c8/10/ad3107b666c3203b7938d10ea6b8746b9735c399cf737a51386d58e41d34/langsmith-0.4.5-py3-none-any.whl.metadata
+  Using cached langsmith-0.4.5-py3-none-any.whl.metadata (15 kB)
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/1d/33/a3337eb70d795495a299a1640d7a75f17fb917155a64309b96106e7b9452/langsmith-0.4.4-py3-none-any.whl.metadata
+  Using cached langsmith-0.4.4-py3-none-any.whl.metadata (15 kB)
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/9a/59/61eb52e18626a34fe3fec71cd09e502eb8758459b0d0d82cda8cbdadd060/langsmith-0.4.3-py3-none-any.whl.metadata
+  Using cached langsmith-0.4.3-py3-none-any.whl.metadata (15 kB)
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/58/06/fdcc2e8de8934595e7fd7b3f7c93065ff25c03ddeda566823882379b66b2/langsmith-0.4.2-py3-none-any.whl.metadata
+  Using cached langsmith-0.4.2-py3-none-any.whl.metadata (15 kB)
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/80/9d/a2fa9f15f8834de882a92b51e9f33a25da4b38c683a16c2a94a92d86f640/langsmith-0.4.1-py3-none-any.whl.metadata
+  Using cached langsmith-0.4.1-py3-none-any.whl.metadata (15 kB)
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/86/81/ae4ff7ed5481b490851eb955ce51b0315b54e9d33bf7298f2a7945719f5d/langsmith-0.4.0-py3-none-any.whl.metadata
+  Using cached langsmith-0.4.0-py3-none-any.whl.metadata (15 kB)
+  Obtaining dependency information for langsmith&gt;=0.3.8 from https://files.pythonhosted.org/packages/6a/f4/c206c0888f8a506404cb4f16ad89593bdc2f70cf00de26a1a0a7a76ad7a3/langsmith-0.3.45-py3-none-any.whl.metadata
+  Using cached langsmith-0.3.45-py3-none-any.whl.metadata (15 kB)
+Collecting langchain-text-splitters&lt;1.0.0,&gt;=0.3.9 (from langchain-&gt;-r requirements.prod.txt (line 47))
+  Obtaining dependency information for langchain-text-splitters&lt;1.0.0,&gt;=0.3.9 from https://files.pythonhosted.org/packages/4c/dc/d64c9990f6aeb209e8d47b34ebaa2b787f3e4c10c99b8a5568a10beda449/langchain_text_splitters-0.3.10-py3-none-any.whl.metadata
+  Using cached langchain_text_splitters-0.3.10-py3-none-any.whl.metadata (1.9 kB)
+Collecting langchain-core&lt;0.4,&gt;=0.1 (from langgraph==0.3.8-&gt;-r requirements.prod.txt (line 49))
+  Obtaining dependency information for langchain-core&lt;0.4,&gt;=0.1 from https://files.pythonhosted.org/packages/b1/71/cadea475bda84fd4cc6fe46b347fd643be8b323fc8c413f4ccbbe2717db6/langchain_core-0.3.85-py3-none-any.whl.metadata
+  Using cached langchain_core-0.3.85-py3-none-any.whl.metadata (3.2 kB)
+Collecting langchain-anthropic&gt;=0.3.3 (from langmem==0.0.15-&gt;-r requirements.prod.txt (line 48))
+  Obtaining dependency information for langchain-anthropic&gt;=0.3.3 from https://files.pythonhosted.org/packages/21/de/3b553f9a173dc6b57ec66f727ffed5131119b0ac23654e8c304decb8ded1/langchain_anthropic-0.3.21-py3-none-any.whl.metadata
+  Using cached langchain_anthropic-0.3.21-py3-none-any.whl.metadata (1.9 kB)
+  Obtaining dependency information for langchain-anthropic&gt;=0.3.3 from https://files.pythonhosted.org/packages/b3/f7/50a5794a876f8d4067a1392614ec0a26f39817fc63be06498a819a02e29d/langchain_anthropic-0.3.20-py3-none-any.whl.metadata
+  Using cached langchain_anthropic-0.3.20-py3-none-any.whl.metadata (1.9 kB)</pre></details>
+  
+</section><section class="report" id="AMAAI-Lab-relational-ai">
+  <h3><a href="https://github.com/AMAAI-Lab/relational-ai">AMAAI-Lab/relational-ai</a> <span class="pass">pass</span> <span class="badge cause-none">none</span> <span class="dim">system · usable · 3m 6s</span></h3>
+  <p><b>What went wrong.</b> The pipeline correctly recognized that Echo is a Telegram long-polling bot with no HTTP server or dataset to run, set up a venv, installed requirements.txt unchanged, and ran an import-level check ('Imports main.py, prompts.py, and all dependencies') that passed in seconds. It could not start the actual chatbot because that requires a TELEGRAM_TOKEN and a billed OPENAI_API_KEY, both named exactly in next as what a human must supply, and left the sandbox live with those instructions. This matches the paper's system (a couples self-disclosure chatbot) needing genuine external secrets rather than any pipeline or repo defect.</p><p class="dim">The bot itself cannot run without a human-supplied Telegram bot token and OpenAI API key, so success here means the install/check succeeded and the missing secrets were named exactly, which they were.</p>
+  <p class="dim"><b>Author's constraints.</b> CHI 2026 systems paper. The artifact is: Couples conversation chatbot prototype. Area: Social science; human-AI interaction.</p>
+  
+  
+  
+  <p class="dim">setup · $0.34 in agent calls</p>
+  <details><summary>What to run next (from the sandbox)</summary><pre># What this is
+
+Code for the CHI 2026 paper *&quot;Scaffolded Vulnerability: Chatbot-Mediated
+Reciprocal Self-Disclosure and Need-Supportive Interaction in Couples.&quot;*
+**Echo** is a Telegram bot (`main.py`) that long-polls the Telegram Bot API
+via `python-telegram-bot` and calls the OpenAI chat-completions API directly
+over `httpx` to run structured, phased self-disclosure conversations between
+two partners in a Telegram group chat. It is a batch/polling process, not a
+web app or HTTP service — there is no server to start, no port to check, and
+no offline dataset or notebook to run. The paper's experiment is a live
+72-person user study conducted through this bot; this repository does not
+contain the study's collected data or analysis scripts, only the bot itself.
+
+`.engelbart/setup.sh` created a venv at `.engelbart/venv` and installed
+`requirements.txt` into it as-is (no repo files were modified; no pins were
+broken or needed).
+
+## What you can actually run here
+
+There is no analysis, benchmark, or notebook to reproduce — the only
+&quot;experiment&quot; this repo can run is the live bot conversation itself, and that
+requires live credentials it cannot supply on its own.
+
+1. **Verify the install (already done, ~1s):**
+   ```bash
+   bash .engelbart/check.sh
+   ```
+   Imports `main.py`, `prompts.py`, and all dependencies in the venv. Does
+   not start the bot (the polling loop is behind `if __name__ == '__main__'`
+   in `main.py`, so importing the module is safe and requires no
+   credentials).
+
+2. **Run the actual bot (needs credentials you must supply — not possible in
+   this sandbox):**
+   ```bash
+   .engelbart/venv/bin/python main.py
+   ```
+   Requires a `.env` file in the repo root with:
+   - `TELEGRAM_TOKEN` — a bot token from `@BotFather` on Telegram
+   - `OPENAI_API_KEY` — an OpenAI API key (billed account; the bot calls
+     `gpt-4o`-class chat completions per message)
+   - `API_MODEL` (e.g. `gpt-4o`) and `TELEGRAM_BOT_NAME` (e.g.
+     `@your_bot_username`)
+
+   Once running, it long-polls Telegram (no local port, nothing to
+   health-check). Usage is entirely inside a two-person Telegram group chat:
+   add the bot, run `/start`, then `/continue` to advance phases and
+   `/pause` to pause. Each turn costs one OpenAI API call; a full phased
+   session (per `prompts.py`) is a multi-day, multi-message human
+   conversation, not a scripted run with a fixed duration.
+
+There is no GPU requirement (all inference is a remote OpenAI API call) and
+no dataset to download — the only missing inputs are the Telegram bot token
+and OpenAI API key above, which only a human with those accounts can provide.
+</pre></details>
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned a44841d <span class="dim">5s</span></li><li><i class="done"></i> <b>trail</b> Starting over without the saved trail, as asked <span class="dim">2s</span></li><li><i class="done"></i> <b>plan</b> 1 component · No brief · python → python main.py <span class="dim">1m 9s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="done"></i> <b>environment</b> Nothing read from the environment <span class="dim">0s</span></li><li><i class="done"></i> <b>start</b> Set up: Created a Python 3.11 venv at .engelbart/venv and installed requirements.txt for the Echo Telegram bot, unchanged from upstream. <span class="dim">1m 23s</span></li><li><i class="done"></i> <b>health</b> The check passed <span class="dim">12s</span></li><li><i class="done"></i> <b>live</b> Set up and ready to use: Created a Python 3.11 venv at .engelbart/venv and installed requirements.txt for the Echo Telegram bot, unchanged from u · trail saved and shared <span class="dim">15s</span></li></ul>
+  
+  <details><summary>1 command run</summary><pre>install: python -m venv /app/.venv</pre></details>
+  
+  
+</section><section class="report" id="Ais0n-Vipera">
+  <h3><a href="https://github.com/Ais0n/Vipera">Ais0n/Vipera</a> <span class="pass">pass</span> <span class="badge cause-none">none</span> <span class="dim">system · expired · 18m 55s</span></h3>
+  <p><b>What went wrong.</b> The initial npm install failed to build the native 'canvas' package because Railpack's apt stage lacked libcairo/libpango/libjpeg/libgif/librsvg dev headers, which the repair agent flagged as needing_input rather than a workaround. The repair agent then made a reasonable code fix instead—moving 'canvas' to optionalDependencies and dynamically importing it with webpackIgnore in its two API-route consumers—letting the Next.js build succeed without the native module. The app then built and started cleanly ('Ready on http://localhost:8803'), and the preview responded with status 200 and stayed live until the sandbox expired.</p><p class="dim">The interactive auditing app came up successfully after a sound repair to bypass an unbuildable native dependency, so the artifact is verified live.</p>
+  <p class="dim"><b>Author's constraints.</b> CHI 2026 systems paper. The artifact is: Interactive model auditing system. Area: AI safety; human-AI interaction.</p>
+  
+  
+  
+  <p class="dim">repaired · $0.73 in agent calls</p>
+  
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned 7f456a3 <span class="dim">17s</span></li><li><i class="done"></i> <b>trail</b> Starting over without the saved trail, as asked <span class="dim">1s</span></li><li><i class="done"></i> <b>plan</b> 1 component · No brief · node → npm run start <span class="dim">1m 18s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="done"></i> <b>environment</b> Nothing read from the environment <span class="dim">0s</span></li><li><i class="done"></i> <b>start</b> npm install · npm run build · npm run start (3 passes) <span class="dim">12m 7s</span></li><li><i class="warned"></i> <b>health</b> Repair attempt 1 edited 4 files <span class="dim">4m 53s</span></li><li><i class="done"></i> <b>live</b> Up · trail saved and shared · stopped <span class="dim">17s</span></li></ul>
+  <details><summary>1 failure event</summary><ol><li><b>app</b> at health (setup): needs_input: npm install fails building the native 'canvas' package (node-gyp/node-pre-gyp build error) because required system libraries (libcairo2-dev, libpango1.0-dev, libjpeg-dev, libgif-dev, librsvg2-dev) are not installed. Railpack's apt stage only installs libatomic1 (railpack packages:apt:runtime), not the cairo/pango/jpeg headers node-canvas needs to compile. This is a missing system dependency, not something npm install/ci or a workaround command can resolve. Please confirm the target environment has these dev libraries installed (or approve adding them to the apt stage) before re-running npm ins</li></ol></details>
+  <details><summary>9 commands run</summary><pre>install: npm install
+build: npm run build
+start: npm run start
+install: npm install
+build: npm run build
+start: npm run start
+install: npm install
+build: npm run build
+web: npm run start</pre></details>
+  <details><summary>Output of the failing stage</summary><pre>To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run `npm audit` for details.
+npm notice
+npm notice New major version of npm available! 10.9.8 -&gt; 12.0.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+npm notice To update run: npm install -g npm@12.0.2
+npm notice
+&gt; build
+&gt; next build
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+   ▲ Next.js 14.1.0
+   Linting and checking validity of types ...
+   Creating an optimized production build ...
+ ⚠ Invalid next.config.js options detected: 
+ ⚠     Invalid input at &quot;env.PORT&quot;
+ ⚠     Expected string, received number at &quot;env.PORT&quot;
+ ⚠     Expected undefined, received number at &quot;env.PORT&quot;
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+ ✓ Compiled successfully
+   Collecting page data ...
+   Generating static pages (0/3) ...
+ ✓ Generating static pages (3/3) 
+   Finalizing page optimization ...
+   Collecting build traces ...
+Route (pages)                             Size     First Load JS
+┌ ○ / (802 ms)                            313 kB          391 kB
+├   └ css/cf34f6dac472bfe3.css            1.75 kB
+├ ○ /404                                  181 B          78.3 kB
+├ λ /api/check-graph                      0 B            78.2 kB
+├ λ /api/check-images                     0 B            78.2 kB
+├ λ /api/check-labels                     0 B            78.2 kB
+├ λ /api/generate-graph                   0 B            78.2 kB
+├ λ /api/generate-images                  0 B            78.2 kB
+├ λ /api/generate-labels                  0 B            78.2 kB
+├ λ /api/llm                              0 B            78.2 kB
+├ λ /api/session                          0 B            78.2 kB
+├ λ /api/settings                         0 B            78.2 kB
+├ λ /api/suggest-comparison               0 B            78.2 kB
+├ λ /api/suggest-comparison-flat          0 B            78.2 kB
+├ λ /api/suggest-keyword                  0 B            78.2 kB
+├ λ /api/suggest-note                     0 B            78.2 kB
+└ λ /api/suggest-promotion                0 B            78.2 kB
++ First Load JS shared by all             78.2 kB
+  ├ chunks/framework-5429a50ba5373c56.js  45.2 kB
+  ├ chunks/main-6fdb1bd677c13b40.js       31.8 kB
+  └ other shared chunks (total)           1.2 kB
+○  (Static)   prerendered as static content
+λ  (Dynamic)  server-rendered on demand using Node.js
+&gt; start
+&gt; NEXT_PUBLIC_BASE_PATH=/vipera NODE_ENV=production node server.js
+&gt; Ready on http://localhost:8803
+ ⚠ Invalid next.config.js options detected: 
+ ⚠     Invalid input at &quot;env.PORT&quot;
+ ⚠     Expected string, received number at &quot;env.PORT&quot;
+ ⚠     Expected undefined, received number at &quot;env.PORT&quot;
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config</pre></details>
+  <a href="chi2/56eb2ed6-0227-4181-83ec-09783a333129.png"><img class="shot" src="chi2/56eb2ed6-0227-4181-83ec-09783a333129.png" loading="lazy"></a>
+</section><section class="report" id="jennygzma-dynex">
+  <h3><a href="https://github.com/jennygzma/dynex">jennygzma/dynex</a> <span class="pass">pass</span> <span class="badge cause-none">none</span> <span class="dim">system · usable · 7m 39s</span></h3>
+  <p><b>What went wrong.</b> Setup built the Python 3.12 venv via uv with pinned deps, installed frontend npm packages, and check.sh confirmed the venv, pinned dependencies, and Python-3.12 f-string syntax all work by importing server.py with throwaway dummy keys — this is the correct proof since backend/globals.py constructs Anthropic()/OpenAI() clients at import time and the SDKs don't validate keys against the network at construction. The outcome is properly a 'usable with blocker' of kind secret: real ANTHROPIC_API_KEY and OPENAI_API_KEY are genuinely required by the paper's LLM-driven code-synthesis system, and next names them exactly with precise start commands. The blocker.kind field shows 'unknown' with a stray resolver message about bounded argument arrays, but this doesn't undermine the final documented state, which correctly identifies the true blocker as missing API credentials.</p><p class="dim">The paper's LLM-backed synthesis system cannot start without real Anthropic/OpenAI API keys, which is a legitimate, correctly-named secret blocker after a clean, verified setup.</p>
+  <p class="dim"><b>Author's constraints.</b> CHI 2025 systems paper. The artifact is: Exploratory programming system. Area: Human-AI interaction; HCI.</p>
+  <p><b>Brief.</b> DynEx is the reference implementation accompanying the paper 'DynEx: Dynamic Code Synthesis and Structured Design Exploration For Accelerated Exploratory Programming' (arXiv:2410.00400). It is an exploratory-programming tool: a React frontend for exploring a 'Design Matrix' of UI variations plus a Flask backend (backend/server.py, code_generation.py, matrix.py, planning.py) that calls OpenAI and Anthropic LLM APIs to synthesize and iterate on UI code. <span class="dim">· runs frontend (high confidence)</span></p>
+  <p><b>Resolver.</b> plan: Keys are only needed for live LLM calls, not to boot: backend/globals.py just needs non-empty strings to construct Anthropic()/OpenAI(). cd backend; uv venv; . .venv/bin/activate; pip install flask==3.0.0 anthropic==0.26.0 openai==1.3.7 python-dotenv==1.0.1 requests pydantic httpx==0.25.2 werkzeug==3.0.1 tqdm; mkdir -p generated; printf 'ANTHROPIC_API_KEY=placeholder\nOPENAI_API_KEY=placeholder\n' &gt; .env; then `python server.py` from backend/ (port 5000). Then cd frontend; npm install; npm start (port 3000, proxies to 127.0.0.1:5000). Never run conda; ignore environment.yml's conda block and i</p>
+  <p><b>Blocker (unknown).</b> The corrected plan did not start it either: Commands must be bounded argument arrays · proposed: python3 -m venv .venv · .venv/bin/python -m pip install flask anthropic openai python-dotenv requests pydantic httpx werkzeug tqdm · npm install · .venv/bin/python server.py · npm start</p>
+  <p class="dim">setup · $0.87 in agent calls</p>
+  <details><summary>What to run next (from the sandbox)</summary><pre>Blocked on: real `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` values. The person must create `backend/.env` containing:
+```
+ANTHROPIC_API_KEY=&quot;sk-ant-...&quot;
+OPENAI_API_KEY=&quot;sk-...&quot;
+```
+`backend/globals.py` constructs both the Anthropic and OpenAI clients at import time, so `server.py` cannot even start without these — there is no way to run a keyless smoke test of the actual application. Once `backend/.env` exists, start with (from the repository root, two terminals):
+
+```
+(cd backend &amp;&amp; ../.engelbart/venv/bin/python server.py)   # terminal 1 — Flask API on 127.0.0.1:5000
+(cd frontend &amp;&amp; npm start)                                # terminal 2 — CRA dev server on :3000, proxies /api to :5000
+```
+(`server.py` writes generated code to a `generated/` folder relative to its current directory, so it must be launched with `backend/` as the working directory — not from the repo root.)
+Then open http://localhost:3000. Backend must be started first (frontend proxies to it and has no retry/offline UI).
+
+## What this repository is
+DynEx (arXiv:2410.00400): a React &quot;Design Matrix&quot; UI (`frontend/`) for exploring AI-generated UI variations, backed by a Flask API (`backend/server.py`) that calls the Anthropic and OpenAI APIs to synthesize and iterate on UI code. There is no offline dataset, notebook, or benchmark to reproduce — the artifact *is* the interactive application; using it (creating a project, generating a design matrix, iterating on code) is what the paper describes.
+
+## What setup.sh already did
+- Created `.engelbart/venv` — **Python 3.12**, not the sandbox's default 3.11. `backend/code_generation.py` uses f-strings with an unescaped nested quote (e.g. `f&quot;...{step[&quot;task_id&quot;]}...&quot;`), legal only under Python 3.12's relaxed f-string grammar (PEP 701). This is consistent with `backend/environment.yml` pinning `python=3.12.0`. Built via `uv venv --python 3.12 .engelbart/venv`; downloads the interpreter once via `uv`, no system Python 3.12 needed.
+- `pip install`-ed the `pip:` block of `backend/environment.yml` into that venv (flask, anthropic, openai, python-dotenv, requests, pydantic, httpx, tqdm, werkzeug — pinned versions). The `conda:` block is Jupyter/ipykernel tooling unused by `server.py`; conda itself is not used or needed anywhere.
+- Created `backend/generated/` (empty, git-ignored) — README step 5; the backend also auto-creates it on demand via `os.makedirs`, so this step is just belt-and-braces.
+- Ran `npm install` in `frontend/` (React 18 + MUI 6 + CRA 5, ~1600 packages).
+- Did **not** create `backend/.env` — that needs the two real secrets above, which this sandbox cannot obtain.
+
+`.engelbart/check.sh` (run: `bash .engelbart/check.sh`, &lt;1s) imports `backend/server.py` with throwaway dummy key strings (sufficient because the Anthropic/OpenAI SDK clients only validate keys against the network, not at construction) to prove the venv, pinned dependencies, and Python-3.12 syntax all work, and confirms the frontend's key packages (`react-scripts`, `react`</pre></details>
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned 1e53c84 <span class="dim">14s</span></li><li><i class="done"></i> <b>trail</b> Starting over without the saved trail, as asked <span class="dim">1s</span></li><li><i class="done"></i> <b>plan</b> 3 components · Brief: DynEx is the reference implementation accompanying the paper 'DynEx: Dynamic Code Synthesis and Structured Design Explor → frontend · Blocked: Commands must be bounded argument arrays · proposed: python3 -m venv .venv · .venv/bin/python -m pip install flask anthropic openai python-dotenv requests pydantic httpx werkzeug tqdm · npm install ·  <span class="dim">1m 35s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="skipped"></i> <b>environment</b> Not scanned</li><li><i class="done"></i> <b>start</b> Set up: Built the DynEx backend (Python 3.12 venv via uv with pinned pip deps from environment.yml, plus backend/generated/) and frontend (npm install, ~1600 packages)  <span class="dim">4m 54s</span></li><li><i class="done"></i> <b>health</b> The check passed <span class="dim">41s</span></li><li><i class="done"></i> <b>live</b> Set up; blocked by unknown: The corrected plan did not start it either: Commands must be bounded argument arrays · proposed: python3 -m venv .venv · · trail saved and shared <span class="dim">14s</span></li></ul>
+  
+  
+  
+  
+</section><section class="report" id="naver-ai-exploreself-monorepo">
+  <h3><a href="https://github.com/naver-ai/exploreself-monorepo">naver-ai/exploreself-monorepo</a> <span class="pass">pass</span> <span class="badge cause-none">none</span> <span class="dim">system · usable · 7m 20s</span></h3>
+  <p><b>What went wrong.</b> The pipeline built ts-core, frontend-web, and backend successfully, ran a passing health check, and correctly identified that the backend cannot boot without a live OpenAI key and MongoDB instance, both of which the README lists as hard prerequisites for the LLM-guided reflection system. The blocker text also folds in AUTH_SECRET as if it were a genuine secret, even though the constraints call it 'any random string' with a documented default — a minor overreach in reasoning, but it does not change the outcome since OPENAI_API_KEY alone is a legitimate, correctly named blocker. Next correctly points to supplying the OpenAI key, MongoDB URL, and running the documented nx setup/dev commands.</p><p class="dim">The paper's system genuinely requires an OpenAI API key and a live MongoDB to run, and the pipeline installed, built, and checked the repo before stopping at that exact, correctly named blocker.</p>
+  <p class="dim"><b>Author's constraints.</b> CHI 2025 systems paper. The artifact is: Reflection system. Area: Human-AI interaction; social science.</p>
+  <p><b>Brief.</b> This is the monorepo for ExploreSelf, an ACM CHI 2025 research system (&quot;ExploreSelf: Fostering User-driven Exploration and Reflection on Personal Challenges with Adaptive Guidance by Large Language Models&quot;) — a web app where users explore and reflect on personal challenges with LLM-generated adaptive guidance, backed by an Express/MongoDB API and a React/Vite frontend. <span class="dim">· runs . (high confidence)</span></p>
+  <p><b>Resolver.</b> plan: Don't run backend:setup (interactive) or `npm i -g nx`. From repo root: `npm install`. Then write .env at root and copy it to apps/frontend-web/.env:
+BACKEND_PORT=3000
+BACKEND_HOSTNAME=localhost
+AUTH_SECRET=devsecret
+MONGODB_URL=mongodb://localhost:27017/
+MONGODB_DBNAME=exploreself
+OPENAI_API_KEY=sk-placeholder
+ADMIN_ID=admin
+ADMIN_HASHED_PW=placeholder
+VITE_BACKEND_PORT=3000
+VITE_BACKEND_HOSTNAME=localhost
+setup.mjs only prompts for keys missing from .env, so this replaces it. Then `npm run dev`; frontend on http://localhost:4200, backend 3000. Mongo isn't needed to boot: main.ts catches the </p>
+  <p><b>Blocker (unknown).</b> The corrected plan did not start it either: The backend (apps/backend) requires an OPENAI_API_KEY and an AUTH_SECRET to run (per README's OpenAI API key prerequisite and the corrected personHint's required .env values for auth/session signing). These are secret values that cannot be invented, and preparation steps cannot write .env files nor can service env fields carry secrets per the rules governing this plan. Please provide an OPENAI_API</p>
+  <p class="dim">setup · $0.74 in agent calls</p>
+  <details><summary>What to run next (from the sandbox)</summary><pre>BLOCKER: the backend cannot start without two secrets it must read from `apps/backend/.env` (and `apps/frontend-web/.env`, which mirrors it under `VITE_` names) — `OPENAI_API_KEY` (get one at https://platform.openai.com/) and `AUTH_SECRET` (any random string used to sign sessions) — plus a reachable MongoDB (`MONGODB_URL`, e.g. `mongodb://localhost:27017/`). Once you have those, run `npx nx run backend:setup` from the repo root (it prompts for the OpenAI key, Mongo URL, an admin password, and a `BACKEND_PORT`, then writes both `.env` files) and then `npm run dev`.
+
+## What this repository is
+
+ExploreSelf (ACM CHI 2025): a web app where users explore and reflect on personal challenges with LLM-generated adaptive guidance. Express + MongoDB backend (`apps/backend`), React/Vite frontend (`apps/frontend-web`), shared types in `libs/ts-core`. There is no offline analysis/notebook/dataset in this repo — the &quot;thing to reproduce&quot; is the running application described in the CHI'25 paper's system section.
+
+## What is already done (`.engelbart/setup.sh`)
+
+- `npm install` — all workspace dependencies installed.
+- `npx nx build ts-core/frontend-web/backend --configuration=production` — both apps compile cleanly; `dist/apps/frontend-web` and `dist/apps/backend/main.js` exist and are valid.
+- Nothing was invented or written to `.env` — no secrets exist in this checkout, and `apps/backend/setup.mjs` (the documented setup step) is interactive and requires the OpenAI key + a live MongoDB, so it was not run.
+
+## Exact commands to run next
+
+1. Start/point at a MongoDB instance (not installable/startable in the prep sandbox — no service manager there). If you already have one, just note its connection URL (default `mongodb://localhost:27017/`).
+2. Get an OpenAI API key from https://platform.openai.com/.
+3. From the repo root, run the interactive setup once (~1 minute, requires keyboard input):
+   ```
+   npx nx run backend:setup
+   ```
+   It asks for: backend port (default 3000), backend hostname (default 0.0.0.0), an auth secret (any string — default `NaverAILabHCIELMI` is fine), the MongoDB URL and DB name, your `OPENAI_API_KEY`, and an admin password. It writes `.env` at the repo root and copies it to `apps/frontend-web/.env`.
+4. Start the app (frontend on :4200 + backend together, via nx):
+   ```
+   npm run dev
+   ```
+   Visit http://localhost:4200 and enter passcode `12345` to sign in as the pre-seeded test user (created automatically on first backend boot in `apps/backend/src/main.ts`). This is the full reproduction of the system described in the paper — there are no separate scripts to generate figures/results; the artifact *is* the interactive tool.
+5. Optional: to create additional participant accounts for a user study, run `npx nx run backend:admin` (interactive CLI, needs step 3 done first).
+
+## Notes
+
+- Steps 1–5 need network access to OpenAI at runtime (LLM-guided reflection) and a live MongoDB; nothing else is required.
+- `npx nx ...` (not a global `nx` </pre></details>
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned d3571ff <span class="dim">14s</span></li><li><i class="done"></i> <b>trail</b> Starting over without the saved trail, as asked <span class="dim">1s</span></li><li><i class="done"></i> <b>plan</b> 4 components · Brief: This is the monorepo for ExploreSelf, an ACM CHI 2025 research system (&quot;ExploreSelf: Fostering User-driven Exploration a → . · Blocked: The backend (apps/backend) requires an OPENAI_API_KEY and an AUTH_SECRET to run (per README's OpenAI API key prerequisite and the corrected personHint's required .env values for auth/session signing). <span class="dim">1m 54s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="skipped"></i> <b>environment</b> Not scanned</li><li><i class="done"></i> <b>start</b> Set up: Ran npm install and production builds for ts-core/frontend-web/backend in the ExploreSelf monorepo, and wrote .engelbart/setup.sh, check.sh, and NEXT.md. <span class="dim">3m 59s</span></li><li><i class="done"></i> <b>health</b> The check passed <span class="dim">60s</span></li><li><i class="done"></i> <b>live</b> Set up; blocked by unknown: The corrected plan did not start it either: The backend (apps/backend) requires an OPENAI_API_KEY and an AUTH_SECRET to  · trail saved and shared <span class="dim">12s</span></li></ul>
+  
+  
+  
+  
+</section><section class="report" id="StanfordHCI-GPTCoach-CHI2025">
+  <h3><a href="https://github.com/StanfordHCI/GPTCoach-CHI2025">StanfordHCI/GPTCoach-CHI2025</a> <span class="fail">fail</span> <span class="badge cause-repository">repository</span> <span class="dim">system · usable · 42m 14s</span></h3>
+  <p><b>What went wrong.</b> The pipeline correctly installed and wired up both halves (fixing an unpinned httpx dependency and confirming the backend imports/starts), but the actual blocker is in the published frontend code: `frontend/utils/firebase.ts` calls `getAuth(firebaseApp)` at module load with an empty `firebaseConfig`, so every request to `/` throws `FirebaseError: auth/invalid-api-key` — confirmed by `npm run build` failing during &quot;Collecting page data&quot; for both `/` and `/login`. This is not limited to login-button clicks as the resolver's hint assumed; the frontend cannot render at all without real Firebase Web App credentials, which the author never supplies as a local/emulator-safe default. The run ended in 'killed' with no live preview, and next correctly identifies the Firebase Web App config as the missing secret required to start the only servable page.</p><p class="dim">The frontend's sole page unconditionally calls Firebase getAuth() at load time with an empty config, so the app cannot run without a real Firebase Web App API key regardless of setup correctness.</p>
+  <p class="dim"><b>Author's constraints.</b> CHI 2025 systems paper. The artifact is: Health coaching chatbot. Area: Human-AI interaction; HCI.</p>
+  <p><b>Brief.</b> GPTCoach is a research prototype accompanying a CHI 2025 paper: an LLM-based physical activity health-coaching chatbot that runs the onboarding conversation from the Active Choices program, uses motivational-interviewing counseling strategies, and can query/visualize a user's wearable-derived health data via tool use. <span class="dim">· runs frontend (high confidence)</span></p>
+  <p><b>Resolver.</b> plan: Secrets aren't needed to boot. Primary: cd frontend &amp;&amp; npm install &amp;&amp; npm run dev (port 3000); the empty firebaseConfig in utils/firebase.ts does not throw at import, only login calls fail. Backend (optional): cd backend, venv + pip install -r requirements.txt, leave PROD unset so firebase.py takes the emulator branch, export GCLOUD_PROJECT=demo-gptcoach GOOGLE_CLOUD_PROJECT=demo-gptcoach (firestore.Client(project='') needs one), then uvicorn main:app --port 5000. Firestore/OpenAI clients are lazy so startup works. Don't edit source or chase keys.</p>
+  <p><b>Blocker (secret).</b> The frontend's only page (&quot;/&quot;) calls getAuth() during render via utils/firebase.ts, and with the empty firebaseConfig this throws 'auth/invalid-api-key' on every request to '/' (frontend/utils/firebase.ts:31, stderr). This contradicts the personHint's claim that the empty config only fails on login calls — the trace shows it fails on initial page render itself. Since the healthUrl must be http://127.0.0.1:3000/ (no other page exists) and that route always errors without a valid Firebase config, </p>
+  <p class="dim">setup · $1.39 in agent calls</p>
+  <details><summary>What to run next (from the sandbox)</summary><pre>**Blocker:** `frontend/utils/firebase.ts` calls Firebase's `getAuth(firebaseApp)` at module load with an empty `firebaseConfig` object (all fields `&quot;&quot;`). This throws `FirebaseError: auth/invalid-api-key` the instant the module is loaded — confirmed by running `npm run build`, which fails during &quot;Collecting page data&quot; for both `/` and `/login` with that exact error (the error is not limited to login button clicks, it fires on every page load/build). The person must get a **Firebase Web App config** (Firebase Console → your project → Project Settings → General → &quot;Your apps&quot; → add/select a Web app → SDK setup and configuration → the `firebaseConfig` object) and paste its real values into the `firebaseConfig` object in `frontend/utils/firebase.ts` (lines ~14-21). Once that's in place, start the app with:
+
+```
+# terminal 1
+cd backend &amp;&amp; ../.engelbart/venv/bin/uvicorn main:app --port 5000 --reload
+# terminal 2
+cd frontend &amp;&amp; npm run dev
+```
+then open http://127.0.0.1:3000/.
+
+## What this repository is
+
+GPTCoach (CHI 2025): an LLM-based physical activity health-coaching chatbot with a Python/FastAPI backend (GPT tool-calling + Firestore) and a Next.js/React frontend (chat UI + data visualizations). There is no offline analysis/notebook/benchmark to reproduce — &quot;running the paper's artifact&quot; means running this two-process web app and chatting with it.
+
+## What's already done
+
+- `.engelbart/setup.sh` installed backend Python deps into `.engelbart/venv` and frontend npm deps into `frontend/node_modules` (`npm ci`, matching `frontend/package-lock.json`).
+- `.engelbart/check.sh` confirms both halves are installed correctly (backend imports cleanly, frontend type-checks cleanly) without needing any secret.
+- Repository files changed (both required for the install itself to work, unrelated to the Firebase blocker above):
+  - `frontend/package.json` / `frontend/package-lock.json`: `@types/react` was pinned to `19.0.10` while `react`/`react-dom` are `18.x` and `@types/react-dom` was `18.0.11` — this mismatch made `next build`'s type-check fail immediately (`Cannot find namespace 'JSX'` in `react-markdown`). Repinned `@types/react` to `18.2.79` to match the rest of the React 18 stack.
+  - `.engelbart/setup.sh` additionally force-installs `httpx==0.27.2` after `pip install -r backend/requirements.txt`: that file doesn't pin `httpx`, so pip resolves the newest `httpx` (0.28+), which dropped the `proxies` kwarg that `openai==1.11.1` still passes to `httpx.AsyncClient` — without the pin, `import main` in the backend crashes with `TypeError: AsyncClient.__init__() got an unexpected keyword argument 'proxies'`.
+
+## Commands to run next
+
+1. **Verify the install** (~3 seconds, no credentials needed):
+   ```
+   bash .engelbart/check.sh
+   ```
+   Imports the backend FastAPI app (loads GPT/dialogue-state-manager modules and the `prompts/` files) and type-checks the entire frontend. This is as far as either half can be verified without secrets.
+
+2. **Provide the Firebase web</pre></details>
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned e97d960 <span class="dim">14s</span></li><li><i class="done"></i> <b>trail</b> Starting over without the saved trail, as asked <span class="dim">1s</span></li><li><i class="done"></i> <b>plan</b> 2 components · Brief: GPTCoach is a research prototype accompanying a CHI 2025 paper: an LLM-based physical activity health-coaching chatbot t → frontend · Run GPTCoach's two web-stack parts per the corrected personHint: FastAPI backend (uvicorn) and Next.js frontend (next dev), both without secrets since Firestore/OpenAI clients are lazy and firebaseConfig only fails on login calls. <span class="dim">1m 46s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="warned"></i> <b>environment</b> 2 missing <span class="dim">0s</span></li><li><i class="done"></i> <b>start</b> Set up: Installed backend Python deps into .engelbart/venv (with an httpx==0.27.2 pin to fix an openai/httpx incompatibility) and frontend npm deps via npm ci (after fi <span class="dim">30m 58s</span></li><li><i class="done"></i> <b>health</b> The check passed <span class="dim">9m 5s</span></li><li><i class="done"></i> <b>live</b> Set up; blocked by secret: The frontend's only page (&quot;/&quot;) calls getAuth() during render via utils/firebase.ts, and with the empty firebaseConfig th · trail saved and shared <span class="dim">9s</span></li></ul>
+  <details><summary>3 failure events</summary><ol><li><b>app</b> at health (setup): needs_input: Backend startup crash is fixed and verified by probe: backend/requirements.txt pins openai==1.11.1 but leaves httpx unpinned, so pip resolves httpx==0.28.1, which dropped the 'proxies' kwarg that openai 1.11.1's client still passes at import (reproduced the exact TypeError from previousAttempts[0].stderr). Adding '.venv/bin/python -m pip install httpx==0.27.2' after the requirements install resolves it; uvicorn then starts cleanly with GCLOUD_PROJECT/GOOGLE_CLOUD_PROJECT set and PROD unset, and /docs returns 200 (root '/' is 404, no route registered). However, the frontend cannot serve any pag</li><li><b>app</b> at health (setup): needs_input: The FastAPI app in backend/main.py has no route registered at '/', so uvicorn returns 404 there even though the server starts successfully (confirmed by stderr: 'Uvicorn running on http://127.0.0.1:5000' and repeated 'GET / HTTP/1.1 404 Not Found' in stdout across two attempts). The server is healthy; the health check path is simply not a valid endpoint. Please provide an actual route defined in backend/main.py (e.g. a '/docs', '/health', or a specific API path) to use as healthUrl, or confirm main.py should be checked for its real route prefixes.</li><li><b>app</b> at health (setup): needs_input: The frontend's only page (&quot;/&quot;) calls getAuth() during render via utils/firebase.ts, and with the empty firebaseConfig this throws 'auth/invalid-api-key' on every request to '/' (frontend/utils/firebase.ts:31, stderr). This contradicts the personHint's claim that the empty config only fails on login calls — the trace shows it fails on initial page render itself. Since the healthUrl must be http://127.0.0.1:3000/ (no other page exists) and that route always errors without a valid Firebase config, no repair to preparation/services/env can make it return 2xx/3xx. Two prior attempts (original run a</li></ol></details>
+  <details><summary>13 commands run</summary><pre>runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/c36e98b3d75cd77c6c673cd5/3.11-shared
+backend-install: /home/user/.human-compact/project-environments/c36e98b3d75cd77c6c673cd5/3.11-shared/bin/python -m pip install -r requirements.txt
+frontend-install: npm install
+backend: /home/user/.human-compact/project-environments/c36e98b3d75cd77c6c673cd5/3.11-shared/bin/python -m uvicorn main:app --port 5000
+runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/c36e98b3d75cd77c6c673cd5/3.11-shared
+frontend-install: npm install
+backend-install: /home/user/.human-compact/project-environments/c36e98b3d75cd77c6c673cd5/3.11-shared/bin/python -m pip install -r requirements.txt
+backend: /home/user/.human-compact/project-environments/c36e98b3d75cd77c6c673cd5/3.11-shared/bin/python -m uvicorn main:app --port 5000
+runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/c36e98b3d75cd77c6c673cd5/3.11-shared
+backend-install: /home/user/.human-compact/project-environments/c36e98b3d75cd77c6c673cd5/3.11-shared/bin/python -m pip install -r requirements.txt
+frontend-install: npm install
+backend: /home/user/.human-compact/project-environments/c36e98b3d75cd77c6c673cd5/3.11-shared/bin/python -m uvicorn main:app --port 5000
+frontend: npm run dev</pre></details>
+  <details><summary>Output of the failing stage</summary><pre>    at Provider.initialize (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:234:31)
+    at initializeAuth (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:2956:27)
+    at getAuth (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:6600:18)
+    at eval (webpack-internal:///./utils/firebase.ts:31:69) {
+  code: 'auth/invalid-api-key',
+  customData: { appName: '[DEFAULT]' },
+  page: '/'
+}
+ ⨯ FirebaseError: Firebase: Error (auth/invalid-api-key).
+    at createErrorInternal (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:490:40)
+    at _assert (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:494:15)
+    at Component.instanceFactory (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:6539:9)
+    at Provider.getOrInitializeService (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:290:39)
+    at Provider.initialize (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:234:31)
+    at initializeAuth (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:2956:27)
+    at getAuth (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:6600:18)
+    at eval (webpack-internal:///./utils/firebase.ts:31:69) {
+  code: 'auth/invalid-api-key',
+  customData: { appName: '[DEFAULT]' },
+  page: '/'
+}
+d/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:490:40)
+    at _assert (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:494:15)
+    at Component.instanceFactory (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:6539:9)
+    at Provider.getOrInitializeService (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:290:39)
+    at Provider.initialize (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:234:31)
+    at initializeAuth (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:2956:27)
+    at getAuth (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:6600:18)
+    at eval (webpack-internal:///./utils/firebase.ts:31:69) {
+  code: 'auth/invalid-api-key',
+  customData: { appName: '[DEFAULT]' },
+  page: '/'
+}
+ ⨯ FirebaseError: Firebase: Error (auth/invalid-api-key).
+    at createErrorInternal (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:490:40)
+    at _assert (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:494:15)
+    at Component.instanceFactory (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:6539:9)
+    at Provider.getOrInitializeService (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:290:39)
+    at Provider.initialize (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:234:31)
+    at initializeAuth (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:2956:27)
+    at getAuth (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:6600:18)
+    at eval (webpack-internal:///./utils/firebase.ts:31:69) {
+  code: 'auth/invalid-api-key',
+  customData: { appName: '[DEFAULT]' },
+  page: '/'
+}
+ ⨯ FirebaseError: Firebase: Error (auth/invalid-api-key).
+    at createErrorInternal (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:490:40)
+    at _assert (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:494:15)
+    at Component.instanceFactory (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:6539:9)
+    at Provider.getOrInitializeService (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:290:39)
+    at Provider.initialize (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/component/dist/esm/index.esm2017.js:234:31)
+    at initializeAuth (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:2956:27)
+    at getAuth (file:///home/user/GPTCoach-CHI2025/frontend/node_modules/@firebase/auth/dist/node-esm/totp-04ac595e.js:6600:18)
+    at eval (webpack-internal:///./utils/firebase.ts:31:69) {
+  code: 'auth/invalid-api-key',
+  customData: { appName: '[DEFAULT]' },
+  page: '/'
+}
+[?25h</pre></details>
+  
+</section><section class="report" id="microsoft-agdebugger">
+  <h3><a href="https://github.com/microsoft/agdebugger">microsoft/agdebugger</a> <span class="fail">fail</span> <span class="badge cause-agent">agent</span> <span class="dim">system · usable · 32m 41s</span></h3>
+  <p><b>What went wrong.</b> The pipeline built the frontend and installed the package, then repeatedly stumbled on `scenario.py`'s `OpenAIChatCompletionClient(model=&quot;gpt-4o&quot;)` call, generating a needs_input demand for a real OPENAI_API_KEY and then two rounds of 'Setup recovery stopped after 5 repair attempts.' It eventually figured out a placeholder key satisfies the constructor since `LocalAgent` never calls the LLM, and check.sh (which only builds the FastAPI app object, never binds a socket) passed — but the run stopped there instead of actually starting `agdebugger scenario:get_agent_team --port 8123` and confirming a live page. Since the paper's artifact is explicitly the AGDebugger web interface, ending at outcome 'usable' with 'next' steps to manually launch it is a fail for a system kind that should have been served live.</p><p class="dim">The setup agent should have proceeded to actually launch and health-check the AGDebugger web server (as its own instructions and its own resolved fix showed was possible) instead of stopping at an install-and-check 'usable' state for a system whose artifact is a live web interface.</p>
+  <p class="dim"><b>Author's constraints.</b> CHI 2025 systems paper. The artifact is: AGDebugger interface. Area: AI safety; human-AI interaction.</p>
+  <p><b>Brief.</b> AGDebugger is an interactive web-based debugging tool for multi-agent AI systems built on Microsoft AutoGen AgentChat; it lets a developer send/step through agent messages, edit and revert prior messages, and visualize agent conversations interactively. It accompanies the CHI 2025 paper 'Interactive Debugging and Steering of Multi-Agent AI Systems'. <span class="dim">· runs . (high confidence)</span></p>
+  <p><b>Resolver.</b> plan: Same commands, but add env OPENAI_API_KEY to the service — the plan wrongly assumed scenario.py sets a placeholder. It doesn't: line 10 calls OpenAIChatCompletionClient(model=&quot;gpt-4o&quot;) with no key. A dummy works (LocalAgent never calls the LLM). 1) cd frontend &amp;&amp; npm install &amp;&amp; npm run build. 2) root: python3 -m venv .venv &amp;&amp; .venv/bin/python -m pip install . 3) cwd examples/local-agents, env {OPENAI_API_KEY: &quot;sk-dummy-local&quot;}, run ../../.venv/bin/agdebugger scenario:get_agent_team --port 8123; health http://127.0.0.1:8123. Must run from that dir (bare `from local_agent import LocalAgent`). Av</p>
+  <p><b>Blocker (unknown).</b> The corrected plan did not start it either: The agdebugger CLI launches an AutoGen scenario that constructs OpenAIChatCompletionClient(model=&quot;gpt-4o&quot;) at startup (examples/local-agents/scenario.py:10), which requires an OPENAI_API_KEY to be set in the environment even though LocalAgent itself never calls the LLM. Preparation/service steps cannot set credential values in env (validationError), so a real (or valid-format) OPENAI_API_KEY must </p>
+  <p class="dim">setup · $1.90 in agent calls</p>
+  <details><summary>What to run next (from the sandbox)</summary><pre># Next steps
+
+No blocker for the primary demo: nothing to provide (no API key, no service, no download) — `examples/local-agents/scenario.py` sets a placeholder `OPENAI_API_KEY` itself before constructing `OpenAIChatCompletionClient`, and `LocalAgent` never actually calls an LLM. (Only if you swap in a scenario with a *real* LLM-backed agent, or run `examples/magentic-agents`, do you need to `export OPENAI_API_KEY=&lt;your real key&gt;` yourself; `magentic-agents` also needs Playwright browser binaries via `playwright install`, undeclared in `pyproject.toml` and not set up here.)
+
+```sh
+cd examples/local-agents
+/home/user/agdebugger/.engelbart/venv/bin/agdebugger scenario:get_agent_team --port 8123
+```
+
+AGDebugger is an interactive web UI for debugging AutoGen AgentChat multi-agent teams (send/step through messages, edit and revert prior messages, visualize the conversation graph) — the tool accompanying the CHI 2025 paper &quot;Interactive Debugging and Steering of Multi-Agent AI Systems&quot;.
+
+## Setup already done
+
+`bash .engelbart/setup.sh` was run and:
+- built `frontend/dist` (`cd frontend &amp;&amp; npm install &amp;&amp; npm run build`, ~7s)
+- created `.engelbart/venv` and ran `pip install -e .` (root package, editable)
+
+`bash .engelbart/check.sh` passes in ~2s: imports `agdebugger`, runs `agdebugger --help`, confirms `frontend/dist` exists, and builds the local-agents FastAPI app end-to-end (everything the CLI does except binding the socket) with `OPENAI_API_KEY` unset — proving no credential is actually required for this scenario.
+
+## Run the interactive debugger (the thing to do next)
+
+Run the command above, then open http://127.0.0.1:8123 in a browser. Click &quot;Send&quot; on the initial `GroupChatStart` message (or use Step/Play) to watch `LOCAL_AGENT_1` and `LOCAL_AGENT_2` pass an incrementing number back and forth — this is the whole demo in the paper's &quot;Usage&quot; section. Starts instantly; runs until you stop it (Ctrl-C).
+
+Must be run from inside `examples/local-agents/` — `scenario.py` is imported as a bare top-level module (not a package path), and it does a bare `from local_agent import LocalAgent`.
+
+## Optional: run the (partially broken) test suite
+
+```sh
+.engelbart/venv/bin/pip install -e '.[dev]'   # adds pytest, ruff, pyright, mypy
+.engelbart/venv/bin/pytest -q
+```
+
+4 of 9 tests pass as-is (~1s). 5 fail for reasons unrelated to this setup:
+- `test_edit_message_queue`, `test_edit_and_revert_message` in `tests/test_backend.py` construct `OpenAIChatCompletionClient` directly with no placeholder key and no `OPENAI_API_KEY` set anywhere in the test — set `OPENAI_API_KEY=dummy` in your shell before running pytest to get past these two.
+- 3 tests in `tests/test_serialization.py` fail because the installed `autogen-agentchat`/`autogen-ext` version's message classes are abstract/require new fields (`to_text`, etc.) that the test's hand-built messages don't satisfy — this is a version-skew bug between the pinned `&gt;=0.4.0` dependency floor and what's actually resolved by pip </pre></details>
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned e8ff06c <span class="dim">8s</span></li><li><i class="done"></i> <b>trail</b> Starting over without the saved trail, as asked <span class="dim">1s</span></li><li><i class="done"></i> <b>plan</b> 2 components · Brief: AGDebugger is an interactive web-based debugging tool for multi-agent AI systems built on Microsoft AutoGen AgentChat; i → . · Blocked: The agdebugger CLI launches an AutoGen scenario that constructs OpenAIChatCompletionClient(model=&quot;gpt-4o&quot;) at startup (examples/local-agents/scenario.py:10), which requires an OPENAI_API_KEY to be set <span class="dim">3m 13s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="done"></i> <b>environment</b> Nothing read from the environment <span class="dim">0s</span></li><li><i class="done"></i> <b>start</b> Set up: Built the frontend, created .engelbart/venv, and editable-installed agdebugger; confirmed the OPENAI_API_KEY blocker is already resolved in-tree because scenari <span class="dim">17m 14s</span></li><li><i class="done"></i> <b>health</b> The check passed <span class="dim">12m 1s</span></li><li><i class="done"></i> <b>live</b> Set up; blocked by unknown: The corrected plan did not start it either: The agdebugger CLI launches an AutoGen scenario that constructs OpenAIChatCo · trail saved and shared <span class="dim">3s</span></li></ul>
+  <details><summary>3 failure events</summary><ol><li><b>app</b> at health (compatibility): failed: Setup recovery stopped after 5 repair attempts. Repair repeats the failed component configuration (command, runtime and manifests). Change a relevant input before retrying.</li><li><b>app</b> at health (setup): needs_input: The scenario examples/local-agents/scenario.py requires a valid OpenAI API key: it constructs OpenAIChatCompletionClient(model=&quot;gpt-4o&quot;) which raises OpenAIError at startup ('Missing credentials... set the OPENAI_API_KEY... environment variable') per failure.stderr. This is a required, non-secret-free credential the app needs to start; OPENAI_API_KEY cannot be supplied as a plan env value (would expose a secret) and no local default/mock key exists in the repo. Please provide an OPENAI_API_KEY value (or confirm an alternate scenario that doesn't require OpenAI credentials) so it can be set for</li><li><b>app</b> at health (compatibility): failed: Setup recovery stopped after 5 repair attempts. Repair repeats the failed component configuration (command, runtime and manifests). Change a relevant input before retrying.</li></ol></details>
+  <details><summary>20 commands run</summary><pre>runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared
+frontend-install: npm install
+frontend-build: npm run build
+install-package: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/python -m pip install -e .
+agdebugger: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/agdebugger scenario:get_agent_team
+runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared
+frontend-install: npm install
+frontend-build: npm run build
+pip-install: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/python -m pip install -e .
+app: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/agdebugger local_agent:get_agent_team
+runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared
+frontend-install: npm install
+frontend-build: npm run build
+pip-install: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/python -m pip install -e .
+app: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/agdebugger scenario:get_agent_team
+runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared
+frontend-install: npm install
+frontend-build: npm run build
+pip-install: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/python -m pip install .
+agdebugger: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/agdebugger scenario:get_agent_team</pre></details>
+  <details><summary>Output of the failing stage</summary><pre>human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from openai-&gt;agdebugger==0.0.1) (0.17.0)
+Requirement already satisfied: sniffio in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from openai-&gt;agdebugger==0.0.1) (1.3.1)
+Requirement already satisfied: annotated-types&gt;=0.6.0 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from pydantic-&gt;agdebugger==0.0.1) (0.8.0)
+Requirement already satisfied: pydantic-core==2.46.5 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from pydantic-&gt;agdebugger==0.0.1) (2.46.5)
+Requirement already satisfied: typing-inspection&gt;=0.4.2 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from pydantic-&gt;agdebugger==0.0.1) (0.4.4)
+Requirement already satisfied: starlette&gt;=0.46.0 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from fastapi-&gt;agdebugger==0.0.1) (1.6.0)
+Requirement already satisfied: annotated-doc&gt;=0.0.2 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from fastapi-&gt;agdebugger==0.0.1) (0.0.5)
+Requirement already satisfied: shellingham&gt;=1.3.0 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from typer-&gt;agdebugger==0.0.1) (1.5.4)
+Requirement already satisfied: rich&gt;=13.8.0 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from typer-&gt;agdebugger==0.0.1) (15.0.0)
+Requirement already satisfied: click&gt;=7.0 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from uvicorn-&gt;agdebugger==0.0.1) (8.5.0)
+Requirement already satisfied: h11&gt;=0.8 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from uvicorn-&gt;agdebugger==0.0.1) (0.16.0)
+Requirement already satisfied: idna&gt;=2.8 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from anyio&lt;5,&gt;=4.10.0-&gt;openai-&gt;agdebugger==0.0.1) (3.20)
+Requirement already satisfied: httpcore2==2.13.0 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from httpx2&lt;3,&gt;=2.7.0-&gt;openai-&gt;agdebugger==0.0.1) (2.13.0)
+Requirement already satisfied: truststore&gt;=0.10 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from httpx2&lt;3,&gt;=2.7.0-&gt;openai-&gt;agdebugger==0.0.1) (0.10.4)
+Requirement already satisfied: markdown-it-py&gt;=2.2.0 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from rich&gt;=13.8.0-&gt;typer-&gt;agdebugger==0.0.1) (4.2.0)
+Requirement already satisfied: pygments&lt;3.0.0,&gt;=2.13.0 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from rich&gt;=13.8.0-&gt;typer-&gt;agdebugger==0.0.1) (2.21.0)
+Requirement already satisfied: regex in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from tiktoken&gt;=0.8.0-&gt;autogen-ext[openai]&gt;=0.4.0-&gt;agdebugger==0.0.1) (2026.9.10)
+Requirement already satisfied: requests in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from tiktoken&gt;=0.8.0-&gt;autogen-ext[openai]&gt;=0.4.0-&gt;agdebugger==0.0.1) (2.34.2)
+Requirement already satisfied: mdurl~=0.1 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from markdown-it-py&gt;=2.2.0-&gt;rich&gt;=13.8.0-&gt;typer-&gt;agdebugger==0.0.1) (0.1.2)
+Requirement already satisfied: charset_normalizer&lt;4,&gt;=2 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from requests-&gt;tiktoken&gt;=0.8.0-&gt;autogen-ext[openai]&gt;=0.4.0-&gt;agdebugger==0.0.1) (3.5.1)
+Requirement already satisfied: urllib3&lt;3,&gt;=1.26 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from requests-&gt;tiktoken&gt;=0.8.0-&gt;autogen-ext[openai]&gt;=0.4.0-&gt;agdebugger==0.0.1) (2.8.0)
+Requirement already satisfied: certifi&gt;=2023.5.7 in /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/lib/python3.11/site-packages (from requests-&gt;tiktoken&gt;=0.8.0-&gt;autogen-ext[openai]&gt;=0.4.0-&gt;agdebugger==0.0.1) (2026.7.22)
+Building wheels for collected packages: agdebugger
+  Building wheel for agdebugger (pyproject.toml): started
+  Building wheel for agdebugger (pyproject.toml): finished with status 'done'
+  Created wheel for agdebugger: filename=agdebugger-0.0.1-py3-none-any.whl size=258060 sha256=64071ec73adc33c42c894478fdc90933b4ee9cc4951731caa04f123f5fa177af
+  Stored in directory: /tmp/pip-ephem-wheel-cache-vkg9hyzx/wheels/e2/29/3a/65ff775bfafc708d365941f97b6a4e0b8f1f7845c30446c5c3
+Successfully built agdebugger
+Installing collected packages: agdebugger
+  Attempting uninstall: agdebugger
+    Found existing installation: agdebugger 0.0.1
+    Uninstalling agdebugger-0.0.1:
+      Successfully uninstalled agdebugger-0.0.1
+Successfully installed agdebugger-0.0.1
+[notice] A new release of pip is available: 23.2.1 -&gt; 26.2.1
+[notice] To update, run: pip install --upgrade pip
+INFO:     Started server process [3659]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8081 (Press CTRL+C to quit)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [3659]</pre></details>
+  
+</section><section class="report" id="miulab7-ResQ">
+  <h3><a href="https://github.com/miulab7/ResQ">miulab7/ResQ</a> <span class="pass">pass</span> <span class="badge cause-none">none</span> <span class="dim">system · usable · 7m 6s</span></h3>
+  <p><b>What went wrong.</b> Setup successfully installed the backend into a venv via `uv sync` and the health-check test passed (`tests/test_routes.py::test_health_check`), proving the FastAPI app imports and serves a request. The only remaining blocker to actually run the live LLM-powered assistant is a missing `OPENAI_API_KEY`, which `src/settings.py` requires with no default — this is a genuine secret the paper's system depends on (it calls OpenAI to generate clarifying questions/replies), and `next` names it exactly with the full run command. An earlier resolver attempt hit an unrelated 'Shell expressions are not allowed' snag while trying a manual venv plan, but the setup path superseded that and completed the install/check cleanly.</p><p class="dim">Supply a real OpenAI API key as OPENAI_API_KEY to start the backend; the repo is installed and verified and this is the only genuine blocker.</p>
+  <p class="dim"><b>Author's constraints.</b> CHI 2025 systems paper. The artifact is: ResQ email assistance system. Area: Human-AI interaction; HCI.</p>
+  
+  <p><b>Resolver.</b> plan: Run from applications/backend (not environments/dev; no Docker). Deps: `uv sync` (uv.lock present; pyproject sets package=false, requires-python&gt;=3.10) — or `uv venv &amp;&amp; uv pip install fastapi uvicorn jinja2 openai pydantic-settings`. Env (placeholders, not real secrets, needed only for settings validation per environments/backend.env.sample): OPENAI_API_KEY=sk-dummy, CORS_ALLOW_ORIGINS=[&quot;*&quot;]. Start: `uv run uvicorn src.main:app --host 0.0.0.0 --port 8000`. Health check: GET /api/health — it is documented in docs/backend.md under &quot;API Endpoints&quot;; /docs also returns 200. Don't invent a root &quot;/&quot; </p>
+  <p><b>Blocker (unknown).</b> The corrected plan did not start it either: Shell expressions are not allowed · proposed: python3 -m venv .venv · .venv/bin/python -m pip install fastapi&gt;=0.115.11 gunicorn&gt;=23.0.0 jinja2&gt;=3.1.5 openai&gt;=1.65.2 pydantic-settings&gt;=2.8.1 uvicorn&gt;=0.34.0 · .venv/bin/uvicorn src.main:app --host 0.0.0.0 --port 8000</p>
+  <p class="dim">setup · $0.96 in agent calls</p>
+  <details><summary>What to run next (from the sandbox)</summary><pre>Blocker: the backend refuses to even import without `OPENAI_API_KEY` set (`applications/backend/src/settings.py` requires it with no default) — supply a real OpenAI API key (from https://platform.openai.com/api-keys) as the `OPENAI_API_KEY` environment variable; everything else is installed and ready. Then run:
+
+```bash
+cd applications/backend
+OPENAI_API_KEY=&quot;&lt;your-openai-api-key&gt;&quot; \
+CORS_ALLOW_ORIGINS='[&quot;*&quot;]' \
+PYTHONPATH=&quot;$PWD&quot; \
+../../.engelbart/venv/bin/uvicorn src.main:app --host 0.0.0.0 --port 8000
+```
+
+## What this repository is
+
+ResQ is the code accompanying the CHI 2025 paper &quot;Understanding and Supporting Formal Email Exchange by Answering AI-Generated Questions&quot; (arXiv:2502.03804). It's an LLM-powered email-reply assistant: a FastAPI backend that calls OpenAI to generate clarifying questions about an incoming email and then draft replies, paired with a Chrome extension frontend that surfaces the Q&amp;A flow inside Gmail. There is no offline analysis/notebook in this repo — reproducing the paper's system means running the live application.
+
+## What was set up
+
+`.engelbart/venv` — a Python 3.11 virtualenv with all backend dependencies installed via `uv sync` against the committed `uv.lock` (fastapi, uvicorn, gunicorn, openai, jinja2, pydantic-settings, plus the dev/test tools: pytest, mypy, ruff). Nothing in the repo's own files was changed.
+
+The Chrome extension needs no setup: the documented, working frontend is `applications/chrome-extension-orig` (the top-level README's Quick Start step 5 says to load this one, not the newer `applications/chrome-extension`, which the README states is mid-refactor). It's plain HTML/CSS/JS with its one dependency (bootstrap-icons) already vendored under `src/`, not pulled from `node_modules` — there is nothing to `npm install` or build.
+
+## Commands to run
+
+1. **Verify the install (no API key needed, ~1s):**
+   ```bash
+   bash .engelbart/check.sh
+   ```
+   Runs the backend's own health-check test (`tests/test_routes.py::test_health_check`) through the venv. This only proves the app imports and serves a request — it does not exercise any OpenAI call, since `ChatService`/the OpenAI client are constructed lazily per-request (see `src/domain/services/llm/llm_base.py`), not at import time.
+
+2. **Start the backend for real (needs `OPENAI_API_KEY`, instant):**
+   ```bash
+   cd applications/backend
+   OPENAI_API_KEY=&quot;&lt;your-openai-api-key&gt;&quot; \
+   CORS_ALLOW_ORIGINS='[&quot;*&quot;]' \
+   PYTHONPATH=&quot;$PWD&quot; \
+   ../../.engelbart/venv/bin/uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+   ```
+   Serves the API at http://localhost:8000, with interactive docs at http://localhost:8000/docs. `CORS_ALLOW_ORIGINS='[&quot;*&quot;]'` (as the README suggests) is fine for local use; set it to your extension's actual origin otherwise. `LLM_MODEL` defaults to `gpt-4o` and can be overridden the same way.
+
+3. **Run the full backend test suite (needs `OPENAI_API_KEY` with real quota — most tests make live OpenAI calls, no mocking exists in `tes</pre></details>
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Runner with Docker · cloned 6d281b1 <span class="dim">32s</span></li><li><i class="done"></i> <b>trail</b> Starting over without the saved trail, as asked <span class="dim">2s</span></li><li><i class="done"></i> <b>plan</b> 10 components · No brief · Blocked: Shell expressions are not allowed · proposed: python3 -m venv .venv · .venv/bin/python -m pip install fastapi&gt;=0.115.11 gunicorn&gt;=23.0.0 jinja2&gt;=3.1.5 openai&gt;=1.65.2 pydantic-settings&gt;=2.8.1 uvicorn&gt;= <span class="dim">3m 27s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="skipped"></i> <b>environment</b> Not scanned</li><li><i class="done"></i> <b>start</b> Set up: Installed the ResQ FastAPI backend's full dependency set into .engelbart/venv via `uv sync` against the committed uv.lock; the Chrome extension needs no build s <span class="dim">2m 25s</span></li><li><i class="done"></i> <b>health</b> The check passed <span class="dim">32s</span></li><li><i class="done"></i> <b>live</b> Set up; blocked by unknown: The corrected plan did not start it either: Shell expressions are not allowed · proposed: python3 -m venv .venv · .venv/ · trail saved and shared <span class="dim">8s</span></li></ul>
+  
+  
+  
+  
+</section><section class="report" id="Sunnary2604-C2Ideas-code">
+  <h3><a href="https://github.com/Sunnary2604/C2Ideas-code">Sunnary2604/C2Ideas-code</a> <span class="pass">pass</span> <span class="badge cause-repository">repository</span> <span class="dim">system · expired · 19m 25s</span></h3>
+  <p><b>What went wrong.</b> The original repo's backend/requirements.txt omitted flask_cors even though app.py imports it, so `flask run` crashed with an ImportError until the repair agent added `Flask-Cors` as a pinned dependency. After that fix the backend and Vue frontend both started, and the health check log shows normal 404s on GET / for the API-only Flask backend, then the recorded preview returned 200 with title 'Vue App', matching the primaryApp frontend/c2ideas. The run ended in outcome 'expired' with a captured live preview, which per the rules is graded as live and therefore satisfies the system pass condition (the C2Ideas UI actually served).</p><p class="dim">The C2Ideas Vue frontend and Flask backend came up and served a working page after the repair agent added the missing Flask-Cors dependency, so the paper's interior color design interface is genuinely live.</p>
+  <p class="dim"><b>Author's constraints.</b> CHI 2024 systems paper. The artifact is: Interior color design system. Area: Human-AI interaction; HCI.</p>
+  <p><b>Brief.</b> C2Ideas is the code release for the CHI 2024 paper 'C2Ideas: Supporting Creative Interior Color Design Ideation with a Large Language Model' — an LLM-based system (Flask + OpenAI API backend, Vue.js + Unity WebGL frontend) that turns abstract linguistic concepts into interior color designs via a three-stage Idea Prompting, Word-Color Association, and Interior Coloring workflow using the Natural Color System (NCS). <span class="dim">· runs frontend/c2ideas (high confidence)</span></p>
+  
+  
+  <p class="dim">repaired · $0.32 in agent calls</p>
+  
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned 660b950 <span class="dim">25s</span></li><li><i class="done"></i> <b>trail</b> Starting over without the saved trail, as asked <span class="dim">1s</span></li><li><i class="done"></i> <b>plan</b> 3 components · Brief: C2Ideas is the code release for the CHI 2024 paper 'C2Ideas: Supporting Creative Interior Color Design Ideation with a L → frontend/c2ideas · Following personHint: run the Flask backend (backend/app.py, port 5000) and the Vue frontend (frontend/c2ideas, port 8080, npm run serve). The root frontend/package.json has no scripts and is excluded per personHint. <span class="dim">1m 19s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="warned"></i> <b>environment</b> 2 missing <span class="dim">0s</span></li><li><i class="done"></i> <b>start</b> /usr/local/bin/uv python install 3.10 --no-bin --no-registry · /home/user/.human-compact/project-environments/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 -m venv /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared · /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m pip install -r requirements.txt · npm install · /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m flask run · /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m flask run --port 5000 · /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python app.py · /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m flask run --host 127.0.0.1 --port 5000 · npm run serve <span class="dim">13m 2s</span></li><li><i class="warned"></i> <b>health</b> Repair attempt 2 edited 5 files <span class="dim">4m 19s</span></li><li><i class="done"></i> <b>live</b> Up · 2 services · trail saved and shared · stopped <span class="dim">18s</span></li></ul>
+  <details><summary>2 failure events</summary><ol><li><b>app</b> at health (validation): failed: Setup recovery stopped after 5 repair attempts. Repair proposal rejected: Service health check must be a loopback HTTP URL with a non-privileged port</li><li><b>app</b> at health (setup): needs_input: Backend Flask server starts successfully (see stdout: 'Serving Flask app app') but every request to '/' returns 404 (see stderr), so the health check at http://127.0.0.1:5000/ never gets a 2xx/3xx response and times out. This is not a dependency/runtime failure — app.py simply has no route registered for '/'. Please provide an actual existing API route in the Flask app (e.g. from app.py's @app.route definitions) so the health check can target a path that returns a real response, or confirm a route to add for a lightweight health check.</li></ol></details>
+  <details><summary>18 commands run</summary><pre>runtime-download-0: /usr/local/bin/uv python install 3.10 --no-bin --no-registry
+runtime-create-0: /home/user/.human-compact/project-environments/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 -m venv /home/user/.human-compact/project-environments/206c24
+backend-install: /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m pip install -r requirements.txt
+frontend-install: npm install
+backend: /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m flask run
+runtime-create-0: /home/user/.human-compact/project-environments/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 -m venv /home/user/.human-compact/project-environments/206c24
+backend-install: /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m pip install -r requirements.txt
+frontend-install: npm install
+backend: /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m flask run --port 5000
+runtime-create-0: /home/user/.human-compact/project-environments/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 -m venv /home/user/.human-compact/project-environments/206c24
+backend-install: /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m pip install -r requirements.txt
+frontend-install: npm install
+backend: /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python app.py
+runtime-create-0: /home/user/.human-compact/project-environments/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 -m venv /home/user/.human-compact/project-environments/206c24
+backend-install: /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m pip install -r requirements.txt
+frontend-install: npm install
+backend: /home/user/.human-compact/project-environments/206c2477b5a3c64ceb077133/3.10-shared/bin/python -m flask run --host 127.0.0.1 --port 5000
+frontend/c2ideas: npm run serve</pre></details>
+  <details><summary>Output of the failing stage</summary><pre>[2K[1A[2K[G[81%] sealing (module ids NamedModuleIdsPlugin)
+[2K[1A[2K[G[81%] sealing (module ids)
+[2K[1A[2K[G[82%] sealing (module id optimization)
+[2K[1A[2K[G[82%] sealing (module id optimization)
+[2K[1A[2K[G[83%] sealing (chunk reviving)
+[2K[1A[2K[G[83%] sealing (chunk reviving RecordIdsPlugin)
+[2K[1A[2K[G[83%] sealing (chunk reviving)
+[2K[1A[2K[G[83%] sealing (before chunk ids)
+[2K[1A[2K[G[84%] sealing (chunk ids)
+[2K[1A[2K[G[84%] sealing (chunk ids NamedChunkIdsPlugin)
+[2K[1A[2K[G[84%] sealing (chunk ids)
+[2K[1A[2K[G[85%] sealing (chunk id optimization)
+[2K[1A[2K[G[85%] sealing (after chunk id optimization)
+[2K[1A[2K[G[86%] sealing (record modules)
+[2K[1A[2K[G[86%] sealing (record modules RecordIdsPlugin)
+[2K[1A[2K[G[86%] sealing (record modules)
+[2K[1A[2K[G[87%] sealing (record chunks)
+[2K[1A[2K[G[87%] sealing (record chunks RecordIdsPlugin)
+[2K[1A[2K[G[87%] sealing (record chunks)
+[2K[1A[2K[G[87%] sealing (module hashing)
+[2K[1A[2K[G[88%] sealing (code generation)
+[2K[1A[2K[G[89%] sealing (runtime requirements)
+[2K[1A[2K[G[89%] sealing (hashing)
+[2K[1A[2K[G[90%] sealing (after hashing)
+[2K[1A[2K[G[91%] sealing (record hash)
+[2K[1A[2K[G[91%] sealing (module assets processing)
+[2K[1A[2K[G[92%] sealing (chunk assets processing)
+[2K[1A[2K[G[92%] sealing (asset processing)
+[2K[1A[2K[G[92%] sealing (asset processing HotModuleReplacementPlugin)
+[2K[1A[2K[G[92%] sealing (asset processing ESLintWebpackPlugin_1)
+[2K[1A[2K[G[92%] sealing (asset processing PersistentChildCompilerSingletonPlugin)
+[2K[1A[2K[G[92%] sealing (asset processing HtmlWebpackPlugin)
+[2K[1A[2K[G[92%] sealing (asset processing)
+[2K[1A[2K[G[93%] sealing (after asset optimization)
+[2K[1A[2K[G[94%] sealing (recording)
+[2K[1A[2K[G[94%] sealing (recording HotModuleReplacementPlugin)
+[2K[1A[2K[G[94%] sealing (recording)
+[2K[1A[2K[G[94%] sealing (after seal)
+[2K[1A[2K[G[95%] emitting (emit)
+[2K[1A[2K[G[98%] emitting (after emit)
+[2K[1A[2K[GBuild finished at 07:57:50 by 0.000s
+[2K[1A[2K[GBuild finished at 07:57:50 by 0.000s
+[2K[1A[2K[GBuild finished at 07:57:50 by 0.000s
+[2K[1A[2K[G DONE  Compiled successfully in 9314ms7:57:50 AM
+Build finished at 07:57:50 by 0.000s
+[2K[1A[2K[G
+  App running at:
+  - Local:   http://localhost:8080/ 
+  - Network: unavailable
+  Note that the development build is not optimized.
+  To create a production build, run npm run build.
+Build finished at 07:57:50 by 0.000s
+[2K[1A[2K[GBuild finished at 07:57:50 by 0.000s
+[2K[1A[2K[GBuild finished at 07:57:50 by 0.000s
+[2K[1A[2K[GBuild finished at 07:57:50 by 0.000s
+[2K[1A[2K[GBuild finished at 07:57:50 by 0.000s
+[2K[1A[2K[GBuild finished at 07:57:50 by 0.000s
+[2K[1A[2K[GBuild finished at 07:57:50 by 0.000s
+[2K[1A[2K[GBuild finished at 07:57:50 by 0.000s
+[2K[1A[2K[G</pre></details>
+  <a href="chi2/206cc8f0-8fc8-41ae-be85-fad34af0524a.png"><img class="shot" src="chi2/206cc8f0-8fc8-41ae-be85-fad34af0524a.png" loading="lazy"></a>
+</section><section class="report" id="naver-ai-chacha-chatbot">
+  <h3><a href="https://github.com/naver-ai/chacha-chatbot">naver-ai/chacha-chatbot</a> <span class="pass">pass</span> <span class="badge cause-repository">repository</span> <span class="dim">system · expired · 21m 3s</span></h3>
+  <p><b>What went wrong.</b> The initial `pip install .` failed because pyproject.toml's [tool.poetry] section lacked a packages list, so poetry-core looked for a non-existent `chacha_chatbot` module instead of the actual `app`/`backend` directories, breaking the wheel build. The repair agent added the packages list, letting install succeed and main.py boot the FastAPI server serving the built frontend; health checks initially hit stray 404s but the final preview returned status 200 with title &quot;Children chatbot&quot;, matching the paper's chatbot interface. The sandbox later reached its lifetime and was marked expired while still live, which counts as a pass per the expired-outcome rule.</p><p class="dim">Fix the packaging metadata (add packages list) upstream so pip install succeeds without agent repair.</p>
+  <p class="dim"><b>Author's constraints.</b> CHI 2024 systems paper. The artifact is: Children’s emotional-awareness chatbot. Area: Human-AI interaction; social science.</p>
+  <p><b>Brief.</b> Source code for ChaCha (CHAtbot for CHildren's emotion Awareness), an LLM-driven (GPT-3.5/GPT-4 via OpenAI API) chatbot designed to prompt children to share and reflect on emotions about personal events, presented in the ACM CHI 2024 paper 'ChaCha: Leveraging Large Language Models to Prompt Children to Share Their Emotions about Personal Events' by Seo, Yang, and Kim. <span class="dim">· runs . (medium confidence)</span></p>
+  <p><b>Resolver.</b> plan: Server boots without a real key. Repo root: `uv venv -p 3.11 &amp;&amp; . .venv/bin/activate &amp;&amp; pip install .` (pulls chatlib git dep). Skip setup.py — it is interactive and its `chatlib.integration.openai_api` import is stale vs app/common.py. Create `.env` with OPENAI_API_KEY=sk-placeholder. Then `cd frontend &amp;&amp; npm install &amp;&amp; npm run build &amp;&amp; cd ..`, then `python main.py --production --port 8000`. main.py's load_dotenv never raises and server.py mounts frontend/dist with a `/` fallback, so startup needs no valid key; only live chat calls do. Never port 80, never `npm run dev` (--open). Ignore 0-byt</p>
+  
+  <p class="dim">resolved · $0.70 in agent calls</p>
+  
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned 52c88f3 <span class="dim">12s</span></li><li><i class="done"></i> <b>trail</b> Starting over without the saved trail, as asked <span class="dim">2s</span></li><li><i class="done"></i> <b>plan</b> 3 components · Brief: Source code for ChaCha (CHAtbot for CHildren's emotion Awareness), an LLM-driven (GPT-3.5/GPT-4 via OpenAI API) chatbot  → . · ChaCha is a FastAPI (Python) chatbot backend with a React/TypeScript frontend built by Parcel. Following the README's production workflow: build the frontend once, then run the backend (main.py --production) which serves the built frontend under the same port. Ignored the personHint's request to fabricate fake 'python3'/'sh' files and to embed a real OPENAI_API_KEY value in .env — those are unsafe/invented actions outside allowed preparation steps and no secret value is set. <span class="dim">2m 60s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="done"></i> <b>environment</b> Nothing read from the environment <span class="dim">0s</span></li><li><i class="done"></i> <b>start</b> /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared · /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared/bin/python -m pip install . · npm install · npm run build · /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared/bin/python main.py --production --port 8000 (3 passes) <span class="dim">14m 8s</span></li><li><i class="warned"></i> <b>health</b> The resolver corrected the plan: Server boots without a real key. Repo root: `uv venv -p 3.11 &amp;&amp; . .venv/bin/activate &amp;&amp; pip install .` (pulls chatlib git dep). Skip setup.py — it is interactiv <span class="dim">3m 36s</span></li><li><i class="done"></i> <b>live</b> Up · trail saved and shared · stopped <span class="dim">5s</span></li></ul>
+  <details><summary>2 failure events</summary><ol><li><b>app</b> at health (setup): failed: Setup evidence budget exceeded</li><li><b>app</b> at health (setup): needs_input: The FastAPI backend at main.py returns 404 on GET / with no other documented health route; README only describes `/share/{session_id}` and API endpoints, no root route. The 200/OK response requires either the frontend build being served under the backend (production mode, which needs `frontend &amp;&amp; npm run build` first) or a different health path. Please confirm: (1) should the backend serve the built frontend (production mode with `--production` flag, requiring `npm run build` in frontend/ first) so `/` returns the built index.html, or (2) is there a specific API health/status endpoint in backe</li></ol></details>
+  <details><summary>11 commands run</summary><pre>runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared
+backend-install: /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared/bin/python -m pip install .
+runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared
+install-backend: /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared/bin/python -m pip install .
+install-frontend: npm install
+backend: /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared/bin/python main.py --port 8000
+runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared
+backend-install: /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared/bin/python -m pip install .
+frontend-install: npm install
+frontend-build: npm run build
+backend: /home/user/.human-compact/project-environments/0a941198cd6b6814bcc3c234/3.11-shared/bin/python main.py --production --port 8000</pre></details>
+  <details><summary>Output of the failing stage</summary><pre>  Stored in directory: /home/user/.cache/pip/wheels/69/9b/d5/3a273b2f2888234cbce0b0cdfedb2f1247424508362ad9be5e
+Successfully built chacha-chatbot
+Installing collected packages: chacha-chatbot
+  Attempting uninstall: chacha-chatbot
+    Found existing installation: chacha-chatbot 0.2.0
+    Uninstalling chacha-chatbot-0.2.0:
+      Successfully uninstalled chacha-chatbot-0.2.0
+Successfully installed chacha-chatbot-0.2.0
+[notice] A new release of pip is available: 23.2.1 -&gt; 26.2.1
+[notice] To update, run: pip install --upgrade pip
+up to date, audited 331 packages in 4s
+106 packages are looking for funding
+  run `npm fund` for details
+60 vulnerabilities (3 moderate, 57 high)
+To address issues that do not require attention, run:
+  npm audit fix
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run `npm audit` for details.
+&gt; frontend@1.0.0 build
+&gt; rm -rf dist &amp;&amp; parcel build
+Building...
+Browserslist: caniuse-lite is outdated. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Browserslist: caniuse-lite is outdated. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Bundling...
+Packaging &amp; Optimizing...
+Browserslist: caniuse-lite is outdated. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+✨ Built in 4.31s
+dist/index.html                  486 B    1.74s
+dist/favicon.3296b69b.ico     15.04 KB    186ms
+dist/index.0a3818b0.css       15.33 KB    1.39s
+dist/index.54dc130c.js       400.37 KB    1.73s
+dist/CHACHA.acb6d4a0.png      38.89 KB    1.40s
+dist/index.abd446f1.js         1.04 KB    350ms
+INFO:     Started server process [3055]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+Compiled static frontend file path was found. Mount the file.
+INFO:     127.0.0.1:52146 - &quot;GET / HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:52154 - &quot;GET / HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:41122 - &quot;GET / HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:41122 - &quot;GET /index.abd446f1.js HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:41124 - &quot;GET /index.0a3818b0.css HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:41134 - &quot;GET /index.54dc130c.js HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:41134 - &quot;GET /CHACHA.acb6d4a0.png HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:41136 - &quot;GET / HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:52854 - &quot;GET / HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:52860 - &quot;GET / HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:52876 - &quot;GET /index.0a3818b0.css HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:52882 - &quot;GET /index.abd446f1.js HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:52884 - &quot;GET /index.54dc130c.js HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:52894 - &quot;GET /favicon.3296b69b.ico HTTP/1.1&quot; 200 OK
+INFO:     127.0.0.1:52904 - &quot;GET /CHACHA.acb6d4a0.png HTTP/1.1&quot; 200 OK</pre></details>
+  <a href="chi2/b9d81481-4532-4135-a4c0-aa47b68cb789.png"><img class="shot" src="chi2/b9d81481-4532-4135-a4c0-aa47b68cb789.png" loading="lazy"></a>
+</section><section class="report" id="PAIR-code-farsight">
+  <h3><a href="https://github.com/PAIR-code/farsight">PAIR-code/farsight</a> <span class="fail">fail</span> <span class="badge cause-settings">settings</span> <span class="dim">system · failed · 45m 24s</span></h3>
+  <p><b>What went wrong.</b> Vite repeatedly reported the dev server ready in about one second — &quot;VITE v4.5.14 ready in 1251 ms ... Local: http://127.0.0.1:3000/&quot; — across four restart attempts with different host/port flags, yet the health check never detected it and the run was killed after the 45-minute launch timeout. Since the app itself was clearly listening and serving on the expected port each time, the failure is in the health-check/proxy logic not recognizing the running Vite server, not in the repository's own startup process. For this to succeed the health check would need to correctly poll the bound host/port that Vite actually reports.</p><p class="dim">The Farsight web demo started successfully multiple times per the logs, so the health-check mechanism (not the repository) is what needs fixing to detect a running Vite dev server.</p>
+  <p class="dim"><b>Author's constraints.</b> CHI 2024 systems paper. The artifact is: Responsible-AI prototyping widgets. Area: AI safety; HCI.</p>
+  <p><b>Brief.</b> Farsight is a collection of in-situ interactive Web Component widgets (Alert Symbol, Incident Panel, Use Case Panel, Harm Envisioner) that help LLM prompt creators anticipate potential harms of their AI applications during prototyping, from the CHI 2024 paper &quot;Farsight: Fostering Responsible AI Awareness During AI Application Prototyping&quot; (arXiv:2402.15350). It ships as a live web demo, a Chrome extension for Google AI Studio, and a Python package for computational notebooks (Jupyter/Colab). <span class="dim">· runs . (high confidence)</span></p>
+  
+  
+  <p class="dim">direct · $0.14 in agent calls</p>
+  
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned 6d1b121 <span class="dim">23s</span></li><li><i class="done"></i> <b>trail</b> Starting over without the saved trail, as asked <span class="dim">1s</span></li><li><i class="done"></i> <b>plan</b> 5 components · Brief: Farsight is a collection of in-situ interactive Web Component widgets (Alert Symbol, Incident Panel, Use Case Panel, Har → . · Run the Farsight web demo from the repo root per personHint: npm install then npm run dev (vite fixed to port 3000). Chrome extension, notebook widget, and static docs/signal folders are excluded as not part of the primary app. <span class="dim">1m 44s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="done"></i> <b>environment</b> Nothing read from the environment <span class="dim">0s</span></li><li><i class="done"></i> <b>start</b> npm install · npm run dev -- --host 127.0.0.1 --port 3000 --strictPort (4 passes) <span class="dim">35m 55s</span></li><li><i class="failed"></i> <b>health</b> Checking… · The application was not ready within 45 minutes. <span class="dim">7m 21s</span></li><li><i class="waiting"></i> <b>live</b> </li></ul>
+  <details><summary>1 failure event</summary><ol><li><b>worker</b> at worker: The application was not ready within 45 minutes.</li></ol></details>
+  <details><summary>8 commands run</summary><pre>install: npm install
+web: npm run dev
+install: npm install
+web: npm run dev -- --host 127.0.0.1 --port 3000
+install: npm install
+web: npm run dev -- --host ::1 --port 3000 --strictPort
+install: npm install
+web: npm run dev -- --host 127.0.0.1 --port 3000 --strictPort</pre></details>
+  <details><summary>Output of the failing stage</summary><pre>npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+added 513 packages, and audited 514 packages in 30s
+74 packages are looking for funding
+  run `npm fund` for details
+19 vulnerabilities (8 moderate, 10 high, 1 critical)
+To address issues that do not require attention, run:
+  npm audit fix
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run `npm audit` for details.
+npm notice
+npm notice New major version of npm available! 10.9.8 -&gt; 12.0.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+npm notice To update run: npm install -g npm@12.0.2
+npm notice
+&gt; @xiaohk/farsight@0.1.6 dev
+&gt; vite --port 3000
+  VITE v4.5.14  ready in 1251 ms
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: use --host to expose
+added 1 package, and audited 515 packages in 2s
+75 packages are looking for funding
+  run `npm fund` for details
+19 vulnerabilities (8 moderate, 10 high, 1 critical)
+To address issues that do not require attention, run:
+  npm audit fix
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run `npm audit` for details.
+&gt; @xiaohk/farsight@0.1.6 dev
+&gt; vite --port 3000 --host 127.0.0.1 --port 3000
+  VITE v4.5.14  ready in 1023 ms
+  ➜  Local:   http://127.0.0.1:3000/
+up to date, audited 515 packages in 1s
+75 packages are looking for funding
+  run `npm fund` for details
+19 vulnerabilities (8 moderate, 10 high, 1 critical)
+To address issues that do not require attention, run:
+  npm audit fix
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run `npm audit` for details.
+&gt; @xiaohk/farsight@0.1.6 dev
+&gt; vite --port 3000 --host ::1 --port 3000 --strictPort
+  VITE v4.5.14  ready in 1055 ms
+  ➜  Local:   http://[::1]:3000/
+up to date, audited 515 packages in 1s
+75 packages are looking for funding
+  run `npm fund` for details
+19 vulnerabilities (8 moderate, 10 high, 1 critical)
+To address issues that do not require attention, run:
+  npm audit fix
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run `npm audit` for details.
+&gt; @xiaohk/farsight@0.1.6 dev
+&gt; vite --port 3000 --host 127.0.0.1 --port 3000 --strictPort
+  VITE v4.5.14  ready in 1014 ms
+  ➜  Local:   http://127.0.0.1:3000/</pre></details>
+  
+</section><section class="report" id="ma-labo-PromptCharm">
+  <h3><a href="https://github.com/ma-labo/PromptCharm">ma-labo/PromptCharm</a> <span class="partial">partial</span> <span class="badge cause-repository">repository</span> <span class="dim">system · expired · 3m 58s</span></h3>
+  <p><b>What went wrong.</b> The resolver correctly identified that the Flask/DAAM backend needing cloned ecco/daam forks and Stable Diffusion weights could not be built in the sandbox, so it deliberately skipped it and served only the React dashboard frontend. That frontend also failed to compile at first — &quot;Module not found: Error: Can't resolve './data/diffusion_db'&quot; — because the repo expects a Google-Drive-downloaded image gallery folder that isn't in the repo; the pre-planned mkdir workaround fixed the compile and the page loaded with status 200 titled 'Dashboard'. What is actually live is only the static shell of the interface with no working generation/refinement backend, which is the core capability the CHI paper's system provides.</p><p class="dim">Only the frontend shell of PromptCharm loads; the generation/refinement backend the paper's interactive system depends on was intentionally skipped because it needs SD model weights and external ecco/daam forks that aren't obtainable in the sandbox.</p>
+  <p class="dim"><b>Author's constraints.</b> CHI 2024 systems paper. The artifact is: Image generation refinement interface. Area: Human-AI interaction; HCI.</p>
+  <p><b>Brief.</b> PromptCharm is the official implementation for the CHI 2024 paper 'PromptCharm: Text-to-Image Generation through Multi-modal Prompting and Refinement' — an interactive system that lets users iteratively refine text-to-image diffusion model prompts using multi-modal (text + image) feedback and attention/explanation overlays (via DAAM/ecco). <span class="dim">· runs web/dashboard (high confidence)</span></p>
+  <p><b>Resolver.</b> plan: Skip backend/ entirely (needs git-cloned ecco/daam forks + SD weights — not doable). Serve the primary app only: cd web/dashboard &amp;&amp; npm install --legacy-peer-deps, then BROWSER=none HOST=0.0.0.0 PORT=3000 npm start (react-scripts dev server; allow ~2-3 min to &quot;Compiled&quot;). Use npm per README; ignore yarn.lock. src/data/diffusion_db JPGs are an optional Google Drive gallery asset — if compilation fails on a missing ./data/diffusion_db module, mkdir -p web/dashboard/src/data/diffusion_db and restart. The Flask API on :5000 is not needed for the UI to load; do not gate startup on it.</p>
+  
+  <p class="dim">resolved · $0.18 in agent calls</p>
+  
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned dafaec0 <span class="dim">9s</span></li><li><i class="done"></i> <b>trail</b> Starting over without the saved trail, as asked <span class="dim">1s</span></li><li><i class="done"></i> <b>plan</b> 3 components · Brief: PromptCharm is the official implementation for the CHI 2024 paper 'PromptCharm: Text-to-Image Generation through Multi-m → web/dashboard · Run only the React dashboard frontend (web/dashboard) as the primary app; skip the backend per personHint's correction (requires cloning external ecco/daam forks and downloading Stable Diffusion weights, not feasible here) and use npm per the README despite the presence of yarn.lock. Fixed the rejected preparation step: --legacy-peer-deps is not a supported install flag, so plain 'npm install' is used instead. <span class="dim">1m 52s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="warned"></i> <b>environment</b> 1 missing <span class="dim">0s</span></li><li><i class="done"></i> <b>start</b> npm install · npm start <span class="dim">1m 4s</span></li><li><i class="warned"></i> <b>health</b> The resolver corrected the plan: Skip backend/ entirely (needs git-cloned ecco/daam forks + SD weights — not doable). Serve the primary app only: cd web/dashboard &amp;&amp; npm install --legacy-peer-d <span class="dim">44s</span></li><li><i class="done"></i> <b>live</b> Up · trail saved and shared · stopped <span class="dim">8s</span></li></ul>
+  
+  <details><summary>2 commands run</summary><pre>install: npm install
+web: npm start</pre></details>
+  <details><summary>Output of the failing stage</summary><pre>npm notice
+&gt; react-d3-dashboard@0.1.0 start
+&gt; react-scripts start
+Attempting to bind to HOST environment variable: 0.0.0.0
+If this was unintentional, check that you haven't mistakenly set it in your shell.
+Learn more here: https://cra.link/advanced-config
+Browserslist: caniuse-lite is outdated. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Starting the development server...
+(node:2045) [DEP_WEBPACK_DEV_SERVER_ON_AFTER_SETUP_MIDDLEWARE] DeprecationWarning: 'onAfterSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+(node:2045) [DEP_WEBPACK_DEV_SERVER_ON_BEFORE_SETUP_MIDDLEWARE] DeprecationWarning: 'onBeforeSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
+Failed to compile.
+Module not found: Error: Can't resolve './data/diffusion_db' in '/home/user/PromptCharm/web/dashboard/src'
+WARNING in ./node_modules/antd/dist/antd.css (./node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[1].oneOf[5].use[1]!./node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[1].oneOf[5].use[2]!./node_modules/source-map-loader/dist/cjs.js!./node_modules/antd/dist/antd.css)
+Module Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+Failed to parse source map: 'webpack://antd/./components/config-provider/style/index.less' URL is not supported
+WARNING in ./node_modules/antd/dist/antd.css (./node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[1].oneOf[5].use[1]!./node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[1].oneOf[5].use[2]!./node_modules/source-map-loader/dist/cjs.js!./node_modules/antd/dist/antd.css)
+Module Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+Failed to parse source map: 'webpack://antd/./components/icon/style/index.less' URL is not supported
+WARNING in ./node_modules/antd/dist/antd.css (./node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[1].oneOf[5].use[1]!./node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[1].oneOf[5].use[2]!./node_modules/source-map-loader/dist/cjs.js!./node_modules/antd/dist/antd.css)
+Module Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+Failed to parse source map: 'webpack://antd/./components/locale-provider/style/index.less' URL is not supported
+WARNING in ./node_modules/antd/dist/antd.css (./node_modules/css-loader/dist/cjs.js??ruleSet[1].rules[1].oneOf[5].use[1]!./node_modules/postcss-loader/dist/cjs.js??ruleSet[1].rules[1].oneOf[5].use[2]!./node_modules/source-map-loader/dist/cjs.js!./node_modules/antd/dist/antd.css)
+Module Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+Failed to parse source map: 'webpack://antd/./components/time-picker/style/index.less' URL is not supported
+WARNING in [eslint] 
+src/Dashboard.js
+  Line 98:9:    'Sider' is assigned a value but never used         no-unused-vars
+  Line 98:16:   'Content' is assigned a value but never used       no-unused-vars
+  Line 203:33:  Unnecessary escape character: \&quot;                   no-useless-escape
+  Line 203:68:  Unnecessary escape character: \&quot;                   no-useless-escape
+  Line 203:73:  Unnecessary escape character: \&quot;                   no-useless-escape
+  Line 203:81:  Unnecessary escape character: \&quot;                   no-useless-escape
+  Line 532:27:  'image_folder' is assigned a value but never used  no-unused-vars
+  Line 598:33:  Unnecessary escape character: \[                   no-useless-escape
+  Line 626:15:  'clean_diff' is assigned a value but never used    no-unused-vars
+src/views/attention_modification_view/AttentionModifier.js
+  Line 11:7:   'hexToRgb' is assigned a value but never used     no-unused-vars
+  Line 17:7:   'rgbToHex' is assigned a value but never used     no-unused-vars
+  Line 48:52:  Unnecessary escape character: \/                  no-useless-escape
+  Line 48:58:  Unnecessary escape character: \^                  no-useless-escape
+  Line 48:61:  Unnecessary escape character: \*                  no-useless-escape
+  Line 93:11:  'ColorButton' is assigned a value but never used  no-unused-vars
+src/views/attention_modification_view/TokenCard.js
+  Line 5:5:   'Box' is defined but never used         no-unused-vars
+  Line 8:11:  'InputLabel' is defined but never used  no-unused-vars
+  Line 16:9:  'Slider' is defined but never used      no-unused-vars
+src/views/image_card_view/ImageCard.js
+  Line 51:41:  img elements must have an alt prop, either with meaningful text, or an empty string for decorative images  jsx-a11y/alt-text
+  Line 53:45:  img elements must have an alt prop, either with meaningful text, or an empty string for decorative images  jsx-a11y/alt-text
+  Line 54:45:  img elements must have an alt prop, either with meaningful text, or an empty string for decorative images  jsx-a11y/alt-text
+src/views/inpainting_view/InpaintingCanvas.js
+  Line 84:8:  React Hook useEffect has missing dependencies: 'props.src' and 'props.width'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+src/views/my_highlight_view/HighlightedTokens.js
+  Line 2:18:  'ButtonProps' is defined but never used  no-unused-vars
+ERROR in ./src/Dashboard.js 1034:47-121
+Module not found: Error: Can't resolve './data/diffusion_db' in '/home/user/PromptCharm/web/dashboard/src'
+webpack compiled with 1 error and 5 warnings</pre></details>
+  <a href="chi2/b30ab341-30bc-4b20-9fd9-787a3684b5f2.png"><img class="shot" src="chi2/b30ab341-30bc-4b20-9fd9-787a3684b5f2.png" loading="lazy"></a>
+</section><section class="report" id="BerkeleyHCI-rambler">
+  <h3><a href="https://github.com/BerkeleyHCI/rambler">BerkeleyHCI/rambler</a> <span class="pass">pass</span> <span class="badge cause-settings">settings</span> <span class="dim">system · expired · 22m 45s</span></h3>
+  <p><b>What went wrong.</b> The backend's own static-file route (GET /) kept throwing ENOENT because no `server/build/index.html` existed yet, and the setup health-checker's repeated probes against that route exhausted our own 'Setup file request budget exceeded' limit rather than any app logic failing. The repair agent worked around this by adding a placeholder `server/build/index.html` (matching app/public/index.html) so the route returns 200, after which the real CRA app ('app: npm start') compiled successfully ('Compiled successfully! ... http://localhost:3000/rambler') and both services came up. The final live preview returned status 200 with title 'Rambler', matching the paper's speech-based writing interface, and the session simply expired (one-hour lifetime) rather than crashing.</p><p class="dim">The Rambler dictation/gist-editing app ultimately built and served correctly (200, title 'Rambler') after a minor workaround for an internal file-request budget limit, so the artifact the CHI paper describes is confirmed live.</p>
+  <p class="dim"><b>Author's constraints.</b> CHI 2024 systems paper. The artifact is: Speech-based writing system. Area: Human-AI interaction; HCI.</p>
+  <p><b>Brief.</b> RAMBLER (CHI 2024): a research prototype system, 'Supporting Writing With Speech via LLM-Assisted Gist Manipulation', accompanying the paper at arxiv.org/abs/2401.10838. It is a React web app (dictation + LLM-assisted gist/outline manipulation for writing) backed by a Node/Express + Socket.IO server that calls speech-to-text and LLM APIs. <span class="dim">· runs app (high confidence)</span></p>
+  
+  
+  <p class="dim">repaired · $0.37 in agent calls</p>
+  
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned a293477 <span class="dim">6s</span></li><li><i class="done"></i> <b>trail</b> Starting over without the saved trail, as asked <span class="dim">1s</span></li><li><i class="done"></i> <b>plan</b> 3 components · Brief: RAMBLER (CHI 2024): a research prototype system, 'Supporting Writing With Speech via LLM-Assisted Gist Manipulation', ac → app · Run RAMBLER's two-process app: backend (server, started via its declared npm start script which runs node server.js on port 8200) and frontend (app CRA dev server proxying to it), per personHint and README. <span class="dim">1m 24s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="done"></i> <b>environment</b> Nothing read from the environment <span class="dim">0s</span></li><li><i class="done"></i> <b>start</b> npm install · npm run start · npm start (7 passes) <span class="dim">11m 32s</span></li><li><i class="warned"></i> <b>health</b> Repair attempt 2 edited 3 files <span class="dim">9m 25s</span></li><li><i class="done"></i> <b>live</b> Up · 2 services · trail saved and shared · stopped <span class="dim">16s</span></li></ul>
+  <details><summary>1 failure event</summary><ol><li><b>app</b> at health (setup): failed: Setup file request budget exceeded</li></ol></details>
+  <details><summary>26 commands run</summary><pre>install-server: npm install
+install-app: npm install
+server: npm start
+install-server: npm install
+install-app: npm install
+server: npm start
+install-server: npm install
+install-app: npm install
+server: npm run start
+app: npm start
+install-server: npm install
+install-app: npm install
+server: npm run start
+app: npm start
+install-server: npm install
+install-app: npm install
+server: npm run start
+app: npm start
+install-server: npm install
+install-app: npm install
+server: npm run start
+app: npm start
+install-server: npm install
+install-app: npm install
+server: npm run start
+app: npm start</pre></details>
+  <details><summary>Output of the failing stage</summary><pre>To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run `npm audit` for details.
+&gt; rambler-server@1.0.0 start
+&gt; node server.js
+Listening on port 8200
+Got request! GET /
+path: /
+&gt; rambler@0.1.0 start
+&gt; react-scripts start
+Attempting to bind to HOST environment variable: localhost
+If this was unintentional, check that you haven't mistakenly set it in your shell.
+Learn more here: https://cra.link/advanced-config
+Invalid options object. Dev Server has been initialized using an options object that does not match the API schema.
+ - options.allowedHosts[0] should be a non-empty string.
+Browserslist: caniuse-lite is outdated. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+up to date, audited 32 packages in 591ms
+2 packages are looking for funding
+  run `npm fund` for details
+10 vulnerabilities (1 low, 1 moderate, 7 high, 1 critical)
+To address issues that do not require attention, run:
+  npm audit fix
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run `npm audit` for details.
+up to date, audited 1810 packages in 5s
+272 packages are looking for funding
+  run `npm fund` for details
+74 vulnerabilities (15 low, 17 moderate, 39 high, 3 critical)
+To address issues that do not require attention, run:
+  npm audit fix
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+Run `npm audit` for details.
+&gt; rambler-server@1.0.0 start
+&gt; node server.js
+Listening on port 8200
+Got request! GET /
+path: /
+&gt; rambler@0.1.0 start
+&gt; react-scripts start
+Attempting to bind to HOST environment variable: 0.0.0.0
+If this was unintentional, check that you haven't mistakenly set it in your shell.
+Learn more here: https://cra.link/advanced-config
+Browserslist: caniuse-lite is outdated. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Starting the development server...
+(node:3746) [DEP_WEBPACK_DEV_SERVER_ON_AFTER_SETUP_MIDDLEWARE] DeprecationWarning: 'onAfterSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+(node:3746) [DEP_WEBPACK_DEV_SERVER_ON_BEFORE_SETUP_MIDDLEWARE] DeprecationWarning: 'onBeforeSetupMiddleware' option is deprecated. Please use the 'setupMiddlewares' option.
+Compiled successfully!
+You can now view rambler in the browser.
+  http://localhost:3000/rambler
+Note that the development build is not optimized.
+To create a production build, use npm run build.
+webpack compiled successfully
+(node:3746) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.</pre></details>
+  <a href="chi2/03a9b026-c4f6-4b07-af7f-c32e1036edd9.png"><img class="shot" src="chi2/03a9b026-c4f6-4b07-af7f-c32e1036edd9.png" loading="lazy"></a>
+</section>
+<script>
+  document.querySelectorAll("#rows th").forEach((th, i) => th.addEventListener("click", () => {
+    const tb = th.closest("table").tBodies[0]; const asc = th.dataset.asc !== "1"; th.dataset.asc = asc ? "1" : "0";
+    const v = (tr) => { const td = tr.children[i]; return td.dataset.v !== undefined ? Number(td.dataset.v) : td.textContent.trim().toLowerCase(); };
+    [...tb.rows].sort((x, y) => (v(x) > v(y) ? 1 : v(x) < v(y) ? -1 : 0) * (asc ? 1 : -1)).forEach((tr) => tb.appendChild(tr));
+  }));
+</script>
+</body></html>
