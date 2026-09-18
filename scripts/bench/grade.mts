@@ -32,9 +32,13 @@ You are given the kind of evaluation the benchmark's author expects for this rep
 
 Grade rules:
 - kind web_preview: pass = the run reached running and the preview answered with a page of the application. partial = it runs but a documented credential or service the author lists as expected is missing, or the page is an error page for that reason, or the wrong component was started (see the constraints). fail = anything else.
+- kind system (a CHI systems paper; the constraints say what the artifact is): pass = the artifact the paper describes is running: a web preview for an interface, app, study interface, extension or chatbot, or outcome usable for a framework, library or agent toolkit with the next field pointing at the paper's use. partial = it is up but needs a credential or model API key the paper's system depends on, or the wrong part was started, or a framework was merely concluded. fail = anything else, including a web interface that ended as usable or no_service when it should have been served.
 - other kinds (library_or_cli, notebook_or_visualization, simulation, dataset, dataset_or_pipeline): a live web preview is not expected. pass = the pipeline concluded cleanly that there is no web service to run, in reasonable time, without repair attempts that fight the repository. partial = it got somewhere useful but slowly, or with a repair attempt, or produced a preview that is not what the author says matters. fail = it errored confusingly, timed out, or spent repair attempts forcing a server that should not exist.
-- outcome no_service means the pipeline concluded there is nothing to serve and stopped cleanly; for a non-web kind that is the pass condition, for web_preview it is a fail unless the constraints agree.
-- outcome expired means the application was live and answered (see preview and liveAt); the sandbox reached its one-hour lifetime before the pass collected it. Grade it as live.
+- outcome usable means the pipeline concluded there is nothing to serve, then installed the repository the way its documentation says, ran a check that proves it works, and left it in a live sandbox with what to run next (the next field). For a non-web kind that is the pass condition; judge whether next is really the paper's analysis, experiment or example and not just an import. For web_preview it is a fail unless the constraints agree.
+- outcome no_service means the pipeline concluded there is nothing to serve but could not set the repository up for use (its check failed); for a non-web kind that is partial at best.
+- outcome expired means the application was live and answered (see preview and liveAt); the pass then stopped it, or the sandbox reached its one-hour lifetime. Grade it as live.
+- A usable outcome with a blocker (see blocker) means the repository has an application that could not be started here for a reason outside the sandbox: kind secret (an API key), service (a database or external server), hardware, or data. The repository was installed and checked, and next opens with what the person must supply. For kind system that is a pass when the blocker is genuinely required by the paper's system and named exactly; cause none. A blocker of kind upstream means the code is broken as published: fail, cause repository. A blocker that a careful person could have removed without secrets (an example file that exists, a documented install step) is a fail, cause agent.
+- path says how the run got there: direct, repaired (the repair agent edited the copy), resolved (the resolver corrected the plan or confirmed the blocker), setup (the setup agent installed it). cost is what its agent calls spent in dollars. Neither changes the grade; mention an unusual cost in wentWrong.
 - Judge only the record. Do not assume things the record does not show.
 
 Then say where the first real failure came from. Read the failures in order and the output of the failing stage; the first failure is usually the cause and the later ones follow from it. Pick exactly one:
@@ -53,10 +57,11 @@ Answer with JSON only:
 function view(r: BenchRecord) {
   return {
     repository: `${r.owner}/${r.name}`, kind: r.kind, constraints: r.constraints,
-    outcome: r.status, liveAt: r.liveAt, error: r.error, totalSeconds: r.totalMs ? Math.round(r.totalMs / 1000) : null,
+    outcome: r.status, liveAt: r.liveAt, next: r.next, error: r.error, totalSeconds: r.totalMs ? Math.round(r.totalMs / 1000) : null,
     runner: r.docker ? "docker" : "standard", localSupabase: r.localSupabase, trail: r.trail, replayHeld: r.replayHeld,
     missingValues: r.missing, localValues: r.local.length,
     repairAttempts: r.repairAttempts, patch: r.patch ? { files: r.patch.files, summary: r.patch.summary } : null,
+    path: r.path, costUsd: r.cost, brief: r.brief, resolver: r.resolver, blocker: r.blocker,
     steps: r.steps.map((s) => ({ step: s.id, state: s.state, seconds: s.ms ? Math.round(s.ms / 1000) : null, summary: s.summary })),
     preview: r.http ? { status: r.http.status, title: r.http.title } : null,
     commandsRun: r.stages, failures: r.failures, outputOfFailingStage: r.output,
@@ -76,7 +81,7 @@ async function ask(input: string): Promise<string> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": apiKey!, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model, max_tokens: 800, system: SYSTEM, messages: [{ role: "user", content: input }] }),
+    body: JSON.stringify({ model, max_tokens: 8000, system: SYSTEM, messages: [{ role: "user", content: input }] }),
   });
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
   const body = (await res.json()) as { content: { type: string; text?: string }[] };

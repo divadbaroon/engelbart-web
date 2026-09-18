@@ -6,15 +6,16 @@
 //
 //   npm run bench -- add      --project Benchmark
 //   npm run bench -- queue    --project Benchmark --pass p1 [--only web_preview,simulation] [--limit 5] [--fresh]
-//   npm run bench -- wait     --pass p1 [--timeout-min 120]
+//   npm run bench -- wait     --pass p1 [--timeout-min 120] [--keep-live]
 //   npm run bench -- collect  --project Benchmark --pass p1 [--no-screenshots]
 //   npm run bench -- stop     --pass p1
-//   npm run bench -- all      --project Benchmark --pass p1 [--only ...] [--limit N] [--fresh]
+//   npm run bench -- all      --project Benchmark --pass p1 [--only ...] [--repos owner/name,...] [--limit N] [--fresh] [--keep-live]
 //
 // --fresh queues each run without its saved trail, so a pass measures the
 // pipeline from scratch rather than a replay. A run that goes live is probed
 // and screenshotted the moment wait sees it, into bench/results/<pass>.live.json,
-// so a sandbox that later reaches its lifetime still counts as what it was.
+// and then stopped: the pass has what it came for, and a sandbox serving
+// nobody would only burn its hour. --keep-live leaves them up instead.
 //
 // Needs NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY and E2B_API_KEY (for
 // stop). BENCH_MANIFEST=path swaps the list. --project takes a project id or its exact name. Records go to
@@ -45,9 +46,11 @@ export type BenchFailure = { step: string; source: "worker" | "pipeline" | "app"
 export type BenchRecord = {
   url: string; owner: string; name: string; kind: string; constraints: string;
   repoId: string; runId: string | null;
-  // The run's status; "expired" when it was live and its sandbox reached
-  // its lifetime before the pass collected it.
-  status: string | null; template: string | null; commit: string | null;
+  // The run's status; "expired" when it was live and the pass stopped it, or its sandbox reached
+  // its lifetime before the pass collected it. "usable" means nothing to
+  // serve, but installed and checked, with what to run next in `next`.
+  status: string | null;
+  next: string | null; template: string | null; commit: string | null;
   startedAt: string | null; totalMs: number | null;
   steps: { id: string; state: string; summary: string; ms: number | null }[];
   docker: boolean; localSupabase: "ready" | "unavailable" | "skipped" | "none";
@@ -59,12 +62,19 @@ export type BenchRecord = {
   error: string | null;
   // What ran, what went wrong, and the output of the stage that failed.
   stages: string[]; failures: BenchFailure[]; output: string;
+  // How the run got where it got, what its agent calls cost, what the
+  // brief said the repository is, and the blocker when there was one.
+  path: "direct" | "repaired" | "resolved" | "setup" | null;
+  cost: number | null;
+  brief: { purpose: string; primaryApp: string; confidence: string; nothingToServe: boolean } | null;
+  resolver: { status: string; hint: string | null } | null;
+  blocker: { kind: string; what: string } | null;
   grade?: { label: "pass" | "partial" | "fail"; cause: BenchCause; reason: string; wentWrong: string; model: string; at: string };
 };
 
 export type BenchCause = "sandbox" | "repository" | "agent" | "settings" | "none";
 
-type Args = { command: string; project?: string; pass: string; only?: string[]; limit?: number; timeoutMin: number; screenshots: boolean; fresh: boolean };
+type Args = { command: string; project?: string; pass: string; only?: string[]; repos?: string[]; limit?: number; timeoutMin: number; screenshots: boolean; fresh: boolean; keepLive: boolean };
 
 function args(): Args {
   const a = process.argv.slice(2);
@@ -73,10 +83,12 @@ function args(): Args {
   return {
     command, project: get("--project"), pass: get("--pass") ?? "p1",
     only: get("--only")?.split(",").map((s) => s.trim()).filter(Boolean),
+    repos: get("--repos")?.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
     limit: get("--limit") ? Number(get("--limit")) : undefined,
     timeoutMin: get("--timeout-min") ? Number(get("--timeout-min")) : 150,
     screenshots: !a.includes("--no-screenshots"),
     fresh: a.includes("--fresh"),
+    keepLive: a.includes("--keep-live"),
   };
 }
 
@@ -111,6 +123,7 @@ async function project(sb: SupabaseClient, ref: string | undefined): Promise<{ i
 function selected(a: Args): Manifest[] {
   let list = manifest();
   if (a.only?.length) list = list.filter((m) => a.only!.includes(m.kind));
+  if (a.repos?.length) list = list.filter((m) => a.repos!.includes(`${m.owner}/${m.name}`.toLowerCase()));
   if (a.limit) list = list.slice(0, a.limit);
   return list;
 }
@@ -164,7 +177,7 @@ async function queue(sb: SupabaseClient, a: Args) {
   console.log(`${Object.keys(queued).length} runs in ${queueFile(a.pass)}`);
 }
 
-const OVER = new Set(["running", "no_service", "failed", "killed", "paused"]);
+const OVER = new Set(["running", "usable", "no_service", "failed", "killed", "paused"]);
 
 // --- wait: until every queued run is running or over.
 async function wait(sb: SupabaseClient, a: Args) {
@@ -177,9 +190,10 @@ async function wait(sb: SupabaseClient, a: Args) {
   if (a.screenshots) mkdirSync(`${RESULTS}/${a.pass}`, { recursive: true });
   let last = "";
   while (Date.now() < deadline) {
-    const { data, error } = await sb.from("engelbart_sandbox_runs").select("id, status, preview_url").in("id", ids);
+    const { data, error } = await sb.from("engelbart_sandbox_runs").select("id, status, preview_url, sandbox_id").in("id", ids);
     if (error) throw error;
-    // A run seen live is probed now: its sandbox will not outlive the pass.
+    // A run seen live is probed now, and then stopped: the pass has what it
+    // came for, and a sandbox serving nobody would only burn its hour.
     for (const r of data ?? []) {
       if (r.status !== "running" || !r.preview_url || live[r.id]) continue;
       const http = await probe(r.preview_url);
@@ -187,6 +201,14 @@ async function wait(sb: SupabaseClient, a: Args) {
       live[r.id] = { at: new Date().toISOString(), previewUrl: r.preview_url, http, screenshot };
       writeJson(liveFile(a.pass), live);
       console.log(`  live: ${names.get(r.id) ?? r.id} → ${http.status} ${http.title}`);
+      if (!a.keepLive) { await stopRun(sb, r.id, r.sandbox_id, "seen live by the benchmark"); r.status = "killed"; }
+    }
+    // A run set up for use keeps its sandbox for someone to open a shell in;
+    // the pass has its summary already.
+    for (const r of data ?? []) {
+      if (r.status !== "usable" || a.keepLive) continue;
+      await stopRun(sb, r.id, r.sandbox_id, "set up for use; the benchmark has its summary");
+      r.status = "killed";
     }
     const counts: Record<string, number> = {};
     for (const r of data ?? []) counts[r.status] = (counts[r.status] ?? 0) + 1;
@@ -214,24 +236,42 @@ async function collect(sb: SupabaseClient, a: Args) {
     const base: BenchRecord = {
       url: m.url, owner: m.owner, name: m.name, kind: m.kind, constraints: m.constraints, repoId: repo.id, runId,
       status: null, template: null, commit: null, startedAt: null, totalMs: null, steps: [], docker: false, localSupabase: "none",
-      local: [], missing: [], trail: "unknown", replayHeld: null, repairAttempts: 0, patch: null, previewUrl: null, http: null, screenshot: null, liveAt: null, error: null,
+      local: [], missing: [], trail: "unknown", replayHeld: null, repairAttempts: 0, patch: null, previewUrl: null, http: null, screenshot: null, liveAt: null, error: null, next: null,
       stages: [], failures: [], output: "",
+      path: null, cost: null, brief: null, resolver: null, blocker: null,
       grade: previous.get(repo.id)?.grade,
     };
     if (!runId) { records.push(base); continue; }
     const runRes = await sb.from("engelbart_sandbox_runs").select(RUN_COLUMNS).eq("id", runId).maybeSingle();
     if (runRes.error || !runRes.data) { records.push({ ...base, error: runRes.error?.message ?? "run row missing" }); continue; }
-    const ev = await sb.from("engelbart_sandbox_events").select(EVENT_COLUMNS).eq("run_id", runId).order("seq");
-    if (ev.error) throw ev.error;
-    const run = toRun(runRes.data as RunRow);
-    const events = (ev.data as EventRow[]).map(toEvent);
+    // A long run writes more events than one request returns (the API caps
+    // a page at 1000 rows), and the ones that say how it ended come last.
+    const rows: EventRow[] = [];
+    for (let from = 0; ; from += 1000) {
+      const ev = await sb.from("engelbart_sandbox_events").select(EVENT_COLUMNS).eq("run_id", runId).order("seq").range(from, from + 999);
+      if (ev.error) throw ev.error;
+      rows.push(...(ev.data as EventRow[]));
+      if (ev.data.length < 1000) break;
+    }
+    let run = toRun(runRes.data as RunRow);
+    let events = rows.map(toEvent);
+    // A worker from before the exit race was fixed stamped a concluded run
+    // as failed a second later; the events hold the real outcome.
+    const raced = events.some((e) => e.data?.phase === "conclusion") && run.status === "failed" && /exited with code 0/.test(run.error ?? "");
+    if (raced) {
+      run = { ...run, status: "no_service", error: null };
+      events = events.filter((e) => !(e.kind === "error" && /exited with code 0/.test(e.text)));
+    }
+    // Stopped by the pass once it was set up for use: the outcome stands.
+    if (run.status === "killed" && run.usage && events.some((e) => e.data?.phase === "usable")) run = { ...run, status: "usable" };
     const record = describe(base, run, events);
     const seen = live[runId];
     if (run.status === "running" && run.previewUrl) {
       record.http = await probe(run.previewUrl);
       if (a.screenshots) record.screenshot = await screenshot_(run.previewUrl, `${RESULTS}/${a.pass}/${m.owner}-${m.name}.png`);
-    } else if (seen && run.status === "failed" && /no longer running|sandbox timeout|application stopped/i.test(run.error ?? "")) {
-      // It was up; the sandbox's lifetime ended before this collect.
+    } else if (seen && (run.status === "killed" || (run.status === "failed" && /no longer running|sandbox timeout|application stopped/i.test(run.error ?? "")))) {
+      // It was up; the sandbox's lifetime ended, or the pass stopped it,
+      // before this collect.
       Object.assign(record, { status: "expired", liveAt: seen.at, http: seen.http, screenshot: seen.screenshot, previewUrl: seen.previewUrl });
     }
     if (seen) record.liveAt ??= seen.at;
@@ -246,7 +286,9 @@ async function collect(sb: SupabaseClient, a: Args) {
 
 function describe(base: BenchRecord, run: SandboxRun, events: SandboxEvent[]): BenchRecord {
   const steps = runSteps(run, events);
-  const now = Date.now();
+  // A run that is over stopped when its row says it did; an open step is
+  // measured to then, not to whenever the records are collected.
+  const now = run.finishedAt ? Date.parse(run.finishedAt) : Date.now();
   const find = (pick: (e: SandboxEvent) => boolean) => events.filter(pick);
   const last = <T,>(list: T[]) => list[list.length - 1];
   const supa = last(find((e) => e.data?.phase === "supabase"));
@@ -273,10 +315,15 @@ function describe(base: BenchRecord, run: SandboxRun, events: SandboxEvent[]): B
     replayHeld: replaying ? !replayFailed : null,
     repairAttempts: find((e) => e.data?.phase === "patch" && e.data?.status === "starting").length,
     patch: lastPatch ? { files: (lastPatch.data?.files as string[]) ?? [], summary: String(lastPatch.data?.summary ?? "") } : null,
-    previewUrl: run.previewUrl, error: run.error,
+    previewUrl: run.previewUrl, error: run.error, next: run.usage?.next?.slice(0, 3000) ?? null,
     // The worker records a pipeline stage as a command event carrying the stage name.
     stages: find((e) => e.kind === "command" && typeof e.data?.stage === "string").map((e) => `${e.data?.stage}: ${e.text.slice(0, 160)}`).slice(0, 40),
     failures, output: outputOf(events, failures),
+    path: run.escalation?.path ?? (patches.some((e) => e.data?.status === "applied") ? "repaired" : events.some((e) => e.data?.phase === "setup") ? "setup" : events.some((e) => e.data?.phase === "plan" || e.data?.phase === "ready") ? "direct" : null),
+    cost: run.escalation?.cost?.total ?? null,
+    brief: run.brief ? { purpose: run.brief.purpose, primaryApp: run.brief.primaryApp?.path ?? "", confidence: run.brief.primaryApp?.confidence ?? "", nothingToServe: !!run.brief.nothingToServe?.value } : null,
+    resolver: run.escalation?.resolver ? { status: run.escalation.resolver.status, hint: run.escalation.resolver.hint ?? null } : null,
+    blocker: run.usage?.blocker ?? run.escalation?.blocker ?? null,
   };
 }
 
@@ -332,23 +379,29 @@ async function screenshot_(url: string, path: string): Promise<string | null> {
   }
 }
 
+// Stop one run the way the Stop button does. The row goes to "killed" first,
+// which the recorder keeps whatever the worker writes once the sandbox is gone.
+async function stopRun(sb: SupabaseClient, runId: string, sandboxId: string | null, why: string) {
+  const record = createRecorder(sb, runId);
+  await record.status("killed");
+  if (sandboxId) {
+    const { Sandbox } = await import("e2b");
+    try { await Sandbox.kill(sandboxId); record.event("status", `sandbox killed by the benchmark: ${why}`); }
+    catch (err) { record.event("error", `kill failed: ${err instanceof Error ? err.message : String(err)}`); }
+  }
+  await record.flush();
+}
+
 // --- stop: kill the sandboxes still running for this pass.
 async function stop(sb: SupabaseClient, a: Args) {
   const queued = readJson<Record<string, string>>(queueFile(a.pass), {});
   const ids = Object.values(queued);
   if (!ids.length) return;
-  const { data, error } = await sb.from("engelbart_sandbox_runs").select(RUN_COLUMNS).in("id", ids).not("status", "in", "(failed,killed)");
+  const { data, error } = await sb.from("engelbart_sandbox_runs").select(RUN_COLUMNS).in("id", ids).not("status", "in", "(failed,killed,no_service)");
   if (error) throw error;
-  const { Sandbox } = await import("e2b");
   for (const row of (data ?? []) as RunRow[]) {
     const run = toRun(row);
-    const record = createRecorder(sb, run.id);
-    if (run.sandboxId) {
-      try { await Sandbox.kill(run.sandboxId); record.event("status", "sandbox killed by the benchmark"); }
-      catch (err) { record.event("error", `kill failed: ${err instanceof Error ? err.message : String(err)}`); }
-    }
-    await record.status("killed");
-    await record.flush();
+    await stopRun(sb, run.id, run.sandboxId, "the pass is over");
     console.log(`  stopped ${run.id} (${run.status})`);
   }
   console.log(`${data?.length ?? 0} runs stopped`);

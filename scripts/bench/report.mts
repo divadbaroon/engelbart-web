@@ -14,12 +14,12 @@ const compare = get("--compare");
 const workspace = get("--workspace");
 const load = (p: string): BenchRecord[] => { const f = `${ROOT}bench/results/${p}.json`; return existsSync(f) ? (JSON.parse(readFileSync(f, "utf8")) as BenchRecord[]) : []; };
 // Records from a pass collected before the failure fields existed still render.
-const records = load(pass).map((r) => ({ ...r, stages: r.stages ?? [], failures: r.failures ?? [], output: r.output ?? "", liveAt: r.liveAt ?? null }));
+const records = load(pass).map((r) => ({ ...r, stages: r.stages ?? [], failures: r.failures ?? [], output: r.output ?? "", liveAt: r.liveAt ?? null, next: r.next ?? null }));
 const other = compare ? new Map(load(compare).map((r) => [r.repoId, r])) : null;
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 const secs = (ms: number | null) => (ms === null ? "" : ms < 60_000 ? `${Math.round(ms / 1000)}s` : `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`);
-const KINDS = ["web_preview", "library_or_cli", "notebook_or_visualization", "simulation", "dataset_or_pipeline", "dataset", "unknown"];
+const KINDS = ["web_preview", "system", "library_or_cli", "notebook_or_visualization", "simulation", "dataset_or_pipeline", "dataset", "unknown"];
 const LABELS = ["pass", "partial", "fail", "ungraded"];
 const CAUSES = ["sandbox", "repository", "agent", "settings", "none"] as const;
 const label = (r: BenchRecord) => r.grade?.label ?? "ungraded";
@@ -40,6 +40,11 @@ const reports = records.map((r) => `<section class="report" id="${esc(`${r.owner
   <h3><a href="${esc(r.url)}">${esc(`${r.owner}/${r.name}`)}</a> <span class="${label(r)}">${label(r)}</span> ${r.grade ? `<span class="badge cause-${esc(cause(r))}">${esc(cause(r))}</span>` : ""} <span class="dim">${esc(r.kind)} · ${esc(r.status ?? "not run")} · ${secs(r.totalMs)}</span></h3>
   ${r.grade ? `<p><b>What went wrong.</b> ${esc(r.grade.wentWrong || r.grade.reason)}</p><p class="dim">${esc(r.grade.reason)}</p>` : `<p class="dim">Not graded.</p>`}
   ${r.constraints ? `<p class="dim"><b>Author's constraints.</b> ${esc(r.constraints)}</p>` : ""}
+  ${r.brief ? `<p><b>Brief.</b> ${esc(r.brief.purpose)} <span class="dim">· runs ${esc(r.brief.primaryApp || ".")} (${esc(r.brief.confidence)} confidence)${r.brief.nothingToServe ? " · nothing to serve" : ""}</span></p>` : ""}
+  ${r.resolver ? `<p><b>Resolver.</b> ${esc(r.resolver.status)}${r.resolver.hint ? `: ${esc(r.resolver.hint)}` : ""}</p>` : ""}
+  ${r.blocker ? `<p><b>Blocker (${esc(r.blocker.kind)}).</b> ${esc(r.blocker.what)}</p>` : ""}
+  ${r.path || r.cost != null ? `<p class="dim">${esc(r.path ?? "")}${r.cost != null ? ` · $${r.cost.toFixed(2)} in agent calls` : ""}</p>` : ""}
+  ${r.next ? `<details><summary>What to run next (from the sandbox)</summary><pre>${esc(r.next)}</pre></details>` : ""}
   <ul class="steps-list">${r.steps.map((s) => `<li><i class="${s.state}"></i> <b>${esc(s.id)}</b> ${esc(s.summary)}${s.ms ? ` <span class="dim">${secs(s.ms)}</span>` : ""}</li>`).join("")}</ul>
   ${r.failures.length ? `<details><summary>${r.failures.length} failure event${r.failures.length === 1 ? "" : "s"}</summary><ol>${r.failures.map((f) => `<li><b>${esc(f.source)}</b> at ${esc(f.step)}${f.stage ? ` (${esc(f.stage)})` : ""}: ${esc(f.reason)}</li>`).join("")}</ol></details>` : ""}
   ${r.stages.length ? `<details><summary>${r.stages.length} command${r.stages.length === 1 ? "" : "s"} run</summary><pre>${esc(r.stages.join("\n"))}</pre></details>` : ""}
@@ -56,7 +61,9 @@ const rows = records.map((r) => {
   <td>${esc(r.kind)}</td>
   <td class="${label(r)}"><a href="#${esc(`${r.owner}-${r.name}`)}">${label(r)}</a></td>
   <td class="cause-${esc(cause(r))}">${esc(cause(r))}</td>
-  <td>${esc(r.status ?? "not run")}</td>
+  <td>${esc(r.status ?? "not run")}${r.blocker ? `<span class="dim"> · blocked (${esc(r.blocker.kind)})</span>` : ""}</td>
+  <td>${esc(r.path ?? "")}</td>
+  <td data-v="${r.cost ?? 0}">${r.cost != null ? `$${r.cost.toFixed(2)}` : ""}</td>
   <td data-v="${r.totalMs ?? 0}">${secs(r.totalMs)}${o ? `<span class="dim"> → ${secs(o.totalMs)}</span>` : ""}</td>
   <td>${stepCell(r)}</td>
   <td>${esc(r.trail)}${r.replayHeld === false ? " (did not hold)" : ""}</td>
@@ -97,7 +104,7 @@ const html = `<!doctype html>
 <table id="causes"><thead><tr><th>Cause</th><th>Repos</th><th>Which</th></tr></thead><tbody>${causeRows || "<tr><td colspan=3 class=dim>not graded yet</td></tr>"}</tbody></table>
 <h2>Every repository</h2>
 <table id="rows"><thead><tr>
-<th>Repository</th><th>Expected</th><th>Grade</th><th>Cause</th><th>Outcome</th><th>Time</th><th>Steps</th><th>Trail</th><th>Runner</th><th>Missing values</th><th>Repair</th><th>Preview</th><th>Screenshot</th><th>Reason</th>
+<th>Repository</th><th>Expected</th><th>Grade</th><th>Cause</th><th>Outcome</th><th>Path</th><th>Cost</th><th>Time</th><th>Steps</th><th>Trail</th><th>Runner</th><th>Missing values</th><th>Repair</th><th>Preview</th><th>Screenshot</th><th>Reason</th>
 </tr></thead><tbody>${rows}</tbody></table>
 <h2>One report per repository</h2>
 ${reports}
