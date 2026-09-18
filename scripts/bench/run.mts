@@ -5,11 +5,14 @@
 // exactly what it does for a person; nothing here bypasses the pipeline.
 //
 //   npm run bench -- add      --project Benchmark
-//   npm run bench -- queue    --project Benchmark --pass p1 [--only web_preview,simulation] [--limit 5]
+//   npm run bench -- queue    --project Benchmark --pass p1 [--only web_preview,simulation] [--limit 5] [--fresh]
 //   npm run bench -- wait     --pass p1 [--timeout-min 120]
 //   npm run bench -- collect  --project Benchmark --pass p1 [--no-screenshots]
 //   npm run bench -- stop     --pass p1
-//   npm run bench -- all      --project Benchmark --pass p1 [--only ...] [--limit N]
+//   npm run bench -- all      --project Benchmark --pass p1 [--only ...] [--limit N] [--fresh]
+//
+// --fresh queues each run without its saved trail, so a pass measures the
+// pipeline from scratch rather than a replay.
 //
 // Needs NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY and E2B_API_KEY (for
 // stop). BENCH_MANIFEST=path swaps the list. --project takes a project id or its exact name. Records go to
@@ -32,6 +35,11 @@ const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 export type Manifest = { url: string; owner: string; name: string; kind: string; title: string; contents: string; envNotes: string; constraints: string; reviewedCommit: string };
 
+// One thing that went wrong, in the order it happened: a worker or sandbox
+// error, a pipeline error, an app that did not answer or crashed, a repair
+// that failed. The grader reads these to say whose fault it was.
+export type BenchFailure = { step: string; source: "worker" | "pipeline" | "app" | "repair"; reason: string; stage: string | null; detail: Record<string, unknown> };
+
 export type BenchRecord = {
   url: string; owner: string; name: string; kind: string; constraints: string;
   repoId: string; runId: string | null;
@@ -44,10 +52,14 @@ export type BenchRecord = {
   repairAttempts: number; patch: { files: string[]; summary: string } | null;
   previewUrl: string | null; http: { status: number; title: string } | null; screenshot: string | null;
   error: string | null;
-  grade?: { label: "pass" | "partial" | "fail"; reason: string; model: string; at: string };
+  // What ran, what went wrong, and the output of the stage that failed.
+  stages: string[]; failures: BenchFailure[]; output: string;
+  grade?: { label: "pass" | "partial" | "fail"; cause: BenchCause; reason: string; wentWrong: string; model: string; at: string };
 };
 
-type Args = { command: string; project?: string; pass: string; only?: string[]; limit?: number; timeoutMin: number; screenshots: boolean };
+export type BenchCause = "sandbox" | "repository" | "agent" | "settings" | "none";
+
+type Args = { command: string; project?: string; pass: string; only?: string[]; limit?: number; timeoutMin: number; screenshots: boolean; fresh: boolean };
 
 function args(): Args {
   const a = process.argv.slice(2);
@@ -59,6 +71,7 @@ function args(): Args {
     limit: get("--limit") ? Number(get("--limit")) : undefined,
     timeoutMin: get("--timeout-min") ? Number(get("--timeout-min")) : 150,
     screenshots: !a.includes("--no-screenshots"),
+    fresh: a.includes("--fresh"),
   };
 }
 
@@ -135,7 +148,7 @@ async function queue(sb: SupabaseClient, a: Args) {
     if (queued[repo.id]) continue;
     const active = await sb.from("engelbart_sandbox_runs").select("id, status").eq("repo_id", repo.id).in("status", ["queued", "creating", "cloning", "cloned", "launching"]).limit(1);
     if (active.data?.length) { console.log(`  ${m.owner}/${m.name} already has an active run ${active.data[0].id}`); queued[repo.id] = active.data[0].id; continue; }
-    const { data, error } = await sb.from("engelbart_sandbox_runs").insert({ repo_id: repo.id, project_id: p.id, user_id: p.userId, template: TEMPLATE }).select("id").single();
+    const { data, error } = await sb.from("engelbart_sandbox_runs").insert({ repo_id: repo.id, project_id: p.id, user_id: p.userId, template: TEMPLATE, fresh: a.fresh }).select("id").single();
     if (error) { console.log(`  could not queue ${m.owner}/${m.name}: ${error.message}`); continue; }
     queued[repo.id] = data.id;
     console.log(`  queued ${m.owner}/${m.name} → ${data.id}`);
@@ -182,6 +195,7 @@ async function collect(sb: SupabaseClient, a: Args) {
       url: m.url, owner: m.owner, name: m.name, kind: m.kind, constraints: m.constraints, repoId: repo.id, runId,
       status: null, template: null, commit: null, startedAt: null, totalMs: null, steps: [], docker: false, localSupabase: "none",
       local: [], missing: [], trail: "unknown", replayHeld: null, repairAttempts: 0, patch: null, previewUrl: null, http: null, screenshot: null, error: null,
+      stages: [], failures: [], output: "",
       grade: previous.get(repo.id)?.grade,
     };
     if (!runId) { records.push(base); continue; }
@@ -220,6 +234,7 @@ function describe(base: BenchRecord, run: SandboxRun, events: SandboxEvent[]): B
   const replayFailed = replayEvents.some((e) => e.data?.status === "failed" || e.data?.status === "ignored");
   const patches = find((e) => e.data?.phase === "patch" && (e.data?.status === "applied" || e.data?.status === "replayed"));
   const lastPatch = last(patches);
+  const failures = failuresOf(events);
   return {
     ...base,
     status: run.status, template: run.template, commit: run.commit, startedAt: run.startedAt,
@@ -234,7 +249,40 @@ function describe(base: BenchRecord, run: SandboxRun, events: SandboxEvent[]): B
     repairAttempts: find((e) => e.data?.phase === "patch" && e.data?.status === "starting").length,
     patch: lastPatch ? { files: (lastPatch.data?.files as string[]) ?? [], summary: String(lastPatch.data?.summary ?? "") } : null,
     previewUrl: run.previewUrl, error: run.error,
+    // The worker records a pipeline stage as a command event carrying the stage name.
+    stages: find((e) => e.kind === "command" && typeof e.data?.stage === "string").map((e) => `${e.data?.stage}: ${e.text.slice(0, 160)}`).slice(0, 40),
+    failures, output: outputOf(events, failures),
   };
+}
+
+// Every point where something went wrong, oldest first, so a reader can
+// see the first cause and what followed from it.
+function failuresOf(events: SandboxEvent[]): BenchFailure[] {
+  const out: BenchFailure[] = [];
+  const str = (v: unknown) => (v === undefined || v === null ? "" : String(v));
+  const rest = (d: Record<string, unknown>, drop: string[]) => Object.fromEntries(Object.entries(d).filter(([k, v]) => !drop.includes(k) && v !== undefined && v !== null && v !== ""));
+  for (const e of events) {
+    const d = e.data ?? {};
+    const phase = str(d.phase);
+    if (e.kind === "error" && !phase) out.push({ step: "worker", source: "worker", reason: e.text.slice(0, 600), stage: null, detail: rest(d, []) });
+    else if (phase === "error") out.push({ step: str(d.step) || "pipeline", source: "pipeline", reason: str(d.message).slice(0, 600), stage: str(d.stage) || null, detail: rest(d, ["phase", "step", "message", "stage"]) });
+    else if (phase === "run" && ["unhealthy", "needs_input", "failed"].includes(str(d.status))) out.push({ step: "health", source: "app", reason: `${str(d.status)}: ${str(d.reason).slice(0, 600)}`, stage: str(d.stage) || null, detail: rest(d, ["phase", "status", "reason", "stage"]) });
+    else if (phase === "patch" && d.status === "failed") out.push({ step: "health", source: "repair", reason: str(d.reason).slice(0, 600), stage: null, detail: rest(d, ["phase", "status", "reason"]) });
+    else if (phase === "recipe" && (d.status === "failed" || d.status === "ignored")) out.push({ step: "trail", source: "pipeline", reason: `replay ${str(d.status)}: ${str(d.reason).slice(0, 600)}`, stage: null, detail: {} });
+    else if (phase === "exited") out.push({ step: "live", source: "app", reason: `exited: ${str(d.reason).slice(0, 600)}`, stage: null, detail: rest(d, ["phase", "reason"]) });
+  }
+  return out.slice(-12);
+}
+
+// The output of the stage the last failure names, or failing that the
+// last lines the pipeline logged, so the grader sees the actual error.
+function outputOf(events: SandboxEvent[], failures: BenchFailure[]): string {
+  const stage = [...failures].reverse().find((f) => f.stage)?.stage ?? null;
+  const isLog = (e: SandboxEvent) => (e.kind === "stdout" || e.kind === "stderr") && typeof e.data?.stage === "string";
+  const logs = events.filter((e) => isLog(e) && (!stage || e.data?.stage === stage));
+  const text = (stage && logs.length ? logs : events.filter(isLog)).map((e) => e.text).join("");
+  const lines = text.split("\n").filter((l) => l.trim());
+  return lines.slice(-60).join("\n").slice(-6000);
 }
 
 async function probe(url: string): Promise<{ status: number; title: string }> {

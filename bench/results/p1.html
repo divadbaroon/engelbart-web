@@ -1,0 +1,160 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Engelbart benchmark · p1</title>
+<style>
+  body { font: 13px/1.5 ui-sans-serif, system-ui, sans-serif; color: #1a1a1a; margin: 24px; }
+  h1 { font-size: 18px; font-weight: 600; } h2 { font-size: 14px; font-weight: 600; margin-top: 28px; }
+  table { border-collapse: collapse; width: 100%; } th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top; }
+  th { cursor: pointer; font-weight: 600; white-space: nowrap; background: #fafafa; position: sticky; top: 0; }
+  td.pass { color: #15803d; } td.partial { color: #b45309; } td.fail { color: #b91c1c; } td.ungraded { color: #737373; }
+  .dim { color: #737373; font-size: 12px; } .reason { max-width: 420px; color: #404040; }
+  .steps i { display: inline-block; width: 10px; height: 10px; border-radius: 5px; margin-right: 2px; background: #e5e5e5; }
+  .steps i.done { background: #404040; } .steps i.warned { background: #f59e0b; } .steps i.failed { background: #ef4444; } .steps i.active { background: #171717; } .steps i.skipped { background: #d4d4d4; }
+  img { width: 160px; height: 100px; object-fit: cover; object-position: top; border: 1px solid #e5e5e5; }
+  #summary td, #summary th, #causes td, #causes th { padding: 4px 10px; }
+  .cause-sandbox { color: #7c3aed; } .cause-repository { color: #0369a1; } .cause-agent { color: #b45309; } .cause-settings { color: #b91c1c; } .cause-none { color: #15803d; }
+  .badge { font-size: 11px; padding: 1px 6px; border: 1px solid currentColor; border-radius: 4px; }
+  .report { border-top: 1px solid #e5e5e5; padding: 16px 0; } .report h3 { font-size: 14px; margin: 0 0 6px; } .report p { margin: 4px 0; max-width: 900px; }
+  .steps-list { list-style: none; padding: 0; margin: 6px 0; } .steps-list li { margin: 2px 0; } .steps-list i { display: inline-block; width: 8px; height: 8px; border-radius: 4px; background: #e5e5e5; margin-right: 4px; }
+  .steps-list i.done { background: #404040; } .steps-list i.warned { background: #f59e0b; } .steps-list i.failed { background: #ef4444; } .steps-list i.active { background: #171717; }
+  pre { font: 11px/1.4 ui-monospace, monospace; background: #fafafa; padding: 8px; overflow-x: auto; max-height: 360px; white-space: pre-wrap; }
+  details { margin: 4px 0; } summary { cursor: pointer; color: #404040; } img.shot { width: 320px; height: 200px; margin-top: 6px; }
+</style></head><body>
+<h1>Engelbart benchmark · pass p1</h1>
+<p class="dim">5 repositories · generated 2026-09-17 22:58 UTC</p>
+<table id="summary"><thead><tr><th>Expected</th><th>Repos</th><th>pass</th><th>partial</th><th>fail</th><th>ungraded</th><th>Running</th></tr></thead><tbody><tr><td>web_preview</td><td>5</td><td></td><td></td><td></td><td>5</td><td>1</td></tr></tbody></table>
+<h2>Failures by cause</h2>
+<table id="causes"><thead><tr><th>Cause</th><th>Repos</th><th>Which</th></tr></thead><tbody><tr><td colspan=3 class=dim>not graded yet</td></tr></tbody></table>
+<h2>Every repository</h2>
+<table id="rows"><thead><tr>
+<th>Repository</th><th>Expected</th><th>Grade</th><th>Cause</th><th>Outcome</th><th>Time</th><th>Steps</th><th>Trail</th><th>Runner</th><th>Missing values</th><th>Repair</th><th>Preview</th><th>Screenshot</th><th>Reason</th>
+</tr></thead><tbody><tr>
+  <td><a href="https://github.com/ianarawjo/ChainForge">ianarawjo/ChainForge</a></td>
+  <td>web_preview</td>
+  <td class="ungraded"><a href="#ianarawjo-ChainForge">ungraded</a></td>
+  <td class="cause-"></td>
+  <td>failed</td>
+  <td data-v="73399">1m 13s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Runner with Docker · cloned 41a0db1"></i><i class="done" title="trail: No trail yet; analyzing from scratch"></i><i class="done" title="plan: 4 components · Analyzing…"></i><i class="skipped" title="services: Not needed"></i><i class="skipped" title="environment: Not scanned"></i><i class="skipped" title="start: "></i><i class="failed" title="health: The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;Run-order evidence request limit reached&quot;, &quot;status&quot;: &quot;error&quot;} · The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;Run-order evidence request limit reached&quot;, &quot;status&quot;: &quot;error&quot;}"></i><i class="waiting" title="live: "></i></span></td>
+  <td>none</td>
+  <td>docker </td>
+  <td data-v="0"></td>
+  <td data-v="0"></td>
+  <td></td>
+  <td></td>
+  <td class="reason">The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;Run-order evidence request limit reached&quot;, &quot;status&quot;: &quot;error&quot;}</td>
+</tr><tr>
+  <td><a href="https://github.com/mqo00/hypocompass">mqo00/hypocompass</a></td>
+  <td>web_preview</td>
+  <td class="ungraded"><a href="#mqo00-hypocompass">ungraded</a></td>
+  <td class="cause-"></td>
+  <td>running</td>
+  <td data-v="169290">2m 49s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned 7bc855e"></i><i class="done" title="trail: No trail yet; analyzing from scratch"></i><i class="done" title="plan: 3 components · Run the HypoCompass system: Flask backend and React frontend as documented in system/README.md"></i><i class="skipped" title="services: Not needed"></i><i class="done" title="environment: Nothing read from the environment"></i><i class="done" title="start: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/95cb52a23e98fa5e404592d9/3.11-a843ecaa054b420685e4cc35e5a5372c · /home/user/.human-compact/project-environments/95cb52a23e98fa5e404592d9/3.11-a843ecaa054b420685e4cc35e5a5372c/bin/python -m pip install -r requirements.txt · npm install · /home/user/.human-compact/project-environments/95cb52a23e98fa5e404592d9/3.11-a843ecaa054b420685e4cc35e5a5372c/bin/python base.py · npm start"></i><i class="done" title="health: Answered on the first check"></i><i class="done" title="live: Live at https://43110-i1rvju2uw9f1q0m9delpn.e2b.app · 2 services · trail saved and shared"></i></span></td>
+  <td>shared</td>
+  <td> </td>
+  <td data-v="0"></td>
+  <td data-v="0"></td>
+  <td>200 HypoCompass</td>
+  <td><a href="p1/mqo00-hypocompass.png"><img src="p1/mqo00-hypocompass.png" loading="lazy"></a></td>
+  <td class="reason"></td>
+</tr><tr>
+  <td><a href="https://github.com/joonspk-research/generative_agents">joonspk-research/generative_agents</a></td>
+  <td>web_preview</td>
+  <td class="ungraded"><a href="#joonspk-research-generative_agents">ungraded</a></td>
+  <td class="cause-"></td>
+  <td>failed</td>
+  <td data-v="124843">2m 5s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned fe05a71"></i><i class="done" title="trail: No trail yet; analyzing from scratch"></i><i class="done" title="plan: 2 components · Analyzing…"></i><i class="skipped" title="services: Not needed"></i><i class="skipped" title="environment: Not scanned"></i><i class="skipped" title="start: "></i><i class="failed" title="health: The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;[Errno 2] No such file or directory: '/home/user/generative_agents/reverie/back · The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;[Errno 2] No such file or directory: '/home/user/generative_agents/reverie/back"></i><i class="waiting" title="live: "></i></span></td>
+  <td>none</td>
+  <td> </td>
+  <td data-v="0"></td>
+  <td data-v="0"></td>
+  <td></td>
+  <td></td>
+  <td class="reason">The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;[Errno 2] No such file or directory: '/home/user/generative_agents/reverie/backend_server/utils.py'&quot;, &quot;status&quot;: &quot;error&quot;}</td>
+</tr><tr>
+  <td><a href="https://github.com/stanford-oval/storm">stanford-oval/storm</a></td>
+  <td>web_preview</td>
+  <td class="ungraded"><a href="#stanford-oval-storm">ungraded</a></td>
+  <td class="cause-"></td>
+  <td>failed</td>
+  <td data-v="57082">57s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Standard runner · cloned fb951af"></i><i class="done" title="trail: No trail yet; analyzing from scratch"></i><i class="done" title="plan: 2 components · Analyzing…"></i><i class="skipped" title="services: Not needed"></i><i class="skipped" title="environment: Not scanned"></i><i class="skipped" title="start: "></i><i class="failed" title="health: The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;Command is outside supported local setup operations&quot;, &quot;status&quot;: &quot;error&quot;} · Command is outside supported local setup operations"></i><i class="waiting" title="live: "></i></span></td>
+  <td>none</td>
+  <td> </td>
+  <td data-v="0"></td>
+  <td data-v="0"></td>
+  <td></td>
+  <td></td>
+  <td class="reason">Command is outside supported local setup operations</td>
+</tr><tr>
+  <td><a href="https://github.com/microsoft/autogen">microsoft/autogen</a></td>
+  <td>web_preview</td>
+  <td class="ungraded"><a href="#microsoft-autogen">ungraded</a></td>
+  <td class="cause-"></td>
+  <td>failed</td>
+  <td data-v="105731">1m 46s</td>
+  <td><span class="steps"><i class="done" title="sandbox: Runner with Docker · cloned 027ecf0"></i><i class="done" title="trail: No trail yet; analyzing from scratch"></i><i class="done" title="plan: 18 components · Analyzing…"></i><i class="skipped" title="services: Not needed"></i><i class="skipped" title="environment: Not scanned"></i><i class="skipped" title="start: "></i><i class="failed" title="health: The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;This monorepo contains multiple independent, unrelated applications with no sin · The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;This monorepo contains multiple independent, unrelated applications with no sin"></i><i class="waiting" title="live: "></i></span></td>
+  <td>none</td>
+  <td>docker </td>
+  <td data-v="0"></td>
+  <td data-v="0"></td>
+  <td></td>
+  <td></td>
+  <td class="reason">The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;This monorepo contains multiple independent, unrelated applications with no single declared root dev entry point: the AutoGen Studio web IDE (python/packages/autogen-studio + its frontend, which has yarn dev/start scripts and its own FastAPI backend), the agbench benchmarking CLI, the core_streaming_handoffs_fastapi sample (with a static/index.html frontend), the gitty sample, several other Python samples/packages, and separate .NET samples under dotnet/. These are not interdependent (README.md and python/README.md describe autogen-core/agentchat/ext/studio as a package workspace, not a single runnable app) and Railpack only reports build/start info for the autogen-studio frontend and the python workspace root, not a unified entry point. Please specify which application you want to run — for example, 'AutoGen Studio' (python/packages/autogen-studio backend + python/packages/autogen-studio/frontend) or the 'core_streaming_handoffs_fastapi' sample.&quot;, &quot;status&quot;: &quot;needs_input&quot;}</td>
+</tr></tbody></table>
+<h2>One report per repository</h2>
+<section class="report" id="ianarawjo-ChainForge">
+  <h3><a href="https://github.com/ianarawjo/ChainForge">ianarawjo/ChainForge</a> <span class="ungraded">ungraded</span>  <span class="dim">web_preview · failed · 1m 13s</span></h3>
+  <p class="dim">Not graded.</p>
+  <p class="dim"><b>Author's constraints.</b> Opening the UI can work without paid credentials, generating responses requires a configured provider. Monorepo and optional RAG extras complicate installation.</p>
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Runner with Docker · cloned 41a0db1 <span class="dim">36s</span></li><li><i class="done"></i> <b>trail</b> No trail yet; analyzing from scratch <span class="dim">2s</span></li><li><i class="done"></i> <b>plan</b> 4 components · Analyzing… <span class="dim">35s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="skipped"></i> <b>environment</b> Not scanned</li><li><i class="skipped"></i> <b>start</b> </li><li><i class="failed"></i> <b>health</b> The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;Run-order evidence request limit reached&quot;, &quot;status&quot;: &quot;error&quot;} · The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;Run-order evidence request limit reached&quot;, &quot;status&quot;: &quot;error&quot;} <span class="dim">1s</span></li><li><i class="waiting"></i> <b>live</b> </li></ul>
+  
+  
+  
+  
+</section><section class="report" id="mqo00-hypocompass">
+  <h3><a href="https://github.com/mqo00/hypocompass">mqo00/hypocompass</a> <span class="ungraded">ungraded</span>  <span class="dim">web_preview · running · 2m 49s</span></h3>
+  <p class="dim">Not graded.</p>
+  <p class="dim"><b>Author's constraints.</b> README suggests Node 16. Backend and frontend must both start. Do not infer credential requirement from an installed OpenAI client alone.</p>
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned 7bc855e <span class="dim">19s</span></li><li><i class="done"></i> <b>trail</b> No trail yet; analyzing from scratch <span class="dim">2s</span></li><li><i class="done"></i> <b>plan</b> 3 components · Run the HypoCompass system: Flask backend and React frontend as documented in system/README.md <span class="dim">22s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="done"></i> <b>environment</b> Nothing read from the environment <span class="dim">0s</span></li><li><i class="done"></i> <b>start</b> /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/95cb52a23e98fa5e404592d9/3.11-a843ecaa054b420685e4cc35e5a5372c · /home/user/.human-compact/project-environments/95cb52a23e98fa5e404592d9/3.11-a843ecaa054b420685e4cc35e5a5372c/bin/python -m pip install -r requirements.txt · npm install · /home/user/.human-compact/project-environments/95cb52a23e98fa5e404592d9/3.11-a843ecaa054b420685e4cc35e5a5372c/bin/python base.py · npm start <span class="dim">1m 4s</span></li><li><i class="done"></i> <b>health</b> Answered on the first check</li><li><i class="done"></i> <b>live</b> Live at https://43110-i1rvju2uw9f1q0m9delpn.e2b.app · 2 services · trail saved and shared <span class="dim">1m 3s</span></li></ul>
+  
+  
+  
+  <a href="p1/mqo00-hypocompass.png"><img class="shot" src="p1/mqo00-hypocompass.png" loading="lazy"></a>
+</section><section class="report" id="joonspk-research-generative_agents">
+  <h3><a href="https://github.com/joonspk-research/generative_agents">joonspk-research/generative_agents</a> <span class="ungraded">ungraded</span>  <span class="dim">web_preview · failed · 2m 5s</span></h3>
+  <p class="dim">Not graded.</p>
+  <p class="dim"><b>Author's constraints.</b> Replay and new simulation are distinct workflows. New simulation makes paid model calls, UI health alone does not validate agent behavior.</p>
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned fe05a71 <span class="dim">1m 46s</span></li><li><i class="done"></i> <b>trail</b> No trail yet; analyzing from scratch <span class="dim">2s</span></li><li><i class="done"></i> <b>plan</b> 2 components · Analyzing… <span class="dim">17s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="skipped"></i> <b>environment</b> Not scanned</li><li><i class="skipped"></i> <b>start</b> </li><li><i class="failed"></i> <b>health</b> The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;[Errno 2] No such file or directory: '/home/user/generative_agents/reverie/back · The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;[Errno 2] No such file or directory: '/home/user/generative_agents/reverie/back <span class="dim">1s</span></li><li><i class="waiting"></i> <b>live</b> </li></ul>
+  
+  
+  
+  
+</section><section class="report" id="stanford-oval-storm">
+  <h3><a href="https://github.com/stanford-oval/storm">stanford-oval/storm</a> <span class="ungraded">ungraded</span>  <span class="dim">web_preview · failed · 57s</span></h3>
+  <p class="dim">Not graded.</p>
+  <p class="dim"><b>Author's constraints.</b> Core package and nested demo have distinct entry points. Cloud search and model credentials are needed for the corresponding article-generation example.</p>
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Standard runner · cloned fb951af <span class="dim">31s</span></li><li><i class="done"></i> <b>trail</b> No trail yet; analyzing from scratch <span class="dim">1s</span></li><li><i class="done"></i> <b>plan</b> 2 components · Analyzing… <span class="dim">24s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="skipped"></i> <b>environment</b> Not scanned</li><li><i class="skipped"></i> <b>start</b> </li><li><i class="failed"></i> <b>health</b> The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;Command is outside supported local setup operations&quot;, &quot;status&quot;: &quot;error&quot;} · Command is outside supported local setup operations <span class="dim">1s</span></li><li><i class="waiting"></i> <b>live</b> </li></ul>
+  
+  
+  
+  
+</section><section class="report" id="microsoft-autogen">
+  <h3><a href="https://github.com/microsoft/autogen">microsoft/autogen</a> <span class="ungraded">ungraded</span>  <span class="dim">web_preview · failed · 1m 46s</span></h3>
+  <p class="dim">Not graded.</p>
+  <p class="dim"><b>Author's constraints.</b> Must choose a component such as Studio. Installing a root monorepo or importing the framework does not start the GUI.</p>
+  <ul class="steps-list"><li><i class="done"></i> <b>sandbox</b> Runner with Docker · cloned 027ecf0 <span class="dim">1m 18s</span></li><li><i class="done"></i> <b>trail</b> No trail yet; analyzing from scratch <span class="dim">2s</span></li><li><i class="done"></i> <b>plan</b> 18 components · Analyzing… <span class="dim">25s</span></li><li><i class="skipped"></i> <b>services</b> Not needed</li><li><i class="skipped"></i> <b>environment</b> Not scanned</li><li><i class="skipped"></i> <b>start</b> </li><li><i class="failed"></i> <b>health</b> The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;This monorepo contains multiple independent, unrelated applications with no sin · The pipeline exited with code 1: {&quot;phase&quot;: &quot;error&quot;, &quot;step&quot;: &quot;order&quot;, &quot;message&quot;: &quot;This monorepo contains multiple independent, unrelated applications with no sin <span class="dim">1s</span></li><li><i class="waiting"></i> <b>live</b> </li></ul>
+  
+  
+  
+  
+</section>
+<script>
+  document.querySelectorAll("#rows th").forEach((th, i) => th.addEventListener("click", () => {
+    const tb = th.closest("table").tBodies[0]; const asc = th.dataset.asc !== "1"; th.dataset.asc = asc ? "1" : "0";
+    const v = (tr) => { const td = tr.children[i]; return td.dataset.v !== undefined ? Number(td.dataset.v) : td.textContent.trim().toLowerCase(); };
+    [...tb.rows].sort((x, y) => (v(x) > v(y) ? 1 : v(x) < v(y) ? -1 : 0) * (asc ? 1 : -1)).forEach((tr) => tb.appendChild(tr));
+  }));
+</script>
+</body></html>
