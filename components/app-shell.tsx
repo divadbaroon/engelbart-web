@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { addSubgoal, findGoal, isDone, patchGoal, type Goal, type Plan } from "@/lib/plan";
 import { createGoal, updateGoal } from "@/app/workspace/[workspaceId]/actions";
-import { addRepo, dropPatch, fetchReadme, removeRepo } from "@/app/workspace/[workspaceId]/repo-actions";
+import { addRepo, dropPatch, fetchReadme, removeRepo, setRepoHint } from "@/app/workspace/[workspaceId]/repo-actions";
 import { usePanelRef } from "react-resizable-panels";
 import { isPaperTab, paperTabValue, type Paper } from "@/lib/papers";
 import { usePapers } from "@/hooks/use-papers";
@@ -67,6 +67,12 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
     if (!result.ok) return;
     setRepos((rs) => rs.map((r) => (r.id === repoId ? { ...r, patch: null } : r)));
     sandbox.prepare(repoId);
+  }
+  // The person's line about what to run, kept on the repository for the planner.
+  async function saveHint(repoId: string, hint: string) {
+    const result = await setRepoHint(repoId, hint);
+    if (!result.ok) return;
+    setRepos((rs) => rs.map((r) => (r.id === repoId ? { ...r, hint: result.hint } : r)));
   }
   const [repoDraft, setRepoDraft] = useState<string | null>(null);
   const [repoAdding, setRepoAdding] = useState(false);
@@ -301,6 +307,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
                   onStop={(runId) => sandbox.stop(runId, repo.id)}
                   onOpenEnvironment={() => setRepoTabs((all) => ({ ...all, [repo.id]: "env" }))}
                   onRunWithoutPatch={() => void runWithoutPatch(repo.id)}
+                  onSaveHint={(hint) => saveHint(repo.id, hint)}
                 />
               ) : (
                 <ProjectContent tab={tab} openPapers={openPapers} paperUrls={papers.urls} notesGoal={selectedGoal} onNotesSaved={noteSaved} />

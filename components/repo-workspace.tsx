@@ -10,6 +10,7 @@ import { RunLog } from "@/components/run-log";
 import { RunTimeline } from "@/components/run-timeline";
 import { formatDay } from "@/lib/run-steps";
 import { getSharedTrail, type SharedTrail } from "@/app/workspace/[workspaceId]/trail-actions";
+import { Input } from "@/components/ui/input";
 import { environmentFromEvents, isRunActive, isRunCloned, isRunRunning, isSandboxLive, STATUS_LABEL, terminalLines, type PreviewService, type SandboxEvent, type SandboxRun } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -89,6 +90,7 @@ type RunControls = {
   onStop: (runId: string) => void | Promise<void>;   // kill the sandbox
   onOpenEnvironment: () => void;         // switch to the Environment tab
   onRunWithoutPatch: () => void;         // drop the repair agent's edits and prepare again
+  onSaveHint: (hint: string) => Promise<void>;   // keep the person's line about what to run
 };
 
 type RepoContentProps = RunControls & {
@@ -106,7 +108,7 @@ type RepoContentProps = RunControls & {
   onFileSaved: () => void;
 };
 
-export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch }: RepoContentProps) {
+export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
   // The environment scan and any repair edits from this run's log if it
   // has them, else the last ones saved on the repository.
   const envReport = (run && environmentFromEvents(events, run.id)) ?? repo.envReport;
@@ -137,7 +139,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   }
 
   if (tab === "preview") {
-    return <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onRunWithoutPatch={onRunWithoutPatch} />;
+    return <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onRunWithoutPatch={onRunWithoutPatch} onSaveHint={onSaveHint} />;
   }
 
   // The run's log, and a shell in its sandbox once there is one to open.
@@ -162,7 +164,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
 
 type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; events: SandboxEvent[]; version: number; missing: string[]; localError: string | null; patch: RepoPatch | null };
 
-function Preview({ repo, run, error, events, version, missing, localError, patch, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch }: PreviewProps) {
+function Preview({ repo, run, error, events, version, missing, localError, patch, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch, onSaveHint }: PreviewProps) {
   const [showPatch, setShowPatch] = useState(false);
   if (showPatch && patch) {
     return <PatchView patch={patch} onBack={() => setShowPatch(false)} onRunWithoutPatch={run && isRunActive(run) ? null : () => { setShowPatch(false); onRunWithoutPatch(); }} />;
@@ -175,6 +177,8 @@ function Preview({ repo, run, error, events, version, missing, localError, patch
       ? ["Not prepared yet", "Open the repository to clone it into a sandbox and start it.", { label: "Prepare", onClick: onPrepare }]
       : isRunActive(run)
         ? [run.status === "launching" ? `Starting ${repo.fullName}…` : `Preparing ${repo.fullName}…`, STATUS_LABEL[run.status] + " You can keep reading the README meanwhile.", null]
+        : run.status === "no_service"
+          ? ["Nothing to serve in " + repo.fullName, run.error ?? "The pipeline found no web application of its own to run.", { label: "Analyze again", onClick: onPrepare }]
         : run.status === "failed"
           ? ["Could not run " + repo.fullName, run.error ?? "The run failed. See the Terminal for details.", { label: "Try again", onClick: onPrepare }]
           : isRunCloned(run)
@@ -205,6 +209,10 @@ function Preview({ repo, run, error, events, version, missing, localError, patch
     <Button variant="ghost" size="sm" onClick={onPrepareFresh} title="Analyze from scratch, ignoring the saved trail" className="shrink-0 font-normal text-muted-foreground">Start over without the trail</Button>
   );
 
+  // A line for the planner, for repositories with several applications and
+  // no declared entry point. Kept on the repository; used on the next run.
+  const hintField = !(run && isRunActive(run)) && <HintField key={repo.id} hint={repo.hint} onSave={onSaveHint} />;
+
   // With a run to show, the steps take the page: where it is, what each
   // step found, and what to do next at the top.
   if (run) {
@@ -221,10 +229,11 @@ function Preview({ repo, run, error, events, version, missing, localError, patch
           </div>
         </div>
         <RunTimeline run={run} events={events} open className="border-y" />
-        {(patchBox || missingBox) && (
+        {(patchBox || missingBox || hintField) && (
           <div className="flex flex-col gap-3 px-[22px] py-4">
             {patchBox}
             {missingBox}
+            {hintField}
           </div>
         )}
       </section>
@@ -239,7 +248,37 @@ function Preview({ repo, run, error, events, version, missing, localError, patch
         <Button variant="outline" size="sm" onClick={action.onClick} className="mt-3 font-normal">{action.label}</Button>
       )}
       <TrailInsight repo={repo} />
+      <div className="mt-4 w-full max-w-[420px] text-left">{hintField}</div>
     </section>
+  );
+}
+
+// One line from the person about what to run, such as "serve autogen-studio"
+// for a repository with several applications. Enter saves; empty removes.
+function HintField({ hint, onSave }: { hint: string | null; onSave: (hint: string) => Promise<void> }) {
+  const [draft, setDraft] = useState(hint ?? "");
+  const [saving, setSaving] = useState(false);
+  const dirty = draft.trim() !== (hint ?? "");
+  const save = async () => {
+    if (!dirty || saving) return;
+    setSaving(true);
+    try { await onSave(draft); } finally { setSaving(false); }
+  };
+  return (
+    <div className="flex max-w-[420px] flex-col gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
+      <span>{hint ? "Hint for the planner, used on the next run:" : "Several applications and no clear entry point? Tell the planner what to run."}</span>
+      <div className="flex items-center gap-2">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void save(); } }}
+          placeholder="e.g. serve the autogen-studio app in python/packages/autogen-studio"
+          maxLength={500}
+          className="h-7 bg-background text-xs"
+        />
+        <Button variant="ghost" size="sm" onClick={() => void save()} disabled={!dirty || saving} className="h-7 shrink-0 px-2 font-normal">{saving ? "Saving…" : "Save"}</Button>
+      </div>
+    </div>
   );
 }
 

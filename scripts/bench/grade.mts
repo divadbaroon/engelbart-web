@@ -33,6 +33,8 @@ You are given the kind of evaluation the benchmark's author expects for this rep
 Grade rules:
 - kind web_preview: pass = the run reached running and the preview answered with a page of the application. partial = it runs but a documented credential or service the author lists as expected is missing, or the page is an error page for that reason, or the wrong component was started (see the constraints). fail = anything else.
 - other kinds (library_or_cli, notebook_or_visualization, simulation, dataset, dataset_or_pipeline): a live web preview is not expected. pass = the pipeline concluded cleanly that there is no web service to run, in reasonable time, without repair attempts that fight the repository. partial = it got somewhere useful but slowly, or with a repair attempt, or produced a preview that is not what the author says matters. fail = it errored confusingly, timed out, or spent repair attempts forcing a server that should not exist.
+- outcome no_service means the pipeline concluded there is nothing to serve and stopped cleanly; for a non-web kind that is the pass condition, for web_preview it is a fail unless the constraints agree.
+- outcome expired means the application was live and answered (see preview and liveAt); the sandbox reached its one-hour lifetime before the pass collected it. Grade it as live.
 - Judge only the record. Do not assume things the record does not show.
 
 Then say where the first real failure came from. Read the failures in order and the output of the failing stage; the first failure is usually the cause and the later ones follow from it. Pick exactly one:
@@ -51,7 +53,7 @@ Answer with JSON only:
 function view(r: BenchRecord) {
   return {
     repository: `${r.owner}/${r.name}`, kind: r.kind, constraints: r.constraints,
-    outcome: r.status, error: r.error, totalSeconds: r.totalMs ? Math.round(r.totalMs / 1000) : null,
+    outcome: r.status, liveAt: r.liveAt, error: r.error, totalSeconds: r.totalMs ? Math.round(r.totalMs / 1000) : null,
     runner: r.docker ? "docker" : "standard", localSupabase: r.localSupabase, trail: r.trail, replayHeld: r.replayHeld,
     missingValues: r.missing, localValues: r.local.length,
     repairAttempts: r.repairAttempts, patch: r.patch ? { files: r.patch.files, summary: r.patch.summary } : null,

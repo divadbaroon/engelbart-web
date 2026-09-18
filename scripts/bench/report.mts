@@ -14,7 +14,7 @@ const compare = get("--compare");
 const workspace = get("--workspace");
 const load = (p: string): BenchRecord[] => { const f = `${ROOT}bench/results/${p}.json`; return existsSync(f) ? (JSON.parse(readFileSync(f, "utf8")) as BenchRecord[]) : []; };
 // Records from a pass collected before the failure fields existed still render.
-const records = load(pass).map((r) => ({ ...r, stages: r.stages ?? [], failures: r.failures ?? [], output: r.output ?? "" }));
+const records = load(pass).map((r) => ({ ...r, stages: r.stages ?? [], failures: r.failures ?? [], output: r.output ?? "", liveAt: r.liveAt ?? null }));
 const other = compare ? new Map(load(compare).map((r) => [r.repoId, r])) : null;
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);

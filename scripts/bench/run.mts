@@ -12,7 +12,9 @@
 //   npm run bench -- all      --project Benchmark --pass p1 [--only ...] [--limit N] [--fresh]
 //
 // --fresh queues each run without its saved trail, so a pass measures the
-// pipeline from scratch rather than a replay.
+// pipeline from scratch rather than a replay. A run that goes live is probed
+// and screenshotted the moment wait sees it, into bench/results/<pass>.live.json,
+// so a sandbox that later reaches its lifetime still counts as what it was.
 //
 // Needs NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY and E2B_API_KEY (for
 // stop). BENCH_MANIFEST=path swaps the list. --project takes a project id or its exact name. Records go to
@@ -43,6 +45,8 @@ export type BenchFailure = { step: string; source: "worker" | "pipeline" | "app"
 export type BenchRecord = {
   url: string; owner: string; name: string; kind: string; constraints: string;
   repoId: string; runId: string | null;
+  // The run's status; "expired" when it was live and its sandbox reached
+  // its lifetime before the pass collected it.
   status: string | null; template: string | null; commit: string | null;
   startedAt: string | null; totalMs: number | null;
   steps: { id: string; state: string; summary: string; ms: number | null }[];
@@ -51,6 +55,7 @@ export type BenchRecord = {
   trail: "own" | "shared" | "none" | "unknown"; replayHeld: boolean | null;
   repairAttempts: number; patch: { files: string[]; summary: string } | null;
   previewUrl: string | null; http: { status: number; title: string } | null; screenshot: string | null;
+  liveAt: string | null;   // when wait first saw it live
   error: string | null;
   // What ran, what went wrong, and the output of the stage that failed.
   stages: string[]; failures: BenchFailure[]; output: string;
@@ -85,6 +90,8 @@ function client(): SupabaseClient {
 // BENCH_MANIFEST points at another list, for a smoke test or a subset.
 const manifest = (): Manifest[] => JSON.parse(readFileSync(process.env.BENCH_MANIFEST ?? `${ROOT}bench/manifest.json`, "utf8"));
 const queueFile = (pass: string) => `${RESULTS}/${pass}.queue.json`;
+const liveFile = (pass: string) => `${RESULTS}/${pass}.live.json`;
+type LiveSeen = { at: string; previewUrl: string; http: { status: number; title: string } | null; screenshot: string | null };
 const resultsFile = (pass: string) => `${RESULTS}/${pass}.json`;
 const readJson = <T,>(path: string, fallback: T): T => (existsSync(path) ? (JSON.parse(readFileSync(path, "utf8")) as T) : fallback);
 const writeJson = (path: string, value: unknown) => { mkdirSync(RESULTS, { recursive: true }); writeFileSync(path, JSON.stringify(value, null, 2) + "\n"); };
@@ -157,7 +164,7 @@ async function queue(sb: SupabaseClient, a: Args) {
   console.log(`${Object.keys(queued).length} runs in ${queueFile(a.pass)}`);
 }
 
-const OVER = new Set(["running", "failed", "killed", "paused"]);
+const OVER = new Set(["running", "no_service", "failed", "killed", "paused"]);
 
 // --- wait: until every queued run is running or over.
 async function wait(sb: SupabaseClient, a: Args) {
@@ -165,10 +172,22 @@ async function wait(sb: SupabaseClient, a: Args) {
   const ids = Object.values(queued);
   if (!ids.length) { console.log("nothing queued"); return; }
   const deadline = Date.now() + a.timeoutMin * 60_000;
+  const live = readJson<Record<string, LiveSeen>>(liveFile(a.pass), {});
+  const names = new Map(Object.entries(queued).map(([repoId, runId]) => [runId, repoId]));
+  if (a.screenshots) mkdirSync(`${RESULTS}/${a.pass}`, { recursive: true });
   let last = "";
   while (Date.now() < deadline) {
-    const { data, error } = await sb.from("engelbart_sandbox_runs").select("id, status").in("id", ids);
+    const { data, error } = await sb.from("engelbart_sandbox_runs").select("id, status, preview_url").in("id", ids);
     if (error) throw error;
+    // A run seen live is probed now: its sandbox will not outlive the pass.
+    for (const r of data ?? []) {
+      if (r.status !== "running" || !r.preview_url || live[r.id]) continue;
+      const http = await probe(r.preview_url);
+      const screenshot = a.screenshots ? await screenshot_(r.preview_url, `${RESULTS}/${a.pass}/${names.get(r.id) ?? r.id}.png`) : null;
+      live[r.id] = { at: new Date().toISOString(), previewUrl: r.preview_url, http, screenshot };
+      writeJson(liveFile(a.pass), live);
+      console.log(`  live: ${names.get(r.id) ?? r.id} → ${http.status} ${http.title}`);
+    }
     const counts: Record<string, number> = {};
     for (const r of data ?? []) counts[r.status] = (counts[r.status] ?? 0) + 1;
     const line = Object.entries(counts).sort().map(([s, n]) => `${s} ${n}`).join(" · ");
@@ -185,6 +204,7 @@ async function collect(sb: SupabaseClient, a: Args) {
   const repos = new Map((await reposIn(sb, p.id)).map((r) => [key(r.owner, r.name), r]));
   const queued = readJson<Record<string, string>>(queueFile(a.pass), {});
   const previous = new Map(readJson<BenchRecord[]>(resultsFile(a.pass), []).map((r) => [r.repoId, r]));
+  const live = readJson<Record<string, LiveSeen>>(liveFile(a.pass), {});
   const records: BenchRecord[] = [];
   if (a.screenshots) mkdirSync(`${RESULTS}/${a.pass}`, { recursive: true });
   for (const m of selected(a)) {
@@ -194,7 +214,7 @@ async function collect(sb: SupabaseClient, a: Args) {
     const base: BenchRecord = {
       url: m.url, owner: m.owner, name: m.name, kind: m.kind, constraints: m.constraints, repoId: repo.id, runId,
       status: null, template: null, commit: null, startedAt: null, totalMs: null, steps: [], docker: false, localSupabase: "none",
-      local: [], missing: [], trail: "unknown", replayHeld: null, repairAttempts: 0, patch: null, previewUrl: null, http: null, screenshot: null, error: null,
+      local: [], missing: [], trail: "unknown", replayHeld: null, repairAttempts: 0, patch: null, previewUrl: null, http: null, screenshot: null, liveAt: null, error: null,
       stages: [], failures: [], output: "",
       grade: previous.get(repo.id)?.grade,
     };
@@ -206,10 +226,15 @@ async function collect(sb: SupabaseClient, a: Args) {
     const run = toRun(runRes.data as RunRow);
     const events = (ev.data as EventRow[]).map(toEvent);
     const record = describe(base, run, events);
+    const seen = live[runId];
     if (run.status === "running" && run.previewUrl) {
       record.http = await probe(run.previewUrl);
-      if (a.screenshots) record.screenshot = await screenshot(run.previewUrl, `${RESULTS}/${a.pass}/${m.owner}-${m.name}.png`);
+      if (a.screenshots) record.screenshot = await screenshot_(run.previewUrl, `${RESULTS}/${a.pass}/${m.owner}-${m.name}.png`);
+    } else if (seen && run.status === "failed" && /no longer running|sandbox timeout|application stopped/i.test(run.error ?? "")) {
+      // It was up; the sandbox's lifetime ended before this collect.
+      Object.assign(record, { status: "expired", liveAt: seen.at, http: seen.http, screenshot: seen.screenshot, previewUrl: seen.previewUrl });
     }
+    if (seen) record.liveAt ??= seen.at;
     records.push(record);
     console.log(`  ${(record.status ?? "-").padEnd(9)} ${m.kind.padEnd(26)} ${m.owner}/${m.name}${record.http ? ` → ${record.http.status}` : ""}`);
   }
@@ -296,7 +321,7 @@ async function probe(url: string): Promise<{ status: number; title: string }> {
   }
 }
 
-async function screenshot(url: string, path: string): Promise<string | null> {
+async function screenshot_(url: string, path: string): Promise<string | null> {
   if (!existsSync(CHROME)) return null;
   try {
     await exec(CHROME, ["--headless=new", "--disable-gpu", "--hide-scrollbars", "--window-size=1280,800", "--virtual-time-budget=8000", `--screenshot=${path}`, url], { timeout: 45_000 });

@@ -6,7 +6,7 @@ const FIELD_COLUMNS: Record<keyof RunFields, string> = {
   sandboxId: "sandbox_id", workdir: "workdir", errorKind: "error_kind", error: "error", previewUrl: "preview_url", port: "port", services: "services", template: "template", commit: "commit_sha",
 };
 
-const FINAL: RunStatus[] = ["paused", "failed", "killed"];
+const FINAL: RunStatus[] = ["paused", "no_service", "failed", "killed"];
 
 // Writes a run's status changes and events to the database, in order, and
 // mirrors each one to the server log as a single JSON line so the two can be

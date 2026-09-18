@@ -18,8 +18,10 @@ import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 
-TERMINAL_ORDER = ("done", "needs_input", "error")
-TERMINAL_RUN = ("failed", "needs_input", "unsupported")
+# Every answer the planner and the runner can settle on. A planner answer
+# outside this list once kept the wrapper polling until the deadline.
+TERMINAL_ORDER = ("done", "needs_input", "unsupported", "no_service", "error")
+TERMINAL_RUN = ("failed", "needs_input", "unsupported", "no_service")
 
 
 def emit(**event):
@@ -30,6 +32,21 @@ def emit(**event):
 def fail(message, step=None, **detail):
     emit(phase="error", step=step, message=str(message or "The pipeline stopped without a reason")[:2000], **detail)
     sys.exit(1)
+
+
+def conclude(reason, step):
+    """The repository has nothing to serve: a library, a dataset, a tool.
+    That is an answer, not a failure, and the run ends cleanly with it."""
+    emit(phase="conclusion", status="no_service", step=step,
+         reason=str(reason or "The repository has no web application of its own to run")[:2000])
+    sys.exit(0)
+
+
+def no_service(PR, run_id):
+    try:
+        return PR.view(run_id).get("status") == "no_service"
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def agent_summary(trace):
@@ -92,10 +109,14 @@ def main():
     # Last resort: let a tightly scoped agent edit this throwaway copy of the
     # repository, then run the pipeline again. Every edit is reported as a diff.
     attempt = 0
+    last_failure = None
     global ACCEPT_APP_ERRORS
     while outcome != "ready" and attempt < MAX_REPAIRS:
+        if no_service(PR, run_id):
+            conclude(PR.view(run_id).get("reason"), step="run")
         attempt += 1
         failure = failure_of(PR, run_id)
+        last_failure = failure
         stop_leftovers(PR, run_id)
         if not repair(repo, failure, attempt):
             # The server answered and the agent saw nothing to fix: the marks
@@ -108,8 +129,15 @@ def main():
         run_id, cwd = pipeline(PA, PC, PO, repo)
         outcome = run(PR, PE, PS, run_id, cwd, repo)
     if outcome != "ready":
+        if no_service(PR, run_id):
+            conclude(PR.view(run_id).get("reason"), step="run")
         state = PR.view(run_id)
-        fail(state.get("reason"), step="run", status=state.get("status"), stage=state.get("stage"))
+        reason, stage = state.get("reason"), state.get("stage")
+        # Stopping the leftovers of the last attempt resets the record, which
+        # overwrites its reason; the failure read before that is the real one.
+        if reason == "Stopped by Reset" and last_failure:
+            reason, stage = last_failure.get("reason"), last_failure.get("stage")
+        fail(reason, step="run", status=state.get("status"), stage=stage)
     supervise(PR, run_id)
 
 
@@ -170,7 +198,8 @@ def pipeline(PA, PC, PO, repo):
     emit(phase="discover", status="done", root=discovery["root"],
          components=[{"id": c["id"], "types": c["types"]} for c in components], warnings=discovery.get("warnings", []))
     if not components:
-        fail("No runnable component was found in the repository", step="discover")
+        # No manifest, no start script: a dataset or a paper's files. An answer, not a failure.
+        conclude("No runnable component was found: nothing in the repository declares an application to start", step="discover")
 
     if len(components) > 1:
         order_id = PO.start(discovery["root"])["id"]
@@ -185,6 +214,8 @@ def pipeline(PA, PC, PO, repo):
             if view.get("status") in TERMINAL_ORDER:
                 break
             time.sleep(1)
+        if view.get("status") == "no_service":
+            conclude(view.get("reason"), step="order")
         if view.get("status") != "done":
             reason = view.get("reason") or view.get("error") or "Run-order assessment did not produce a plan"
             commands = view.get("rejectedCommands") or []
@@ -544,6 +575,7 @@ def repair_prompt(repo, failure, attempt):
         "",
         "The launch pipeline already tried to start it and failed:",
         failure["reason"],
+        *([f"The person's hint about what to run: {os.environ['HC_PROJECT_HINT']}"] if os.environ.get("HC_PROJECT_HINT") else []),
     ]
     if failure.get("stage"):
         lines += ["", f"Stage that failed: {failure['stage']}" + (f" ({failure['command']})" if failure.get("command") else "")]

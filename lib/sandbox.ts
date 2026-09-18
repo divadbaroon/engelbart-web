@@ -5,7 +5,8 @@
 
 import { toEnvReport, type EnvReport } from "@/lib/environment";
 
-export type RunStatus = "queued" | "creating" | "cloning" | "cloned" | "paused" | "launching" | "running" | "failed" | "killed";
+// no_service: the pipeline concluded the repository has nothing to serve.
+export type RunStatus = "queued" | "creating" | "cloning" | "cloned" | "paused" | "launching" | "running" | "no_service" | "failed" | "killed";
 export type EventKind = "status" | "command" | "stdout" | "stderr" | "metrics" | "error";
 
 // One service a run brought up, reachable from the browser at previewUrl.
@@ -105,7 +106,7 @@ export const isSandboxLive = (run: SandboxRun | undefined): run is SandboxRun & 
 // The application is up and has a preview URL.
 export const isRunRunning = (run: SandboxRun | undefined) => !!run && run.status === "running" && !!run.previewUrl;
 
-const STATUSES: RunStatus[] = ["queued", "creating", "cloning", "cloned", "paused", "launching", "running", "failed", "killed"];
+const STATUSES: RunStatus[] = ["queued", "creating", "cloning", "cloned", "paused", "launching", "running", "no_service", "failed", "killed"];
 const isRunStatus = (s: string): s is RunStatus => (STATUSES as string[]).includes(s);
 
 // The latest environment scan a run reported, from its event log; live,
@@ -146,6 +147,7 @@ export const STATUS_LABEL: Record<RunStatus, string> = {
   paused: "Cloned, sandbox paused",
   launching: "Starting the application…",
   running: "Running",
+  no_service: "Nothing to serve",
   failed: "Failed",
   killed: "Stopped",
 };

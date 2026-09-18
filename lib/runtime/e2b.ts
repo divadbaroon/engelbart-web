@@ -170,6 +170,14 @@ export const e2bRuntime: Runtime = {
               return record.status("running", fields).then(() => settle({ ok: true, ...fields, done, recipe, recipeFailed }));
             })
             .catch((err) => fail(record, "ProxyError", errorMessage(err), recipeFailed).then(settle));
+        } else if (ev.phase === "conclusion") {
+          // Nothing to serve: an answer, not a failure. The sandbox has no
+          // further use, so it goes.
+          ended = true;
+          const message = String(ev.reason ?? "The repository has no web application of its own to run");
+          record.status("no_service", { errorKind: "NoService", error: message })
+            .then(async () => { try { await sandbox.kill(); record.event("status", "sandbox killed"); } catch { /* already gone */ } })
+            .then(() => settle({ ok: false, kind: "NoService", message, recipeFailed }));
         } else if (ev.phase === "error") {
           ended = true;
           const message = String(ev.message ?? "The pipeline stopped");
@@ -196,6 +204,7 @@ export const e2bRuntime: Runtime = {
           // once helped fill a sandbox disk.
           PIP_NO_CACHE_DIR: "1",
           ...(replaying ? { HC_RECIPE_FILE: RECIPE_FILE } : {}),
+          ...(options.hint ? { HC_PROJECT_HINT: options.hint.slice(0, 500) } : {}),
           ...(handedEnv ? { HC_ENV_FILE: ENV_FILE } : {}),
         },
         onStdout: (d) => lines.push(d),
@@ -396,6 +405,9 @@ function describe(ev: WrapperEvent, record: Recorder) {
       record.event("status", `application ready at ${ev.url}${names.length > 1 ? ` (services: ${names.join(", ")})` : ""}`, ev);
       return;
     }
+    case "conclusion":
+      record.event("status", `nothing to serve: ${ev.reason ?? ""}`, ev);
+      return;
     case "error":
       record.event("error", String(ev.message ?? "pipeline error"), ev);
       return;

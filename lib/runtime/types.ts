@@ -54,6 +54,8 @@ export type LaunchOptions = {
   // Called when the repair agent has edited the repository copy, or a
   // saved patch was re-applied. `worked` is unknown at that point.
   onPatch?: (patch: RepoPatch) => void;
+  // The person's one line about what to run, for the planner.
+  hint?: string | null;
 };
 
 export type Runtime = {

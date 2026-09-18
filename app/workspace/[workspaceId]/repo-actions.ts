@@ -106,6 +106,15 @@ export async function dropPatch(repoId: string): Promise<{ ok: true } | { ok: fa
   return update.error ? { ok: false, error: update.error.message } : { ok: true };
 }
 
+// One line from the person about what to run, kept on the repository and
+// handed to the planner on the next run. Empty removes it.
+export async function setRepoHint(repoId: string, hint: string): Promise<{ ok: true; hint: string | null } | { ok: false; error: string }> {
+  const value = hint.trim().slice(0, 500) || null;
+  const supabase = await createClient();
+  const { error } = await supabase.from("engelbart_repos").update({ hint: value }).eq("id", repoId);
+  return error ? { ok: false, error: error.message } : { ok: true, hint: value };
+}
+
 // The whole tree in one request. GitHub caps it at 100,000 entries and
 // says so with `truncated`; the browser shows what it got.
 export async function fetchTree(owner: string, name: string, branch: string): Promise<FileTree> {

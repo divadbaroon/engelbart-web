@@ -128,7 +128,7 @@ class Worker {
           : await this.pickRecipe(repo, repoRow.launch_recipe, launchable.commit, record);
         let patch: RepoPatch | null = null;
         const launched = await this.runtime.launch(repo, launchable, record, {
-          recipe, env,
+          recipe, env, hint: repo.hint,
           onEnvironment: (report) => void this.saveEnvReport(repo.id, report),
           // A patch made in this run has no origin; one replayed from a recipe does.
           onPatch: (p) => { patch = { ...p, origin: p.replayed ? origin : null }; void this.savePatch(repo.id, patch); },

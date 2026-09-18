@@ -21,6 +21,7 @@ export type Repo = {
   envReport: EnvReport | null;   // the latest run's environment scan
   patch: RepoPatch | null;       // edits the repair agent made to get it running
   trail: RepoTrail | null;       // the saved way to run it, if any
+  hint: string | null;           // the person's line about what to run
 };
 
 export type RepoRow = {
@@ -38,16 +39,18 @@ export type RepoRow = {
   recipe_commit: string | null;              // launch_recipe->>commit
   recipe_origin: PatchOrigin | null;         // launch_recipe->origin
   recipe_patch_files: string[] | null;       // launch_recipe->patch->files
+  hint: string | null;
 };
 
 // The recipe itself stays on the server; only what describes it is read.
-export const REPO_COLUMNS = "id, owner, name, url, default_branch, description, language, created_at, env_report, patch, recipe_at, recipe_commit:launch_recipe->>commit, recipe_origin:launch_recipe->origin, recipe_patch_files:launch_recipe->patch->files";
+export const REPO_COLUMNS = "id, owner, name, url, default_branch, description, language, created_at, env_report, patch, hint, recipe_at, recipe_commit:launch_recipe->>commit, recipe_origin:launch_recipe->origin, recipe_patch_files:launch_recipe->patch->files";
 
 export function toRepo(row: RepoRow): Repo {
   return {
     id: row.id, owner: row.owner, name: row.name, fullName: `${row.owner}/${row.name}`, url: row.url,
     defaultBranch: row.default_branch, description: row.description, language: row.language, createdAt: row.created_at, envReport: row.env_report ?? null, patch: row.patch ?? null,
     trail: row.recipe_at ? { at: row.recipe_at, commit: row.recipe_commit ?? null, patchFiles: Array.isArray(row.recipe_patch_files) ? row.recipe_patch_files.length : 0, shared: !!row.recipe_origin?.shared } : null,
+    hint: row.hint?.trim() || null,
   };
 }
 

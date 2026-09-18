@@ -60,6 +60,9 @@ function stepOf(e: SandboxEvent, seenReady: boolean): StepId | null {
     case "run": return HEALTH_RUN_STATUS.has(String(d.status)) ? "health" : "start";
     case "patch": case "visit": return "health";
     case "ready": return "live";
+    // The pipeline concluded there is nothing to serve: at planning time
+    // that is the plan's answer, later it is the health check's.
+    case "conclusion": return d.step === "run" ? "health" : "plan";
     // A pipeline error names the step it came from; before the app is up
     // that is where it belongs, not the health check.
     case "error": {
@@ -113,7 +116,7 @@ export function runSteps(run: SandboxRun | undefined, events: SandboxEvent[]): R
     s.events.push(e);
     s.startedAt ??= e.at;
   }
-  const over = run?.status === "failed" || run?.status === "killed" || run?.status === "paused";
+  const over = run?.status === "failed" || run?.status === "killed" || run?.status === "paused" || run?.status === "no_service";
   const live = run?.status === "running";
   if (openSince) {
     if (over) steps[current].elapsed += Math.max(0, ms(events[events.length - 1].at) - ms(openSince));
@@ -129,13 +132,16 @@ export function runSteps(run: SandboxRun | undefined, events: SandboxEvent[]): R
     const s = steps[id];
     if (i < reached) s.state = s.events.length ? (s.flag ?? "done") : "skipped";
     else if (i === reached) s.state = run?.status === "failed" ? "failed" : over || live ? (s.flag ?? "done") : run ? "active" : "waiting";
-    else s.state = "waiting";
+    else s.state = run?.status === "no_service" ? "skipped" : "waiting";
     if (s.state === "failed" && run?.error) s.summary = `${s.summary ? `${s.summary} · ` : ""}${run.error.slice(0, 160)}`;
   });
+  if (run?.status === "no_service") for (const id of STEP_ORDER) if (steps[id].state === "skipped") steps[id].summary ||= "Nothing to serve";
   if (steps.services.state === "skipped") steps.services.summary ||= "Not needed";
   if (steps.environment.state === "skipped") steps.environment.summary ||= "Not scanned";
-  if (steps.health.state === "skipped") { steps.health.state = "done"; steps.health.summary ||= "Answered on the first check"; }
-  if (steps.plan.state === "skipped") { steps.plan.state = "done"; steps.plan.summary ||= "Taken from the trail"; }
+  if (run?.status !== "no_service") {
+    if (steps.health.state === "skipped") { steps.health.state = "done"; steps.health.summary ||= "Answered on the first check"; }
+    if (steps.plan.state === "skipped") { steps.plan.state = "done"; steps.plan.summary ||= "Taken from the trail"; }
+  }
   if (steps.trail.state === "skipped") steps.trail.summary ||= "Not recorded";
   if (run?.status === "paused") steps.sandbox.summary = `${steps.sandbox.summary} · paused`;
   if (!run) steps.sandbox.summary ||= "Not prepared yet";
@@ -193,7 +199,9 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined) {
     const comps = Array.isArray(data(discovered).components) ? (data(discovered).components as unknown[]).length : 0;
     const summary = typeof data(plan).summary === "string" ? String(data(plan).summary) : plan ? plan.text.replace(/^plan: /, "") : "";
     const failed = last("plan", (e) => e.data?.phase === "error");
-    steps.plan.summary = [comps ? count(comps, "component") : "", summary || (failed ? "" : steps.plan.events.length ? "Analyzing…" : "")].filter(Boolean).join(" · ");
+    const concluded = last("plan", (e) => e.data?.phase === "conclusion");
+    const conclusion = concluded ? `Nothing to serve: ${String(data(concluded).reason ?? "").slice(0, 200)}` : "";
+    steps.plan.summary = [comps ? count(comps, "component") : "", conclusion || summary || (failed ? "" : steps.plan.events.length ? "Analyzing…" : "")].filter(Boolean).join(" · ");
   }
 
   // Services: the local Supabase, when the repository has one.
@@ -240,12 +248,14 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined) {
     const starting = last("health", (e) => e.data?.phase === "patch" && e.data?.status === "starting");
     const need = last("health", (e) => e.data?.phase === "run" && e.data?.status === "needs_input");
     const unhealthy = last("health", (e) => e.data?.phase === "run" && e.data?.status === "unhealthy");
+    const concluded = last("health", (e) => e.data?.phase === "conclusion");
     const visited = last("health", (e) => e.data?.phase === "visit");
     const err = last("health", (e) => e.kind === "error");
     const d = data(patch);
     const files = Array.isArray(d.files) ? d.files.length : 0;
     const attempt = d.attempt ?? data(starting).attempt;
-    if (d.status === "applied") { steps.health.summary = `Repair attempt ${attempt ?? 1} edited ${count(files, "file")}`; steps.health.flag = "warned"; }
+    if (concluded) steps.health.summary = `Nothing to serve: ${String(data(concluded).reason ?? "").slice(0, 200)}`;
+    else if (d.status === "applied") { steps.health.summary = `Repair attempt ${attempt ?? 1} edited ${count(files, "file")}`; steps.health.flag = "warned"; }
     else if (d.status === "replayed") { steps.health.summary = `Saved edits applied again (${count(files, "file")})`; steps.health.flag = "warned"; }
     else if (d.status === "none") steps.health.summary = "The repair agent found nothing to change";
     else if (d.status === "failed") steps.health.summary = `Repair attempt ${attempt ?? 1} failed${d.reason ? `: ${String(d.reason).slice(0, 120)}` : ""}`;
