@@ -1,6 +1,6 @@
 import { Sandbox, CommandExitError } from "e2b";
 import type { LaunchOutcome, LaunchRecipe, Recorder, Runtime } from "@/lib/runtime/types";
-import type { PreviewService } from "@/lib/sandbox";
+import type { AgentCost, PreviewService, RunBlocker, RunBrief, RunEscalation } from "@/lib/sandbox";
 import { toEnvReport } from "@/lib/environment";
 import { toPatch } from "@/lib/patch";
 
@@ -18,11 +18,16 @@ const RUN_SANDBOX_TIMEOUT_MS = 60 * 60_000;     // how long a launched app stays
 // lives an hour, so the deadline stays under that with room to save the
 // trail.
 const LAUNCH_DEADLINE_MS = 45 * 60_000;
+// A run that has climbed the ladder (resolver, repair, setup for use) gets
+// the rest of the sandbox's hour, less what saving a usable state needs.
+const LADDER_DEADLINE_MS = 56 * 60_000;
+const DEADLINE_TICK_MS = 10_000;
 const WRAPPER = "/opt/engelbart/hc_run.py";
 const PROXY = "/opt/engelbart/proxy.mjs";
 const PROXY_PORT = 43110;   // the first public port; each service gets the next one, and their own ports stay loopback-only
 const RECIPE_FILE = "/home/user/.engelbart-recipe.json";
 const ENV_FILE = "/home/user/.engelbart-env.json";   // the wrapper deletes it once read
+const BRIEF_FILE = "/home/user/.engelbart-brief.json";
 
 const errorKind = (err: unknown) => (err instanceof Error ? err.constructor.name : "Error");
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -137,13 +142,35 @@ export const e2bRuntime: Runtime = {
       }
     }
 
+    // The brief made for this commit by an earlier run rides in too.
+    let handedBrief = false;
+    if (options.brief) {
+      try {
+        await sandbox.files.write(BRIEF_FILE, JSON.stringify(options.brief));
+        handedBrief = true;
+        record.event("status", "using the repository brief made for this commit by an earlier run", { phase: "brief", status: "handed" });
+      } catch (err) {
+        record.event("status", `could not hand over the saved brief: ${errorMessage(err)}`);
+      }
+    }
+
     const cmd = `python3 ${WRAPPER} ${shellQuote(run.workdir)}`;
     record.event("command", cmd);
     const lines = new LineReader();
     let settled = false;
     let ended = false;   // the wrapper reported the run's end itself
+    // The direct path has its deadline; the first escalation event moves
+    // it out to the ladder's, once.
+    const launchStart = Date.now();
+    let deadlineAt = launchStart + LAUNCH_DEADLINE_MS;
+    const extendForLadder = () => { deadlineAt = Math.max(deadlineAt, launchStart + LADDER_DEADLINE_MS); };
     let recipe: LaunchRecipe | null = null;
     let recipeFailed = false;
+    // What the run leaves on its row besides its status: the brief, and
+    // how it got where it got with what its agent calls cost.
+    let brief: RunBrief | null = options.brief ?? null;
+    const escalation: RunEscalation = { path: "direct", cost: { total: 0, items: [] } };
+    const trail = () => ({ brief, escalation: { ...escalation, cost: { ...escalation.cost, items: [...escalation.cost.items] } } });
     // Resolved once the wrapper has gone, whether it reported why or not.
     let finishDone: () => void = () => {};
     const done = new Promise<void>((resolve) => { finishDone = resolve; });
@@ -153,13 +180,29 @@ export const e2bRuntime: Runtime = {
         const ev = parseEvent(line);
         if (!ev) { record.event("stdout", line + "\n"); return; }
         describe(ev, record);
+        if (ev.phase === "resolve" || ev.phase === "setup" || ev.phase === "conclusion" || (ev.phase === "order" && ev.status === "gave_up") || (ev.phase === "patch" && ev.status === "starting")) extendForLadder();
         if (ev.phase === "recipe") {
           if (ev.status === "captured" && ev.recipe && typeof ev.recipe === "object") recipe = ev.recipe as LaunchRecipe;
           if (ev.status === "failed") recipeFailed = true;
+        } else if (ev.phase === "brief") {
+          if ((ev.status === "done" || ev.status === "cached") && ev.brief && typeof ev.brief === "object") brief = ev.brief as RunBrief;
+        } else if (ev.phase === "cost") {
+          const item: AgentCost = { rung: String(ev.rung ?? ""), model: typeof ev.model === "string" ? ev.model : null, cost: typeof ev.cost === "number" ? ev.cost : null, turns: typeof ev.turns === "number" ? ev.turns : null, seconds: typeof ev.seconds === "number" ? ev.seconds : null };
+          escalation.cost.items.push(item);
+          escalation.cost.total = Math.round((escalation.cost.total + (item.cost ?? 0)) * 10000) / 10000;
+        } else if (ev.phase === "resolve" && (ev.status === "plan" || ev.status === "blocked")) {
+          escalation.path = "resolved";
+          escalation.resolver = { status: String(ev.status), hint: typeof ev.hint === "string" ? ev.hint : undefined, blocker: (ev.blocker as RunBlocker | undefined) ?? undefined, evidence: Array.isArray(ev.evidence) ? (ev.evidence as string[]) : undefined };
+          if (ev.status === "blocked") escalation.blocker = (ev.blocker as RunBlocker | undefined) ?? null;
+        } else if (ev.phase === "conclusion") {
+          if (ev.blocker && typeof ev.blocker === "object") escalation.blocker = ev.blocker as RunBlocker;
+        } else if (ev.phase === "setup" && ev.status === "starting") {
+          escalation.path = "setup";
         } else if (ev.phase === "environment") {
           const report = toEnvReport(ev, run.id, new Date().toISOString());
           if (report) options.onEnvironment?.(report);
         } else if (ev.phase === "patch" && (ev.status === "applied" || ev.status === "replayed")) {
+          if (ev.status === "applied" && escalation.path === "direct") escalation.path = "repaired";
           const patch = toPatch(ev, run.id, new Date().toISOString());
           if (patch) options.onPatch?.(patch);
         } else if (ev.phase === "ready" && typeof ev.port === "number") {
@@ -167,25 +210,35 @@ export const e2bRuntime: Runtime = {
             .then((services) => {
               const entry = services[0];
               const fields = { previewUrl: entry.previewUrl, port: entry.port, services };
-              return record.status("running", fields).then(() => settle({ ok: true, ...fields, done, recipe, recipeFailed }));
+              return record.status("running", { ...fields, ...trail() }).then(() => settle({ ok: true, ...fields, done, recipe, recipeFailed }));
             })
-            .catch((err) => fail(record, "ProxyError", errorMessage(err), recipeFailed).then(settle));
-        } else if (ev.phase === "conclusion") {
-          // Nothing to serve: an answer, not a failure. The sandbox has no
-          // further use, so it goes.
-          ended = true;
-          const message = String(ev.reason ?? "The repository has no web application of its own to run");
-          record.status("no_service", { errorKind: "NoService", error: message })
-            .then(async () => { try { await sandbox.kill(); record.event("status", "sandbox killed"); } catch { /* already gone */ } })
-            .then(() => settle({ ok: false, kind: "NoService", message, recipeFailed }));
+            .catch((err) => fail(record, "ProxyError", errorMessage(err), recipeFailed, trail()).then(settle));
+        } else if (ev.phase === "usable") {
+          // Nothing to serve, or blocked, but installed and checked: the
+          // sandbox stays up with a shell, and what to run next is on the row.
+          const usage = { summary: String(ev.summary ?? ""), next: String(ev.next ?? ""), check: String(ev.check ?? ""), output: String(ev.output ?? ""), blocker: (ev.blocker as RunBlocker | undefined) ?? null };
+          const up = { ok: true as const, usable: true, previewUrl: null, port: null, services: [], done, recipe, recipeFailed };
+          record.status("usable", { usage, ...trail() }).then(() => settle(up), () => settle(up));
         } else if (ev.phase === "error") {
+          // "conclusion" is only logged: the wrapper goes on to set the
+          // repository up for use and reports "usable", or fails here from
+          // the setup step. Nothing to serve and not set up is no_service;
+          // an application that is blocked and not set up is a failure.
           ended = true;
           const message = String(ev.message ?? "The pipeline stopped");
-          record.status("failed", { errorKind: `Pipeline:${ev.step ?? ev.status ?? "error"}`, error: message }).then(() => settle({ ok: false, kind: "PipelineError", message, recipeFailed }));
+          const setup = ev.step === "setup";
+          const noService = setup && (ev.outcome === "no_service" || ev.outcome === undefined);
+          const kind = noService ? "NoService" : setup ? "Blocked" : `Pipeline:${ev.step ?? ev.status ?? "error"}`;
+          const failed = { ok: false as const, kind: noService ? "NoService" : setup ? "Blocked" : "PipelineError", message, recipeFailed };
+          record.status(noService ? "no_service" : "failed", { errorKind: kind, error: message, ...trail() })
+            .catch(() => undefined)
+            .then(async () => { if (setup) { try { await sandbox.kill(); record.event("status", "sandbox killed"); } catch { /* already gone */ } } })
+            .then(() => settle(failed), () => settle(failed));
         } else if (ev.phase === "exited") {
           ended = true;
           const message = `The application exited: ${ev.reason ?? ev.status ?? "unknown"}`;
-          record.status("failed", { errorKind: "AppExited", error: message }).then(() => settle({ ok: false, kind: "AppExited", message, recipeFailed }));
+          const exited = { ok: false as const, kind: "AppExited", message, recipeFailed };
+          record.status("failed", { errorKind: "AppExited", error: message, ...trail() }).then(() => settle(exited), () => settle(exited));
         }
       };
     });
@@ -200,10 +253,17 @@ export const e2bRuntime: Runtime = {
           HC_CHAT_PROVIDER: "claude",
           HC_EXPERIMENTAL: "1",
           HUMAN_COMPACT_HOME: "/home/user/.human-compact",
+          // The sandbox is thrown away after the run, so hc's closing
+          // repair attempts may run commands to see what happens.
+          HC_DISPOSABLE_HOST: "1",
           // Every pip in the run inherits this; a cached copy of each wheel
           // once helped fill a sandbox disk.
           PIP_NO_CACHE_DIR: "1",
           ...(replaying ? { HC_RECIPE_FILE: RECIPE_FILE } : {}),
+          ...(handedBrief ? { HC_BRIEF_FILE: BRIEF_FILE } : {}),
+          // Which model each agent rung runs on and how much a call may
+          // spend; the wrapper has defaults for each.
+          ...Object.fromEntries(Object.entries(process.env).filter(([k]) => /^HC_(BRIEF|RESOLVER|REPAIR|SETUP|SETUP_RETRY)_(MODEL|BUDGET_USD)$/.test(k)).map(([k, v]) => [k, v ?? ""])),
           ...(options.hint ? { HC_PROJECT_HINT: options.hint.slice(0, 500) } : {}),
           ...(handedEnv ? { HC_ENV_FILE: ENV_FILE } : {}),
         },
@@ -214,16 +274,24 @@ export const e2bRuntime: Runtime = {
       const exited = handle.wait()
         .then((r) => ({ kind: "WrapperExit", message: `The pipeline exited with code ${r.exitCode} before the application was ready.` }))
         .catch((err) => ({ kind: errorKind(err), message: err instanceof CommandExitError ? `The pipeline exited with code ${err.exitCode}: ${lastLine(err.stderr) || lastLine(err.stdout)}` : errorMessage(err) }));
-      const timeout = new Promise<{ kind: string; message: string }>((resolve) =>
-        setTimeout(() => resolve({ kind: "LaunchTimeout", message: `The application was not ready within ${LAUNCH_DEADLINE_MS / 60_000} minutes.` }), LAUNCH_DEADLINE_MS));
+      const timeout = new Promise<{ kind: string; message: string }>((resolve) => {
+        const tick = () => {
+          if (settled || ended) return;
+          if (Date.now() >= deadlineAt) resolve({ kind: "LaunchTimeout", message: `The application was not ready within ${Math.round((deadlineAt - launchStart) / 60_000)} minutes.` });
+          else setTimeout(tick, DEADLINE_TICK_MS);
+        };
+        tick();
+      });
       const result = await Promise.race([outcome, exited.then((e) => ({ exit: e })), timeout.then((e) => ({ exit: e }))]);
       if ("exit" in result) {
         lines.flush();
         finishDone();
-        if (settled) return outcome;
+        // The wrapper exits right after reporting its own end; its report
+        // is still being written when the exit lands, and it is the answer.
+        if (settled || ended) return outcome;
         const { kind, message } = result.exit;
         if (kind === "LaunchTimeout") { try { await handle.kill(); } catch { /* gone */ } }
-        return fail(record, kind, message, recipeFailed);
+        return fail(record, kind, message, recipeFailed, trail());
       }
       await recordMetrics(sandbox, record);
       // The app is up. Keep the stream open and mark the run when the
@@ -240,7 +308,7 @@ export const e2bRuntime: Runtime = {
         });
       return result;
     } catch (err) {
-      return fail(record, errorKind(err), errorMessage(err), recipeFailed);
+      return fail(record, errorKind(err), errorMessage(err), recipeFailed, trail());
     }
   },
 };
@@ -265,17 +333,30 @@ async function startDocker(sandbox: Sandbox, record: Recorder) {
 }
 
 // What the wrapper's ready event says is listening, entry first. Older
-// wrappers only name the entry; that still makes a one-service list.
-type ReadyService = { id: string; host: string; port: number; isEntry: boolean; embeddable: boolean };
+// wrappers only name the entry; that still makes a one-service list. The
+// entry keeps the path the app answers on (a Next app under a base path,
+// say): its root may well be a 404.
+type ReadyService = { id: string; host: string; port: number; isEntry: boolean; embeddable: boolean; path?: string };
 function readyServices(ev: WrapperEvent): ReadyService[] {
   const listed = Array.isArray(ev.services) ? (ev.services as Partial<ReadyService>[]) : [];
-  const services = listed
+  const services: ReadyService[] = listed
     .filter((s) => typeof s.port === "number")
     .map((s) => ({ id: String(s.id ?? "app"), host: typeof s.host === "string" ? s.host : "127.0.0.1", port: s.port as number, isEntry: !!s.isEntry, embeddable: s.embeddable !== false }));
   if (!services.some((s) => s.isEntry)) {
     services.unshift({ id: "app", host: typeof ev.host === "string" ? ev.host : "127.0.0.1", port: ev.port as number, isEntry: true, embeddable: true });
   }
-  return services.sort((a, b) => Number(b.isEntry) - Number(a.isEntry));
+  services.sort((a, b) => Number(b.isEntry) - Number(a.isEntry));
+  const path = readyPath(ev.url);
+  if (path) services[0] = { ...services[0], path };
+  return services;
+}
+
+function readyPath(url: unknown): string | undefined {
+  if (typeof url !== "string") return undefined;
+  try {
+    const { pathname, search } = new URL(url);
+    return pathname === "/" && !search ? undefined : `${pathname}${search}`;
+  } catch { return undefined; }
 }
 
 // Put every service behind the in-sandbox proxy, one public port each, and
@@ -293,7 +374,7 @@ async function expose(sandbox: Sandbox, wanted: ReadyService[], record: Recorder
     onStderr: (d) => record.event("stderr", d),
   });
   const services: PreviewService[] = mappings.map((m) => ({
-    id: m.id, port: m.port, previewUrl: `https://${sandbox.getHost(m.listenPort)}`, isEntry: m.isEntry, embeddable: m.embeddable,
+    id: m.id, port: m.port, previewUrl: `https://${sandbox.getHost(m.listenPort)}${m.path ?? ""}`, isEntry: m.isEntry, embeddable: m.embeddable,
   }));
   for (const s of services.slice(1)) record.event("status", `service ${s.id} at ${s.previewUrl}`, { service: s.id, previewUrl: s.previewUrl, port: s.port });
   const { previewUrl } = services[0];
@@ -315,9 +396,9 @@ async function expose(sandbox: Sandbox, wanted: ReadyService[], record: Recorder
   throw new Error(`The application is running but the preview URL did not answer: ${last}`);
 }
 
-async function fail(record: Recorder, kind: string, message: string, recipeFailed = false): Promise<LaunchOutcome> {
+async function fail(record: Recorder, kind: string, message: string, recipeFailed = false, trail: { brief: RunBrief | null; escalation: RunEscalation } | null = null): Promise<LaunchOutcome> {
   record.event("error", message, { kind });
-  await record.status("failed", { errorKind: kind, error: message });
+  await record.status("failed", { errorKind: kind, error: message, ...(trail ?? {}) });
   await record.flush();
   return { ok: false, kind, message, recipeFailed };
 }
@@ -353,7 +434,7 @@ function describe(ev: WrapperEvent, record: Recorder) {
       }
       return;
     case "order":
-      record.event("status", `run order: ${ev.progress ?? ev.status}${agent?.seconds ? ` (${agent.seconds}s)` : ""}`, ev);
+      record.event("status", ev.status === "gave_up" ? `run order gave up: ${String(ev.reason ?? "").slice(0, 400)}` : `run order: ${ev.progress ?? ev.status}${agent?.seconds ? ` (${agent.seconds}s)` : ""}`, ev);
       return;
     case "plan":
       record.event("status", ev.source === "run_order" ? `plan: ${ev.summary ?? "ready"}` : `plan: ${ev.providers ? (ev.providers as string[]).join(", ") : ev.source} → ${ev.start ?? "start command pending"}`, ev);
@@ -406,7 +487,38 @@ function describe(ev: WrapperEvent, record: Recorder) {
       return;
     }
     case "conclusion":
-      record.event("status", `nothing to serve: ${ev.reason ?? ""}`, ev);
+      record.event("status", ev.status === "blocked" ? `blocked (${(ev.blocker as { kind?: string } | undefined)?.kind ?? "unknown"}): ${ev.reason ?? ""}` : `nothing to serve: ${ev.reason ?? ""}`, ev);
+      return;
+    case "brief": {
+      const b = ev.brief as { purpose?: string; primaryApp?: { path?: string; confidence?: string } } | undefined;
+      const text = ev.status === "starting" ? `brief: reading the repository (${ev.model ?? ""})`
+        : ev.status === "done" || ev.status === "cached" ? `brief${ev.status === "cached" ? " (from an earlier run)" : ""}: ${b?.purpose ?? ""}${b?.primaryApp?.path ? ` · run ${b.primaryApp.path} (${b.primaryApp.confidence ?? "?"} confidence)` : ""}`
+        : ev.status === "handed" ? String(ev.text ?? "brief handed over")
+        : `brief ${ev.status}: ${ev.reason ?? ""}`;
+      // The brief itself rides in the data, not the line.
+      record.event("status", text.slice(0, 600), ev);
+      return;
+    }
+    case "resolve":
+      record.event("status", ev.status === "starting" ? `resolver: a second opinion on why it stopped (${ev.model ?? ""})`
+        : ev.status === "reading" ? `resolver: reading ${Array.isArray(ev.files) ? (ev.files as string[]).join(", ") : "files"}`
+        : ev.status === "plan" ? `resolver: corrected the plan — ${ev.hint ?? ""}`
+        : ev.status === "blocked" ? `resolver: blocked (${(ev.blocker as { kind?: string } | undefined)?.kind ?? "unknown"}) — ${(ev.blocker as { what?: string } | undefined)?.what ?? ""}`
+        : `resolver ${ev.status}: ${ev.reason ?? ""}`, ev);
+      return;
+    case "cost":
+      record.event("status", `${ev.rung} (${ev.model ?? "?"}): ${typeof ev.cost === "number" ? `$${ev.cost.toFixed(3)}` : "cost unknown"}${typeof ev.turns === "number" ? `, ${ev.turns} turns` : ""}${ev.error ? ` — ${ev.error}` : ""} · run total $${typeof ev.total === "number" ? ev.total.toFixed(3) : "?"}`, ev);
+      return;
+    case "setup":
+      record.event("status", ev.status === "starting" ? `setup agent: installing the repository for use (attempt ${ev.attempt ?? 1})`
+        : ev.status === "replaying" ? "setup: replaying the saved setup script"
+        : ev.status === "done" ? `setup: ${ev.summary ?? "done"}` : `setup failed: ${ev.reason ?? String(ev.output ?? "").slice(-200)}`, ev);
+      return;
+    case "check":
+      record.event("status", ev.status === "ok" ? "check passed" : `check failed: ${ev.reason ?? String(ev.output ?? "").slice(-200)}`, ev);
+      return;
+    case "usable":
+      record.event("status", `set up and ready to use: ${ev.summary ?? ""}`, ev);
       return;
     case "error":
       record.event("error", String(ev.message ?? "pipeline error"), ev);

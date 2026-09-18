@@ -96,7 +96,7 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
   // the terminal moving until it does. Both paths merge by seq, so receiving
   // the same row twice is harmless. Running apps are watched too, more
   // slowly, so the page learns when one stops.
-  const watched = Object.values(runs).filter((r) => isRunActive(r) || r.status === "running");
+  const watched = Object.values(runs).filter((r) => isRunActive(r) || r.status === "running" || r.status === "usable");
   const activeIds = watched.map((r) => r.id).sort().join(",");
   const pollMs = watched.some(isRunActive) ? 1500 : 10000;
   useEffect(() => {

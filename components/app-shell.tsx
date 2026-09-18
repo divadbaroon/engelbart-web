@@ -240,7 +240,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   const activePaperId = center.kind === "project" && isPaperTab(tab) ? tab.slice("paper:".length) : null;
   const statusOf = (id: string): RepoStatus => {
     const run = sandbox.runs[id];
-    return isRunRunning(run) ? "ready" : isRunActive(run) ? "preparing" : isRunCloned(run) ? "cloned" : run?.status === "failed" ? "failed" : "none";
+    return isRunRunning(run) || run?.status === "usable" ? "ready" : isRunActive(run) ? "preparing" : isRunCloned(run) ? "cloned" : run?.status === "failed" ? "failed" : "none";
   };
 
   return (
@@ -306,6 +306,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
                   onLaunch={(runId) => sandbox.launch(runId, repo.id)}
                   onStop={(runId) => sandbox.stop(runId, repo.id)}
                   onOpenEnvironment={() => setRepoTabs((all) => ({ ...all, [repo.id]: "env" }))}
+                  onOpenTerminal={() => setRepoTabs((all) => ({ ...all, [repo.id]: "terminal" }))}
                   onRunWithoutPatch={() => void runWithoutPatch(repo.id)}
                   onSaveHint={(hint) => saveHint(repo.id, hint)}
                 />

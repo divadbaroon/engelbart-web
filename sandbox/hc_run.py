@@ -24,6 +24,80 @@ TERMINAL_ORDER = ("done", "needs_input", "unsupported", "no_service", "error")
 TERMINAL_RUN = ("failed", "needs_input", "unsupported", "no_service")
 
 
+# --- Agents: which model each rung runs on, and the most one call may spend.
+#
+# The rungs, cheapest first: the brief (one call, no tools, once per commit),
+# hc's own planner and repair agent, the resolver (one call with the whole
+# repository in view, when the planner gives up), and the setup agent (a
+# shell, when nothing else will start it). Every call reports its cost.
+
+def setting(name, default):
+    return os.environ.get(name) or default
+
+
+BRIEF_MODEL = setting("HC_BRIEF_MODEL", "sonnet")
+RESOLVER_MODEL = setting("HC_RESOLVER_MODEL", "opus")
+REPAIR_MODEL = setting("HC_REPAIR_MODEL", "sonnet")
+SETUP_MODEL = setting("HC_SETUP_MODEL", "sonnet")
+SETUP_RETRY_MODEL = setting("HC_SETUP_RETRY_MODEL", "opus")
+BRIEF_BUDGET = float(setting("HC_BRIEF_BUDGET_USD", "0.5"))
+RESOLVER_BUDGET = float(setting("HC_RESOLVER_BUDGET_USD", "2"))
+REPAIR_BUDGET = float(setting("HC_REPAIR_BUDGET_USD", "6"))
+SETUP_BUDGET = float(setting("HC_SETUP_BUDGET_USD", "8"))
+COSTS = []   # every agent call this run: rung, model, cost, turns, seconds
+
+
+def agent(rung, prompt, model, budget, tools=None, max_turns=1, timeout=600, cwd=None, schema=None, system=None):
+    """One claude -p call. Returns (answer, info): the agent's final JSON
+    object, from structured output when a schema was given, else from its
+    last message; and what the call cost. A failed call answers {} and
+    info["error"] says why."""
+    # A structured answer takes the CLI a turn of its own on top of the reply.
+    if schema:
+        max_turns = max(max_turns, 3)
+    command = ["claude", "-p", prompt, "--output-format", "json", "--model", model,
+               "--max-budget-usd", f"{budget:g}", "--max-turns", str(max_turns)]
+    command += ["--allowedTools", *tools] if tools else ["--tools", ""]
+    if schema:
+        command += ["--json-schema", json.dumps(schema)]
+    if system:
+        command += ["--system-prompt", system]
+    env = {k: v for k, v in os.environ.items() if k not in ("HC_RECIPE_FILE", "HC_ENV_FILE", "HC_BRIEF_FILE")}
+    env["PIP_NO_CACHE_DIR"] = "1"
+    info = {"rung": rung, "model": model, "cost": None, "turns": None, "seconds": None, "error": None}
+    started = time.time()
+    answer = {}
+    try:
+        proc = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout)
+        envelope = {}
+        try:
+            envelope = json.loads(proc.stdout)
+        except ValueError:
+            pass
+        if not isinstance(envelope, dict):
+            envelope = {}
+        info["cost"] = envelope.get("total_cost_usd")
+        info["turns"] = envelope.get("num_turns")
+        if envelope.get("is_error"):
+            info["error"] = str(envelope.get("result") or envelope.get("subtype") or "the agent call failed")[:300]
+        structured = envelope.get("structured_output")
+        answer = structured if isinstance(structured, dict) else parse_answer(proc.stdout)
+        if proc.returncode != 0 and not answer and not info["error"]:
+            info["error"] = (proc.stderr or proc.stdout).strip()[-300:] or f"exit {proc.returncode}"
+    except subprocess.TimeoutExpired:
+        info["error"] = "ran out of time"
+    except Exception as exc:  # noqa: BLE001
+        info["error"] = str(exc)[:300]
+    info["seconds"] = round(time.time() - started, 1)
+    COSTS.append({k: info[k] for k in ("rung", "model", "cost", "turns", "seconds")})
+    emit(phase="cost", **COSTS[-1], total=round(sum(c["cost"] or 0 for c in COSTS), 4), error=info["error"])
+    return answer or {}, info
+
+
+def cost_fields(info):
+    return {"model": info.get("model"), "cost": info.get("cost"), "turns": info.get("turns")}
+
+
 def emit(**event):
     sys.stdout.write(json.dumps(event, ensure_ascii=False) + "\n")
     sys.stdout.flush()
@@ -36,10 +110,25 @@ def fail(message, step=None, **detail):
 
 def conclude(reason, step):
     """The repository has nothing to serve: a library, a dataset, a tool.
-    That is an answer, not a failure, and the run ends cleanly with it."""
-    emit(phase="conclusion", status="no_service", step=step,
-         reason=str(reason or "The repository has no web application of its own to run")[:2000])
-    sys.exit(0)
+    That is an answer, not a failure. What follows is setting it up so the
+    next thing a person does is run what its paper describes."""
+    reason = str(reason or "The repository has no web application of its own to run")[:2000]
+    emit(phase="conclusion", status="no_service", step=step, reason=reason)
+    if setup_for_use(REPO, reason):
+        stay_alive()
+    fail("Nothing to serve, and the repository could not be set up for use: " + (LAST_CHECK or "the check did not pass"), step="setup", outcome="no_service")
+
+
+def blocked(reason, blocker, step):
+    """The application exists but something outside the sandbox's reach
+    keeps it from starting: a key, a service, a device. The floor is the
+    same as for nothing to serve: installed, checked, with the blocker as
+    the first line of what to do next."""
+    reason = str(reason or "The application could not be started")[:2000]
+    emit(phase="conclusion", status="blocked", step=step, reason=reason, blocker=blocker)
+    if setup_for_use(REPO, reason, blocker=blocker):
+        stay_alive()
+    fail("Blocked, and the repository could not be set up for use either: " + (LAST_CHECK or "the check did not pass"), step="setup", outcome="blocked", blocker=blocker)
 
 
 def no_service(PR, run_id):
@@ -83,6 +172,9 @@ def main():
     if len(sys.argv) != 2:
         fail("usage: hc_run.py <repository-directory>")
     repo = sys.argv[1]
+    global REPO, PERSON_HINT
+    REPO = repo
+    PERSON_HINT = (os.environ.get("HC_PROJECT_HINT") or "").strip() or None
     os.environ.setdefault("HC_USE_API_KEY", "1")
     os.environ.setdefault("HC_CHAT_PROVIDER", "claude")
     os.environ.setdefault("HUMAN_COMPACT_HOME", str(Path.home() / ".human-compact"))
@@ -95,6 +187,14 @@ def main():
 
     # A saved recipe from a previous successful run skips straight to starting.
     recipe = load_recipe()
+    if recipe and recipe.get("kind") == "setup":
+        # The saved way to set this repository up for use, without the agent.
+        emit(phase="recipe", status="replaying", kind="setup", saved=recipe.get("savedAt"))
+        emit(phase="conclusion", status="no_service", step="trail", reason=str(recipe.get("reason") or "Nothing to serve, as saved")[:2000])
+        if setup_for_use(repo, recipe.get("reason"), recipe=recipe):
+            stay_alive()
+        emit(phase="recipe", status="failed", reason=LAST_CHECK or "the saved setup did not pass its check")
+        recipe = None
     if recipe:
         run_id, cwd = replay(PR, repo, recipe)
         emit(phase="recipe", status="replaying", kind=recipe.get("kind"), saved=recipe.get("savedAt"))
@@ -128,7 +228,7 @@ def main():
         reset_local_supabase(PS, cwd)
         run_id, cwd = pipeline(PA, PC, PO, repo)
         outcome = run(PR, PE, PS, run_id, cwd, repo)
-    if outcome != "ready":
+    while outcome != "ready":
         if no_service(PR, run_id):
             conclude(PR.view(run_id).get("reason"), step="run")
         state = PR.view(run_id)
@@ -137,7 +237,18 @@ def main():
         # overwrites its reason; the failure read before that is the real one.
         if reason == "Stopped by Reset" and last_failure:
             reason, stage = last_failure.get("reason"), last_failure.get("stage")
-        fail(reason, step="run", status=state.get("status"), stage=stage)
+        # A server that answers while the app inside it crashed leaves the
+        # record "running" with no reason; the crash the visit found is it.
+        if LAST_APP_ERROR:
+            reason, stage = LAST_APP_ERROR.get("reason"), LAST_APP_ERROR.get("stage")
+        output = (last_failure or {}).get("output") or failure_of(PR, run_id).get("output") or ""
+        # Not the end: a stronger model corrects the plan once, or the
+        # repository is set up for use with the blocker written down.
+        stop_leftovers(PR, run_id)
+        escalate(step="run", status=state.get("status"), reason=reason or outcome, stage=stage, output=output, plan=plan_of(PR, run_id))
+        run_id, cwd = pipeline(PA, PC, PO, repo)
+        outcome = run(PR, PE, PS, run_id, cwd, repo)
+        last_failure = None
     supervise(PR, run_id)
 
 
@@ -147,7 +258,7 @@ def load_recipe():
         return None
     try:
         recipe = json.loads(Path(path).read_text())
-        if isinstance(recipe, dict) and recipe.get("version") == 1 and (recipe.get("orderPlan") or recipe.get("plan")):
+        if isinstance(recipe, dict) and recipe.get("version") == 1 and (recipe.get("orderPlan") or recipe.get("plan") or recipe.get("kind") == "setup"):
             return recipe
         emit(phase="recipe", status="ignored", reason="unrecognized recipe")
     except Exception as exc:  # noqa: BLE001
@@ -163,6 +274,12 @@ def replay(PR, repo, recipe):
     patch = recipe.get("patch")
     if patch and patch.get("diff"):
         apply_patch(root, patch)
+    if recipe.get("hint"):
+        # The correction that made it run last time, in case the plan has to
+        # be made again.
+        global RESOLVER_HINT
+        RESOLVER_HINT = str(recipe["hint"])[:600]
+        apply_hint()
     run_id = uuid.uuid4().hex
     PR.write(run_id, {"cwd": cwd, "repositoryRoot": root, "plan": recipe.get("plan") or {}, "orderPlan": order_plan})
     return run_id, cwd
@@ -192,6 +309,7 @@ def stop_leftovers(PR, run_id):
 
 def pipeline(PA, PC, PO, repo):
     """Discover, order or analyze; return the run record id and its directory."""
+    ensure_brief(repo)
     emit(phase="discover", status="running")
     discovery = PC.discover(repo)
     components = discovery["components"]
@@ -221,7 +339,10 @@ def pipeline(PA, PC, PO, repo):
             commands = view.get("rejectedCommands") or []
             if commands:
                 reason = f"{reason} · proposed: {' · '.join(commands)}"
-            fail(reason, step="order", status=view.get("status"), commands=commands)
+            emit(phase="order", status="gave_up", reason=str(reason)[:2000], commands=commands)
+            # Not the end: see escalate. A corrected hint runs the order again.
+            escalate(step="order", status=view.get("status"), reason=reason, plan=view.get("plan"), commands=commands)
+            return pipeline(PA, PC, PO, repo)
         emit(phase="plan", source="run_order", summary=view.get("summary"), plan=view.get("plan"),
              rationale=view.get("orderingRationale"), selected=view.get("selectedComponents"))
         return order_id, discovery["root"]
@@ -613,28 +734,18 @@ def repair(repo, failure, attempt):
     """Run the repair agent on the repository copy and report its edits.
     Returns the patch, or None when nothing changed."""
     global PATCH
-    emit(phase="patch", status="starting", attempt=attempt, reason=str(failure.get("reason"))[:300])
-    env = {k: v for k, v in os.environ.items() if k not in ("HC_RECIPE_FILE", "HC_ENV_FILE")}
-    answer = {}
-    try:
-        proc = subprocess.run(
-            ["claude", "-p", repair_prompt(repo, failure, attempt), "--output-format", "json",
-             "--allowedTools", *REPAIR_TOOLS, "--max-turns", "80"],
-            cwd=repo, env=env, capture_output=True, text=True, timeout=REPAIR_TIMEOUT_S)
-        answer = parse_answer(proc.stdout)
-        if proc.returncode != 0 and not answer:
-            emit(phase="patch", status="failed", attempt=attempt, reason=(proc.stderr or proc.stdout).strip()[-300:])
-    except subprocess.TimeoutExpired:
-        emit(phase="patch", status="failed", attempt=attempt, reason="the repair agent ran out of time")
-    except Exception as exc:  # noqa: BLE001
-        emit(phase="patch", status="failed", attempt=attempt, reason=str(exc)[:300])
+    emit(phase="patch", status="starting", attempt=attempt, reason=str(failure.get("reason"))[:300], model=REPAIR_MODEL)
+    answer, info = agent("repair", repair_prompt(repo, failure, attempt), REPAIR_MODEL, REPAIR_BUDGET,
+                         tools=REPAIR_TOOLS, max_turns=80, timeout=REPAIR_TIMEOUT_S, cwd=repo)
+    if info["error"] and not answer:
+        emit(phase="patch", status="failed", attempt=attempt, reason="the repair agent " + info["error"], **cost_fields(info))
     diff, files, truncated = capture_diff(repo)
     if not diff.strip():
-        emit(phase="patch", status="none", attempt=attempt, summary=answer.get("summary"), reason=answer.get("reason"))
+        emit(phase="patch", status="none", attempt=attempt, summary=answer.get("summary"), reason=answer.get("reason"), **cost_fields(info))
         return None
     PATCH = {"summary": answer.get("summary") or "The repair agent edited the repository.", "reason": answer.get("reason") or "",
              "files": files, "diff": diff, "truncated": truncated, "attempt": attempt}
-    emit(phase="patch", status="applied", **PATCH)
+    emit(phase="patch", status="applied", **PATCH, **cost_fields(info))
     return PATCH
 
 
@@ -702,13 +813,14 @@ def capture(PR, run_id):
         cwd = os.path.relpath(record["cwd"], root)
         attempts = (record.get("run") or {}).get("attempts") or []
         last = attempts[-1] if attempts else None
+        extra = {"hint": RESOLVER_HINT} if RESOLVER_HINT else {}
         if last and last.get("services") and last.get("status") == "running":
             plan = relativize({"status": "plan", **{k: last[k] for k in PLAN_KEYS if k in last}}, root)
-            return {"version": 1, "kind": "native", "cwd": cwd, "orderPlan": plan, "savedAt": time.time()}
+            return {"version": 1, "kind": "native", "cwd": cwd, "orderPlan": plan, "savedAt": time.time(), **extra}
         if record.get("orderPlan"):
-            return {"version": 1, "kind": "native", "cwd": cwd, "orderPlan": relativize({**record["orderPlan"], "status": "plan"}, root), "savedAt": time.time()}
+            return {"version": 1, "kind": "native", "cwd": cwd, "orderPlan": relativize({**record["orderPlan"], "status": "plan"}, root), "savedAt": time.time(), **extra}
         if record.get("plan"):
-            return {"version": 1, "kind": "railpack", "cwd": cwd, "plan": record["plan"], "savedAt": time.time()}
+            return {"version": 1, "kind": "railpack", "cwd": cwd, "plan": record["plan"], "savedAt": time.time(), **extra}
     except Exception as exc:  # noqa: BLE001
         emit(phase="recipe", status="ignored", reason="capture failed: " + str(exc)[:300])
     return None
@@ -724,6 +836,551 @@ def relativize(plan, root):
                 if isinstance(step.get(field), str) and os.path.isabs(step[field]):
                     step[field] = os.path.relpath(step[field], root)
     return out
+
+
+# --- The brief: what the repository is, before anyone plans anything.
+#
+# A librarian pass. The wrapper gathers what a careful reader would open
+# first (the tree, every manifest, the README and docs, the environment
+# sample, the examples) and one call turns that into a structured brief.
+# The brief rides into hc's planner and repair agent as the hint, into the
+# resolver and the setup agent as context, and is saved with the run so
+# the next run of the same commit pays nothing for it.
+
+PERSON_HINT = None      # the person's own line about what to run
+BRIEF = None            # the brief, as the librarian call returned it
+BUNDLE = None           # the compiled evidence the brief was made from
+RESOLVER_HINT = None    # the resolver's correction, when it made one
+ESCALATIONS = 0
+BRIEF_TIMEOUT_S = 6 * 60
+RESOLVER_TIMEOUT_S = 6 * 60
+BUNDLE_LIMIT = 90_000
+FILE_LIMIT = 3_000
+SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "env", "__pycache__", ".engelbart", "dist", "build", ".next", ".nuxt", ".cache",
+             ".mypy_cache", ".pytest_cache", ".ruff_cache", "site-packages", ".idea", ".vscode", "target", "vendor", ".tox", ".eggs", "coverage"}
+MANIFEST_NAMES = {"package.json", "pyproject.toml", "setup.py", "setup.cfg", "environment.yml", "environment.yaml", "Pipfile", "project.json", "nx.json",
+                  "Makefile", "Dockerfile", "docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml", "Procfile", "railpack.json",
+                  "Cargo.toml", "go.mod", "Gemfile", "pom.xml", "build.gradle", "CMakeLists.txt", "WORKSPACE", "BUILD", "BUILD.bazel", "pnpm-workspace.yaml",
+                  "lerna.json", "turbo.json", "vite.config.ts", "vite.config.js", "next.config.js", "next.config.mjs", "next.config.ts", "manifest.json", "wxt.config.ts"}
+EXAMPLE_DIRS = ("examples", "example", "samples", "sample", "demo", "demos", "scripts", "notebooks", "tutorials", "configs", "config", "experiments")
+ENV_SAMPLES = (".env.example", ".env.sample", ".env.template", ".env.local.example", "env.example", ".env.dist")
+DOC_SUFFIXES = (".md", ".rst", ".txt")
+PEEK_SUFFIXES = (".py", ".sh", ".md", ".js", ".ts", ".mjs", ".yaml", ".yml", ".json", ".toml", ".cfg", ".ini")
+
+
+def read_text(path, limit):
+    try:
+        with open(path, "rb") as handle:
+            data = handle.read(limit + 1)
+    except OSError:
+        return ""
+    text = data[:limit].decode("utf-8", errors="replace")
+    return text + ("\n… (truncated)" if len(data) > limit else "")
+
+
+def compile_bundle(root):
+    """Everything a reader would open first, as one text, sections headed by
+    their paths. Bounded, deterministic, no model."""
+    root = Path(root)
+    parts = []
+    if PERSON_HINT:
+        parts.append("### The person's hint\n" + PERSON_HINT)
+
+    # The tree to depth three, folders with their file counts.
+    lines = []
+    def walk(folder, depth, prefix):
+        try:
+            entries = sorted(folder.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower()))
+        except OSError:
+            return
+        for entry in entries:
+            if entry.name in SKIP_DIRS or entry.name.startswith(".git"):
+                continue
+            if len(lines) >= 400:
+                return
+            if entry.is_dir():
+                try:
+                    inside = sum(1 for _ in entry.rglob("*") if _.is_file())
+                except OSError:
+                    inside = 0
+                lines.append(f"{prefix}{entry.name}/ ({inside} files)")
+                if depth < 3:
+                    walk(entry, depth + 1, prefix + "  ")
+            else:
+                try:
+                    size = entry.stat().st_size
+                except OSError:
+                    size = 0
+                lines.append(f"{prefix}{entry.name} ({size} B)")
+    walk(root, 1, "")
+    parts.append("### Tree (depth 3)\n" + "\n".join(lines))
+
+    # Manifests, wherever they are within three levels; root ones first.
+    manifests = []
+    for path in sorted(root.rglob("*")):
+        rel = path.relative_to(root)
+        if len(rel.parts) > 3 or any(part in SKIP_DIRS for part in rel.parts) or not path.is_file():
+            continue
+        name = path.name
+        if name in MANIFEST_NAMES or (name.startswith("requirements") and name.endswith(".txt")):
+            manifests.append((len(rel.parts), str(rel)))
+    for _, rel in sorted(manifests)[:24]:
+        parts.append(f"### {rel}\n" + read_text(root / rel, FILE_LIMIT))
+
+    # READMEs and docs.
+    readmes = [p for p in sorted(root.glob("README*")) if p.is_file()]
+    for path in readmes[:2]:
+        parts.append(f"### {path.name}\n" + read_text(path, 14_000))
+    subdocs = []
+    for path in sorted(root.rglob("README*")):
+        rel = path.relative_to(root)
+        if path.is_file() and 1 < len(rel.parts) <= 3 and not any(part in SKIP_DIRS for part in rel.parts):
+            subdocs.append(rel)
+    for rel in subdocs[:6]:
+        parts.append(f"### {rel}\n" + read_text(root / rel, 3_000))
+    docs = root / "docs"
+    if docs.is_dir():
+        for path in sorted(docs.glob("*"))[:4]:
+            if path.is_file() and path.suffix in DOC_SUFFIXES:
+                parts.append(f"### docs/{path.name}\n" + read_text(path, 1_500))
+    for name in ("DEV.md", "DEVELOPMENT.md", "INSTALL.md", "SETUP.md", "CONTRIBUTING.md", "DEPLOY.md", "USAGE.md"):
+        if (root / name).is_file():
+            parts.append(f"### {name}\n" + read_text(root / name, 3_000))
+
+    # Environment samples, whole: they name every key the app reads.
+    for path in sorted(root.rglob("*")):
+        rel = path.relative_to(root)
+        if path.is_file() and path.name in ENV_SAMPLES and len(rel.parts) <= 3 and not any(part in SKIP_DIRS for part in rel.parts):
+            parts.append(f"### {rel}\n" + read_text(path, 2_500))
+
+    # Examples and scripts: what they are, and the head of a few.
+    for name in EXAMPLE_DIRS:
+        folder = root / name
+        if not folder.is_dir():
+            continue
+        files = [p for p in sorted(folder.rglob("*")) if p.is_file() and not any(part in SKIP_DIRS for part in p.relative_to(root).parts)]
+        listing = "\n".join(str(p.relative_to(root)) for p in files[:40]) + ("\n…" if len(files) > 40 else "")
+        peek = [p for p in files if p.suffix in PEEK_SUFFIXES][:3]
+        heads = "\n\n".join(f"--- {p.relative_to(root)} (first lines)\n" + read_text(p, 1_500) for p in peek)
+        parts.append(f"### {name}/ ({len(files)} files)\n{listing}\n\n{heads}".rstrip())
+
+    text = "\n\n".join(parts)
+    if len(text) > BUNDLE_LIMIT:
+        text = text[:BUNDLE_LIMIT] + "\n\n… (the bundle was cut here)"
+    return text
+
+
+BRIEF_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "purpose": {"type": "string", "description": "What the repository is, in one or two sentences: the system, its paper, its field."},
+        "primaryApp": {"type": "object", "properties": {
+            "path": {"type": "string", "description": "The directory of the application a person would run to see the system; '.' for the root."},
+            "why": {"type": "string"},
+            "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        }, "required": ["path", "why", "confidence"]},
+        "parts": {"type": "array", "items": {"type": "object", "properties": {
+            "path": {"type": "string"},
+            "kind": {"type": "string", "enum": ["web", "api", "cli", "library", "notebook", "dataset", "script", "bot", "extension", "other"]},
+            "install": {"type": "string", "description": "The install command(s) the documentation gives, or the best reading of the manifest."},
+            "start": {"type": "string", "description": "The command that starts or runs it; empty when it is not something one starts."},
+            "port": {"type": "integer"},
+            "requires": {"type": "array", "items": {"type": "string"}, "description": "Names of what this part needs from the requires list."},
+        }, "required": ["path", "kind", "install", "start", "requires"]}},
+        "requires": {"type": "array", "items": {"type": "object", "properties": {
+            "name": {"type": "string", "description": "The variable, service, dataset or device, by its exact name where one exists."},
+            "kind": {"type": "string", "enum": ["secret", "service", "data", "hardware", "tool"]},
+            "neededFor": {"type": "string", "description": "What stops working without it: starting, or only a feature."},
+            "optional": {"type": "boolean"},
+        }, "required": ["name", "kind", "neededFor", "optional"]}},
+        "examples": {"type": "array", "items": {"type": "string"}, "description": "Ready-made inputs, scenarios or configs a run can use, by path."},
+        "traps": {"type": "array", "items": {"type": "string"}, "description": "What will go wrong for someone following the README literally, with the evidence."},
+        "nothingToServe": {"type": "object", "properties": {"value": {"type": "boolean"}, "reason": {"type": "string"}}, "required": ["value", "reason"]},
+        "hintForPlanner": {"type": "string", "description": "At most 600 characters for the launch planner: which directory to run, the install and start commands, the port, and what to avoid. Concrete, no hedging."},
+    },
+    "required": ["purpose", "primaryApp", "parts", "requires", "examples", "traps", "nothingToServe", "hintForPlanner"],
+}
+
+BRIEF_SYSTEM = ("You are a librarian for research software. You read what is in front of you and describe the repository exactly, "
+                "with paths as evidence, for an automated pipeline that will try to install and start it in a Linux sandbox without a person. "
+                "Say what the evidence shows; when it does not settle a question, say so in the confidence field and the traps, never by guessing.")
+
+
+def brief_prompt(bundle):
+    return "\n".join([
+        "Describe this repository for the pipeline that will run it. The pipeline can create Python venvs and pip install, run npm, pnpm or bun installs and scripts, "
+        "and start commands; it cannot use conda, Docker, sudo, or obtain secrets. Where the documentation says conda, translate to what pip can do from the same file.",
+        "Answer in the JSON schema you were given. Rules: purpose from the README and paper; primaryApp is what a person runs to see the system the paper is about "
+        "(a web interface, a study interface, an app), and a library, dataset, CLI, bot or extension is nothingToServe with the reason; parts cover every runnable "
+        "directory with the exact install and start commands the repository documents or its manifests imply; requires names every key, service, dataset or device "
+        "with whether starting itself needs it; examples list ready inputs (scenario files, sample configs, demo data) with paths; traps are the things that will "
+        "go wrong for someone following the README literally, each with its evidence; hintForPlanner is at most 600 characters and tells the planner exactly what to run.",
+        "",
+        "The repository:",
+        "",
+        bundle,
+    ])
+
+
+def brief_hint():
+    if not BRIEF:
+        return ""
+    return str(BRIEF.get("hintForPlanner") or "")[:600]
+
+
+def apply_hint():
+    """What hc's planner and repair agent see as the hint: the person's own
+    line, then the brief's, then the resolver's correction, which wins."""
+    lines = []
+    if PERSON_HINT:
+        lines.append(PERSON_HINT)
+    if BRIEF:
+        confidence = ((BRIEF.get("primaryApp") or {}).get("confidence") or "").strip()
+        lines.append("Repository brief" + (f" (confidence {confidence})" if confidence else "") + ": " + brief_hint())
+    if RESOLVER_HINT:
+        lines.append("Correction after a failed attempt, which takes precedence: " + RESOLVER_HINT)
+    os.environ["HC_PROJECT_HINT"] = "\n".join(lines)[:2000]
+
+
+def render_brief(brief):
+    """BRIEF.md, for the person and for the setup agent."""
+    out = ["# Repository brief", "", str(brief.get("purpose") or ""), ""]
+    primary = brief.get("primaryApp") or {}
+    out += [f"**Primary application:** `{primary.get('path', '.')}` ({primary.get('confidence', '?')} confidence). {primary.get('why', '')}", ""]
+    parts = brief.get("parts") or []
+    if parts:
+        out += ["## Parts", ""]
+        for part in parts:
+            port = f", port {part['port']}" if part.get("port") else ""
+            req = f" Needs: {', '.join(part['requires'])}." if part.get("requires") else ""
+            out += [f"- `{part.get('path')}` ({part.get('kind')}{port}): install `{part.get('install') or '-'}`; start `{part.get('start') or '-'}`.{req}"]
+        out.append("")
+    requires = brief.get("requires") or []
+    if requires:
+        out += ["## Requirements", ""]
+        for item in requires:
+            out += [f"- {item.get('name')} ({item.get('kind')}{', optional' if item.get('optional') else ''}): {item.get('neededFor')}"]
+        out.append("")
+    if brief.get("examples"):
+        out += ["## Ready inputs", ""] + [f"- {e}" for e in brief["examples"]] + [""]
+    if brief.get("traps"):
+        out += ["## Traps", ""] + [f"- {t}" for t in brief["traps"]] + [""]
+    nothing = brief.get("nothingToServe") or {}
+    if nothing.get("value"):
+        out += ["## Nothing to serve", "", str(nothing.get("reason") or ""), ""]
+    out += ["## For the planner", "", brief_hint(), ""]
+    return "\n".join(out)
+
+
+def write_brief_files(root):
+    if not BRIEF:
+        return
+    folder = Path(root) / SETUP_DIR
+    try:
+        folder.mkdir(exist_ok=True)
+        (folder / "BRIEF.md").write_text(render_brief(BRIEF), encoding="utf-8")
+        (folder / "brief.json").write_text(json.dumps(BRIEF, indent=1), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def ensure_brief(repo):
+    """Make or load the brief once, before the first plan."""
+    global BRIEF, BUNDLE
+    if BUNDLE is not None:
+        return
+    root = str(Path(repo).resolve())
+    BUNDLE = compile_bundle(root)
+    saved = os.environ.get("HC_BRIEF_FILE")
+    if saved and Path(saved).is_file():
+        try:
+            loaded = json.loads(Path(saved).read_text())
+            if isinstance(loaded, dict) and loaded.get("purpose"):
+                BRIEF = loaded
+                write_brief_files(root)
+                apply_hint()
+                emit(phase="brief", status="cached", brief=BRIEF)
+                return
+        except (OSError, ValueError):
+            pass
+    emit(phase="brief", status="starting", model=BRIEF_MODEL, bundleChars=len(BUNDLE))
+    # A structured answer costs a turn per try at the schema, and a long
+    # brief can take several; the budget is the real cap.
+    answer, info = agent("brief", brief_prompt(BUNDLE), BRIEF_MODEL, BRIEF_BUDGET, timeout=BRIEF_TIMEOUT_S, cwd=root,
+                         schema=BRIEF_SCHEMA, system=BRIEF_SYSTEM, max_turns=10)
+    if not answer.get("purpose"):
+        emit(phase="brief", status="failed", reason=info["error"] or "no brief came back", **cost_fields(info))
+        return
+    BRIEF = answer
+    write_brief_files(root)
+    apply_hint()
+    emit(phase="brief", status="done", brief=BRIEF, **cost_fields(info))
+
+
+# --- The resolver: a second opinion with the whole repository in view.
+
+RESOLVER_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "status": {"type": "string", "enum": ["plan", "blocked", "read"]},
+        "hint": {"type": "string", "description": "With status plan: at most 600 characters telling the pipeline exactly what to run: the directory, the install and start commands, the port, what to avoid, and what the earlier attempt got wrong."},
+        "blocker": {"type": "object", "properties": {
+            "kind": {"type": "string", "enum": ["secret", "service", "hardware", "data", "upstream", "unknown"]},
+            "what": {"type": "string", "description": "Exactly what is missing or broken, by name, and how the person would supply it."},
+        }, "required": ["kind", "what"]},
+        "evidence": {"type": "array", "items": {"type": "string"}, "description": "Paths and lines that support the answer."},
+        "files": {"type": "array", "items": {"type": "string"}, "description": "With status read: up to six repository paths to read before answering."},
+    },
+    "required": ["status", "evidence"],
+}
+
+RESOLVER_SYSTEM = ("You are the second opinion on why an automated pipeline could not start a repository's application in a Linux sandbox. "
+                   "You see the whole repository, the librarian's brief, the plan the pipeline had, and why it gave up. "
+                   "Decide from evidence, cite paths, and never propose what the pipeline cannot do.")
+
+
+def resolver_prompt(step, status, reason, stage, output, plan, commands, files=None):
+    lines = [
+        "The pipeline gave up. Decide which of three answers is right:",
+        "- plan: the pipeline misread the repository or missed something it could have done (the wrong directory, a missing install line, an input file that exists under examples/, "
+        "a setup step the README describes). Write a hint of at most 600 characters telling it exactly what to run. The pipeline can: create a Python venv (any version via uv) and pip install "
+        "packages or requirements files, run npm, pnpm or bun install and package scripts, run start commands, set environment values that are not secrets. It cannot: conda, Docker, sudo, "
+        "obtain secrets, download large datasets.",
+        "- blocked: nothing the pipeline can do starts it. Name the blocker: secret (an API key or credential), service (a database or external server), hardware (a GPU or device), "
+        "data (a dataset that must be downloaded), upstream (the code is broken as published), and exactly what is needed.",
+        "- read: you need up to six specific files first; name them and you will be called once more with their contents.",
+        "",
+        f"Where it gave up: step {step}, status {status}" + (f", stage {stage}" if stage else ""),
+        "Reason given: " + str(reason)[:2000],
+    ]
+    if commands:
+        lines += ["Commands the pipeline proposed and refused: " + " · ".join(str(c) for c in commands)[:1500]]
+    if plan:
+        lines += ["", "The plan it had:", json.dumps(plan)[:4000]]
+    if output:
+        lines += ["", "The last output of the failing stage:", str(output)[-3500:]]
+    if BRIEF:
+        lines += ["", "The librarian's brief:", json.dumps(BRIEF)[:6000]]
+    if files:
+        lines += ["", "The files you asked for:"]
+        for name, text in files:
+            lines += [f"### {name}", text]
+    lines += ["", "The repository:", "", BUNDLE or compile_bundle(REPO)]
+    return "\n".join(lines)
+
+
+def resolve(step, status, reason, stage=None, output="", plan=None, commands=None):
+    """One call, with one follow-up for files. Returns the verdict."""
+    root = str(Path(REPO).resolve())
+    emit(phase="resolve", status="starting", step=step, model=RESOLVER_MODEL, reason=str(reason)[:600])
+    files = None
+    for call in (1, 2):
+        answer, info = agent("resolve", resolver_prompt(step, status, reason, stage, output, plan, commands, files), RESOLVER_MODEL,
+                             RESOLVER_BUDGET, timeout=RESOLVER_TIMEOUT_S, cwd=root, schema=RESOLVER_SCHEMA, system=RESOLVER_SYSTEM)
+        verdict = answer.get("status")
+        if verdict == "read" and call == 1 and isinstance(answer.get("files"), list):
+            files = []
+            for name in [str(n) for n in answer["files"]][:6]:
+                path = (Path(root) / name)
+                try:
+                    path.resolve().relative_to(Path(root).resolve())
+                except ValueError:
+                    files.append((name, "(outside the repository)"))
+                    continue
+                files.append((name, read_text(path, 6_000) if path.is_file() else "(no such file)"))
+            emit(phase="resolve", status="reading", files=[n for n, _ in files], **cost_fields(info))
+            continue
+        if verdict == "plan" and answer.get("hint"):
+            hint = str(answer["hint"])[:600]
+            emit(phase="resolve", status="plan", hint=hint, evidence=answer.get("evidence"), **cost_fields(info))
+            return {"status": "plan", "hint": hint, "evidence": answer.get("evidence")}
+        if verdict == "blocked":
+            blocker = answer.get("blocker") or {"kind": "unknown", "what": str(reason)[:500]}
+            emit(phase="resolve", status="blocked", blocker=blocker, evidence=answer.get("evidence"), **cost_fields(info))
+            return {"status": "blocked", "blocker": blocker, "evidence": answer.get("evidence")}
+        emit(phase="resolve", status="failed", reason=info["error"] or f"no usable verdict ({verdict})", **cost_fields(info))
+        break
+    return {"status": "failed"}
+
+
+SECRET_WORDS = re.compile(r"api[_ -]?key|token|secret|credential|password|\bkey\b|account|login", re.I)
+
+
+def secret_only(status, reason):
+    """The environment scan already found the only thing missing: a value
+    nobody here can supply. No second opinion needed."""
+    return status == "needs_input" and bool(LAST_MISSING) and bool(SECRET_WORDS.search(str(reason or "")))
+
+
+def plan_of(PR, run_id):
+    try:
+        record = PR.read(run_id)
+        return record.get("orderPlan") or record.get("plan")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def escalate(step, status, reason, stage=None, output="", plan=None, commands=None):
+    """The planner or the runner gave up. The ladder: once, a stronger model
+    corrects the plan (return, and the caller runs again); otherwise the
+    repository is set up for use with the blocker written down (never
+    returns)."""
+    global ESCALATIONS, RESOLVER_HINT
+    if secret_only(status, reason):
+        blocked(reason, {"kind": "secret", "what": str(reason)[:500], "names": list(LAST_MISSING)}, step)
+    if ESCALATIONS == 0:
+        ESCALATIONS += 1
+        verdict = resolve(step, status, reason, stage, output, plan, commands)
+        if verdict.get("status") == "plan":
+            RESOLVER_HINT = verdict["hint"]
+            apply_hint()
+            return
+        blocker = verdict.get("blocker") or {"kind": "unknown", "what": str(reason)[:500]}
+        blocked(reason, blocker, step)
+    blocked(reason, {"kind": "unknown", "what": "The corrected plan did not start it either: " + str(reason)[:400]}, step)
+
+
+# --- Setting a repository up for use when there is nothing to serve.
+#
+# An agent installs the repository the way its documentation says, writes a
+# check that proves it works, and writes what the person runs next. The
+# check is run by the pipeline itself before the run is called usable, and
+# the scripts are the trail for next time.
+
+REPO = None
+LAST_CHECK = None
+SETUP_DIR = ".engelbart"
+SETUP_TIMEOUT_S = 30 * 60
+CHECK_TIMEOUT_S = 5 * 60
+SETUP_ATTEMPTS = 2
+SETUP_TOOLS = ["Read", "Grep", "Glob", "LS", "Edit", "MultiEdit", "Write", "Bash"]
+SETUP_IGNORE = "venv/\nnode_modules/\ndata/\n*.log\n"
+
+
+def setup_prompt(repo, reason, attempt, last_output, blocker=None):
+    if blocker:
+        what = f"{blocker.get('kind', 'unknown')}: {blocker.get('what', reason)}"
+        situation = [f"The repository is at {repo}. It has an application, but the pipeline could not start it here, and a review confirmed the blocker is outside this sandbox's reach ({what}).",
+                     "Install and build everything the blocker does not prevent, so that once the person supplies what is missing, starting is one command. "
+                     "The first line of NEXT.md states the blocker and exactly what the person must provide (which variable, which service, which download); then the command that starts the application once it is provided."]
+    else:
+        situation = [f"The repository is at {repo}. The pipeline already concluded it has no web application of its own to serve: {reason}"]
+    lines = [
+        "You are setting up a repository so that a researcher can use it: the next thing they do should be running what its README or paper describes (an analysis, an experiment, a benchmark, a notebook, a simulation, or the application itself), not installing anything.",
+        *situation,
+        *([f"The person's hint: {PERSON_HINT}"] if PERSON_HINT else []),
+        *([f"What is known about the repository (read {SETUP_DIR}/BRIEF.md for the whole brief): {brief_hint()}"] if BRIEF else []),
+        "",
+        "This is a disposable Linux sandbox: Debian, Python 3.11 at /usr/local/bin/python3, uv for other Python versions, Node 22 with npm, pnpm and bun. You may install packages and download small, documented assets. Do not start servers or background processes, do not use sudo, and write only inside the repository.",
+        "",
+        f"Write three files in {SETUP_DIR}/ inside the repository:",
+        f"1. {SETUP_DIR}/setup.sh: idempotent; runs from a fresh clone as `bash {SETUP_DIR}/setup.sh` from the repository root. It creates the environment inside {SETUP_DIR}/: a Python venv at {SETUP_DIR}/venv (`uv venv --python X.Y {SETUP_DIR}/venv` when the project needs a Python other than 3.11, else `python3 -m venv {SETUP_DIR}/venv`), then installs the project the way its documentation says (editable install, the extras it needs, requirements files; npm install and a build for JavaScript), and downloads only what is small and required. Datasets the README says to download by the gigabyte are not downloaded; say how in NEXT.md instead.",
+        f"2. {SETUP_DIR}/check.sh: finishes in under two minutes and exits 0 only when the setup works: import the package, run the tool with --help, run the smallest documented example or the fastest unit test, or list the files a dataset repository provides. Runs as `bash {SETUP_DIR}/check.sh` from the repository root.",
+        f"3. {SETUP_DIR}/NEXT.md: for the researcher. First a line on what this repository is. Then the exact commands to run next to reproduce what the README or paper describes (the analyses, experiments, figures), each with a line on what it does and roughly how long it takes, and what still needs data, credentials or a GPU. Commands use {SETUP_DIR}/venv/bin/python or the tool's path in that venv.",
+        "",
+        f"Run setup.sh and then check.sh yourself and fix them until check.sh exits 0. Put large downloads under {SETUP_DIR}/data/, which git ignores. If a dependency is broken as published, pin or replace it in setup.sh and say so in NEXT.md. Do not edit the repository's own files unless the install cannot work otherwise, and then say what you changed in NEXT.md.",
+        "",
+        'Answer, last, with one JSON object: {"summary": "one line on what was set up", "check": "what check.sh proves", "next": "one paragraph: the first thing the researcher runs and why"}',
+    ]
+    if attempt > 1 and last_output:
+        lines += ["", f"This is attempt {attempt}. The previous attempt's check.sh failed; its output ended with:", last_output[-2500:]]
+    return "\n".join(lines)
+
+
+def setup_agent(repo, reason, attempt, last_output, blocker=None):
+    """Run the setup agent in the repository; returns its final answer."""
+    model = SETUP_MODEL if attempt == 1 else SETUP_RETRY_MODEL
+    emit(phase="setup", status="starting", attempt=attempt, model=model)
+    answer, info = agent("setup", setup_prompt(repo, reason, attempt, last_output, blocker), model, SETUP_BUDGET,
+                         tools=SETUP_TOOLS, max_turns=150, timeout=SETUP_TIMEOUT_S, cwd=repo)
+    if info["error"] and not answer:
+        emit(phase="setup", status="failed", attempt=attempt, reason="the setup agent " + info["error"], **cost_fields(info))
+        return {}
+    emit(phase="setup", status="done", attempt=attempt, summary=answer.get("summary"), check=answer.get("check"), **cost_fields(info))
+    return answer
+
+
+def run_script(script, cwd, timeout):
+    env = dict(os.environ, PIP_NO_CACHE_DIR="1")
+    try:
+        proc = subprocess.run(["bash", str(script)], cwd=cwd, env=env, capture_output=True, text=True, errors="replace", timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        return False, ((exc.stdout or "") + "\n" + (exc.stderr or "") + f"\n(stopped after {timeout} s)").strip()
+    return proc.returncode == 0, ((proc.stdout or "") + "\n" + (proc.stderr or "")).strip()
+
+
+def read_setup_file(root, name):
+    try:
+        return (Path(root) / SETUP_DIR / name).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def setup_for_use(repo, reason, recipe=None, blocker=None):
+    """Install the repository for use and prove it with its check. From a
+    saved recipe when there is one, else with the agent. True when usable."""
+    global LAST_CHECK
+    root = str(Path(repo).resolve())
+    folder = Path(root) / SETUP_DIR
+    folder.mkdir(exist_ok=True)
+    (folder / ".gitignore").write_text(SETUP_IGNORE)
+    write_brief_files(root)
+    if recipe:
+        patch = recipe.get("patch") or {}
+        if patch.get("diff"):
+            try:
+                apply_patch(root, patch)
+            except ValueError:
+                return False
+        for name, key in (("setup.sh", "setup"), ("check.sh", "check"), ("NEXT.md", "next")):
+            if recipe.get(key):
+                (folder / name).write_text(recipe[key])
+        emit(phase="setup", status="replaying")
+        ok, output = run_script(folder / "setup.sh", root, SETUP_TIMEOUT_S)
+        emit(phase="setup", status="done" if ok else "failed", output=output[-1500:])
+        if not ok:
+            LAST_CHECK = "the saved setup script failed: " + output[-300:]
+            return False
+        ok, output = run_script(folder / "check.sh", root, CHECK_TIMEOUT_S)
+        emit(phase="check", status="ok" if ok else "failed", output=output[-1500:])
+        if not ok:
+            LAST_CHECK = output[-500:]
+            return False
+        emit(phase="usable", summary=recipe.get("summary"), next=(recipe.get("next") or "")[:4000], check=recipe.get("checkSummary"), output=output[-1500:], blocker=recipe.get("blocker"))
+        return True
+
+    last_output = ""
+    for attempt in range(1, SETUP_ATTEMPTS + 1):
+        answer = setup_agent(repo, reason, attempt, last_output, blocker)
+        if not (folder / "check.sh").exists():
+            last_output = LAST_CHECK = "the setup agent left no check script"
+            emit(phase="check", status="failed", attempt=attempt, reason=LAST_CHECK)
+            continue
+        ok, output = run_script(folder / "check.sh", root, CHECK_TIMEOUT_S)
+        emit(phase="check", status="ok" if ok else "failed", attempt=attempt, output=output[-1500:])
+        if not ok:
+            last_output = LAST_CHECK = output[-500:]
+            continue
+        diff, files, truncated = capture_diff(repo)
+        patch = {"summary": answer.get("summary") or "The setup agent prepared the repository for use.", "reason": "",
+                 "files": files, "diff": diff, "truncated": truncated, "attempt": attempt}
+        if diff.strip():
+            emit(phase="patch", status="applied", **patch)
+        next_text = read_setup_file(root, "NEXT.md")
+        recipe = {"version": 1, "kind": "setup", "reason": reason, "summary": answer.get("summary"), "checkSummary": answer.get("check"),
+                  "setup": read_setup_file(root, "setup.sh"), "check": read_setup_file(root, "check.sh"), "next": next_text,
+                  "patch": patch if diff.strip() and not truncated else None, "savedAt": time.time(),
+                  **({"blocker": blocker} if blocker else {})}
+        emit(phase="recipe", status="captured", recipe=recipe)
+        emit(phase="usable", summary=answer.get("summary"), next=next_text[:4000], check=answer.get("check"), output=output[-1500:], blocker=blocker)
+        return True
+    return False
+
+
+def stay_alive():
+    """Stay as the sandbox's process while the person uses it."""
+    while True:
+        time.sleep(30)
 
 
 def supervise(PR, run_id):

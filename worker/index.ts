@@ -22,7 +22,7 @@ import { Sandbox } from "e2b";
 import { getRuntime, type LaunchRecipe, type Recorder, type Runtime } from "@/lib/runtime";
 import { createRecorder } from "@/lib/runtime/recorder";
 import { REPO_COLUMNS, toRepo, type RepoRow } from "@/lib/repos";
-import { RUN_COLUMNS, toRun, type RunRow, type SandboxRun } from "@/lib/sandbox";
+import { RUN_COLUMNS, toRun, type RunRow, type SandboxRun, type RunBrief } from "@/lib/sandbox";
 import type { EnvReport } from "@/lib/environment";
 import type { PatchOrigin, RepoPatch } from "@/lib/patch";
 import { isPublicRepo, listRepoPaths } from "@/lib/github";
@@ -83,7 +83,8 @@ class Worker {
   // Take as many queued runs as there is room for, oldest first.
   private async claim() {
     if (this.stopping) return;
-    const settingUp = [...this.inFlight.values()].filter((r) => r.status !== "running").length;
+    // A run that is up, serving or set up for use, is kept but takes no slot.
+    const settingUp = [...this.inFlight.values()].filter((r) => r.status !== "running" && r.status !== "usable").length;
     const room = CONCURRENCY - settingUp;
     if (room <= 0) return;
     const { data, error } = await this.supabase
@@ -127,8 +128,9 @@ class Worker {
           ? (record.event("status", "starting over without the saved trail, as asked; the pipeline will analyze it", { phase: "trail", status: "fresh" }), { recipe: null, origin: null })
           : await this.pickRecipe(repo, repoRow.launch_recipe, launchable.commit, record);
         let patch: RepoPatch | null = null;
+        const brief = launchable.fresh ? null : await this.pickBrief(repo.id, launchable.commit);
         const launched = await this.runtime.launch(repo, launchable, record, {
-          recipe, env, hint: repo.hint,
+          recipe, env, hint: repo.hint, brief,
           onEnvironment: (report) => void this.saveEnvReport(repo.id, report),
           // A patch made in this run has no origin; one replayed from a recipe does.
           onPatch: (p) => { patch = { ...p, origin: p.replayed ? origin : null }; void this.savePatch(repo.id, patch); },
@@ -137,7 +139,7 @@ class Worker {
         log({ event: launched.ok ? "running" : "failed", run: run.id, repo: repo.fullName, replayed: !!recipe && !launched.recipeFailed, ...(launched.ok ? { previewUrl: launched.previewUrl } : { kind: launched.kind, message: launched.message }) });
         await this.saveRecipe(repo, run.id, launched.ok ? launched.recipe : null, launched.recipeFailed, launchable.commit, origin, record);
         if (launched.ok) {
-          this.inFlight.set(run.id, { ...launchable, status: "running", previewUrl: launched.previewUrl, port: launched.port, services: launched.services });
+          this.inFlight.set(run.id, { ...launchable, status: launched.usable ? "usable" : "running", previewUrl: launched.previewUrl, port: launched.port, services: launched.services });
           await launched.done;   // stay attached until the app stops
         }
       }
@@ -155,6 +157,15 @@ class Worker {
 
   // Stamp the runs this worker holds. A run whose row has gone (its
   // repository was removed, say) is let go and its sandbox killed.
+  // The brief an earlier run made for this same commit, so the run does
+  // not read the repository again. A fresh run makes its own.
+  private async pickBrief(repoId: string, commit: string | null): Promise<RunBrief | null> {
+    if (!commit) return null;
+    const { data, error } = await this.supabase.from("engelbart_sandbox_runs").select("brief").eq("repo_id", repoId).eq("commit_sha", commit).not("brief", "is", null).order("started_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) { log({ level: "error", event: "brief-lookup", repo: repoId, message: error.message }); return null; }
+    return (data?.brief as RunBrief | null) ?? null;
+  }
+
   // The recipe to replay: the repository row's own, else what another
   // project captured for the same public repository, the same commit when
   // there is one and otherwise the latest. With it, where it came from, so a

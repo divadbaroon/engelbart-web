@@ -3,7 +3,7 @@ import type { EventKind, RunStatus } from "@/lib/sandbox";
 import type { Recorder, RunFields } from "@/lib/runtime/types";
 
 const FIELD_COLUMNS: Record<keyof RunFields, string> = {
-  sandboxId: "sandbox_id", workdir: "workdir", errorKind: "error_kind", error: "error", previewUrl: "preview_url", port: "port", services: "services", template: "template", commit: "commit_sha",
+  sandboxId: "sandbox_id", workdir: "workdir", errorKind: "error_kind", error: "error", previewUrl: "preview_url", port: "port", services: "services", usage: "usage", brief: "brief", escalation: "escalation", template: "template", commit: "commit_sha",
 };
 
 const FINAL: RunStatus[] = ["paused", "no_service", "failed", "killed"];
@@ -12,18 +12,28 @@ const FINAL: RunStatus[] = ["paused", "no_service", "failed", "killed"];
 // mirrors each one to the server log as a single JSON line so the two can be
 // joined on run id and sandbox id.
 export function createRecorder(supabase: SupabaseClient, runId: string): Recorder {
-  let seq = 0;
+  // Events continue the run's numbering: more than one recorder writes to a
+  // run over its life (the worker, the Stop button, the benchmark).
+  let seq: number | null = null;
   let sandboxId: string | undefined;
   // Inserts are chained so events land in the order they were recorded even
   // when stdout and stderr callbacks interleave.
   let queue: Promise<void> = Promise.resolve();
 
+  const nextSeq = async () => {
+    if (seq === null) {
+      const { data } = await supabase.from("engelbart_sandbox_events").select("seq").eq("run_id", runId).order("seq", { ascending: false }).limit(1).maybeSingle();
+      seq = typeof data?.seq === "number" ? data.seq + 1 : 0;
+    }
+    return seq++;
+  };
+
   const log = (entry: Record<string, unknown>) =>
     console.log(JSON.stringify({ at: new Date().toISOString(), scope: "sandbox", run: runId, sandbox: sandboxId, ...entry }));
 
   const enqueue = (kind: EventKind, text: string, data?: Record<string, unknown>) => {
-    const row = { run_id: runId, seq: seq++, kind, text, data: data ?? null };
     queue = queue.then(async () => {
+      const row = { run_id: runId, seq: await nextSeq(), kind, text, data: data ?? null };
       const { error } = await supabase.from("engelbart_sandbox_events").insert(row);
       if (error) log({ level: "error", event: "record-failed", kind, message: error.message });
     });

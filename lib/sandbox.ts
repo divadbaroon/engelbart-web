@@ -5,8 +5,42 @@
 
 import { toEnvReport, type EnvReport } from "@/lib/environment";
 
-// no_service: the pipeline concluded the repository has nothing to serve.
-export type RunStatus = "queued" | "creating" | "cloning" | "cloned" | "paused" | "launching" | "running" | "no_service" | "failed" | "killed";
+// usable: nothing to serve, but installed, checked and open in a shell.
+// no_service: the pipeline concluded the repository has nothing to serve
+// and could not set it up for use either.
+export type RunStatus = "queued" | "creating" | "cloning" | "cloned" | "paused" | "launching" | "running" | "usable" | "no_service" | "failed" | "killed";
+
+// What a usable run left for the person: what was set up, what the check
+// proved, and what to run next, as the setup agent wrote it. `blocker` is
+// set when the repository has an application that could not be started
+// here (a key, a service, a device): NEXT.md then opens with it.
+export type RunUsage = { summary: string; next: string; check: string; output: string; blocker?: RunBlocker | null };
+export type RunBlocker = { kind: "secret" | "service" | "hardware" | "data" | "upstream" | "unknown"; what: string; names?: string[] };
+
+// The librarian's brief: what the repository is, made once per commit
+// before anything is planned. Shape as the wrapper's schema; loose here.
+export type RunBrief = {
+  purpose: string;
+  primaryApp: { path: string; why: string; confidence: "high" | "medium" | "low" };
+  parts: { path: string; kind: string; install: string; start: string; port?: number; requires: string[] }[];
+  requires: { name: string; kind: string; neededFor: string; optional: boolean }[];
+  examples: string[];
+  traps: string[];
+  nothingToServe: { value: boolean; reason: string };
+  hintForPlanner: string;
+};
+
+// How the run got where it got: straight through, after the repair agent,
+// after the resolver corrected the plan, or set up for use; the resolver's
+// verdict and the blocker when there was one; and what every agent call
+// cost.
+export type AgentCost = { rung: string; model: string | null; cost: number | null; turns: number | null; seconds: number | null };
+export type RunEscalation = {
+  path: "direct" | "repaired" | "resolved" | "setup";
+  resolver?: { status: string; hint?: string; blocker?: RunBlocker; evidence?: string[] } | null;
+  blocker?: RunBlocker | null;
+  cost: { total: number; items: AgentCost[] };
+};
 export type EventKind = "status" | "command" | "stdout" | "stderr" | "metrics" | "error";
 
 // One service a run brought up, reachable from the browser at previewUrl.
@@ -34,6 +68,9 @@ export type SandboxRun = {
   port: number | null;
   previewUrl: string | null;
   services: PreviewService[] | null;
+  usage: RunUsage | null;
+  brief: RunBrief | null;
+  escalation: RunEscalation | null;
   startedAt: string;
   finishedAt: string | null;
 };
@@ -62,6 +99,9 @@ export type RunRow = {
   port: number | null;
   preview_url: string | null;
   services: PreviewService[] | null;
+  usage: RunUsage | null;
+  brief?: RunBrief | null;
+  escalation?: RunEscalation | null;
   started_at: string;
   finished_at: string | null;
 };
@@ -76,12 +116,12 @@ export type EventRow = {
   data: Record<string, unknown> | null;
 };
 
-export const RUN_COLUMNS = "id, repo_id, sandbox_id, template, commit_sha, status, workdir, error_kind, error, port, preview_url, services, started_at, finished_at, fresh";
+export const RUN_COLUMNS = "id, repo_id, sandbox_id, template, commit_sha, status, workdir, error_kind, error, port, preview_url, services, usage, brief, escalation, started_at, finished_at, fresh";
 export const EVENT_COLUMNS = "id, run_id, seq, at, kind, text, data";
 
 export const toRun = (r: RunRow): SandboxRun => ({
   id: r.id, repoId: r.repo_id, sandboxId: r.sandbox_id, template: r.template, commit: r.commit_sha, fresh: r.fresh === true, status: r.status, workdir: r.workdir,
-  errorKind: r.error_kind, error: r.error, port: r.port, previewUrl: r.preview_url, services: r.services, startedAt: r.started_at, finishedAt: r.finished_at,
+  errorKind: r.error_kind, error: r.error, port: r.port, previewUrl: r.preview_url, services: r.services, usage: r.usage ?? null, brief: r.brief ?? null, escalation: r.escalation ?? null, startedAt: r.started_at, finishedAt: r.finished_at,
 });
 
 export const toEvent = (e: EventRow): SandboxEvent => ({
@@ -101,12 +141,15 @@ export const isRunCloned = (run: SandboxRun | undefined) => !!run && run.status 
 // There is a sandbox with the repository on disk that can be reached:
 // files can be read and written and a shell opened.
 export const isSandboxLive = (run: SandboxRun | undefined): run is SandboxRun & { sandboxId: string } =>
-  !!run?.sandboxId && (run.status === "cloned" || run.status === "launching" || run.status === "running");
+  !!run?.sandboxId && (run.status === "cloned" || run.status === "launching" || run.status === "running" || run.status === "usable");
+
+// Set up for use: installed and checked, with a shell open, but no page.
+export const isRunUsable = (run: SandboxRun | undefined) => !!run && run.status === "usable";
 
 // The application is up and has a preview URL.
 export const isRunRunning = (run: SandboxRun | undefined) => !!run && run.status === "running" && !!run.previewUrl;
 
-const STATUSES: RunStatus[] = ["queued", "creating", "cloning", "cloned", "paused", "launching", "running", "no_service", "failed", "killed"];
+const STATUSES: RunStatus[] = ["queued", "creating", "cloning", "cloned", "paused", "launching", "running", "usable", "no_service", "failed", "killed"];
 const isRunStatus = (s: string): s is RunStatus => (STATUSES as string[]).includes(s);
 
 // The latest environment scan a run reported, from its event log; live,
@@ -147,6 +190,7 @@ export const STATUS_LABEL: Record<RunStatus, string> = {
   paused: "Cloned, sandbox paused",
   launching: "Starting the application…",
   running: "Running",
+  usable: "Set up and ready to use",
   no_service: "Nothing to serve",
   failed: "Failed",
   killed: "Stopped",

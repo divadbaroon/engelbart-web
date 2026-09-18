@@ -63,6 +63,15 @@ function stepOf(e: SandboxEvent, seenReady: boolean): StepId | null {
     // The pipeline concluded there is nothing to serve: at planning time
     // that is the plan's answer, later it is the health check's.
     case "conclusion": return d.step === "run" ? "health" : "plan";
+    // The brief is read before the plan; the resolver is a second opinion
+    // on a failure; a cost line stays with whatever step it was in.
+    case "brief": return "plan";
+    case "resolve": return "health";
+    case "cost": return null;
+    // Setting a repository up for use: the install, its check, and the result.
+    case "setup": return "start";
+    case "check": return "health";
+    case "usable": return "live";
     // A pipeline error names the step it came from; before the app is up
     // that is where it belongs, not the health check.
     case "error": {
@@ -117,7 +126,7 @@ export function runSteps(run: SandboxRun | undefined, events: SandboxEvent[]): R
     s.startedAt ??= e.at;
   }
   const over = run?.status === "failed" || run?.status === "killed" || run?.status === "paused" || run?.status === "no_service";
-  const live = run?.status === "running";
+  const live = run?.status === "running" || run?.status === "usable";
   if (openSince) {
     if (over) steps[current].elapsed += Math.max(0, ms(events[events.length - 1].at) - ms(openSince));
     else steps[current].since = openSince;   // still there: setting up, or up and running
@@ -200,8 +209,17 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined) {
     const summary = typeof data(plan).summary === "string" ? String(data(plan).summary) : plan ? plan.text.replace(/^plan: /, "") : "";
     const failed = last("plan", (e) => e.data?.phase === "error");
     const concluded = last("plan", (e) => e.data?.phase === "conclusion");
-    const conclusion = concluded ? `Nothing to serve: ${String(data(concluded).reason ?? "").slice(0, 200)}` : "";
-    steps.plan.summary = [comps ? count(comps, "component") : "", conclusion || summary || (failed ? "" : steps.plan.events.length ? "Analyzing…" : "")].filter(Boolean).join(" · ");
+    const cd = data(concluded);
+    const conclusion = concluded ? (cd.status === "blocked" ? `Blocked: ${String(cd.reason ?? "").slice(0, 200)}` : `Nothing to serve: ${String(cd.reason ?? "").slice(0, 200)}`) : "";
+    const brief = last("plan", (e) => e.data?.phase === "brief");
+    const bd = data(brief);
+    const b = (bd.brief ?? {}) as { purpose?: string; primaryApp?: { path?: string; confidence?: string } };
+    const briefLine = bd.status === "starting" ? "Reading the repository…"
+      : bd.status === "done" || bd.status === "cached" ? `Brief: ${String(b.purpose ?? "").slice(0, 120)}${b.primaryApp?.path ? ` → ${b.primaryApp.path}` : ""}`
+      : bd.status === "failed" ? "No brief" : "";
+    const gaveUp = last("plan", (e) => e.data?.phase === "order" && e.data?.status === "gave_up");
+    const gaveUpLine = gaveUp ? `The planner gave up: ${String(data(gaveUp).reason ?? "").slice(0, 160)}` : "";
+    steps.plan.summary = [comps ? count(comps, "component") : "", briefLine, conclusion || summary || gaveUpLine || (failed ? "" : steps.plan.events.length ? "Analyzing…" : "")].filter(Boolean).join(" · ");
   }
 
   // Services: the local Supabase, when the repository has one.
@@ -239,7 +257,15 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined) {
     const starts = stages.map((e, i) => (e.data?.stage === first ? i : -1)).filter((i) => i >= 0);
     const commands = starts.length ? stages.slice(starts[starts.length - 1]).map((e) => e.text.trim()) : [];
     const unique = commands.filter((c, i) => commands.indexOf(c) === i);
-    steps.start.summary = unique.length ? `${unique.join(" · ")}${starts.length > 1 ? ` (${starts.length} passes)` : ""}` : steps.start.events.length ? "Starting…" : "";
+    const setup = last("start", (e) => e.data?.phase === "setup");
+    const sd = data(setup);
+    if (setup) {
+      steps.start.summary = sd.status === "starting" ? `The setup agent is installing the repository for use (attempt ${sd.attempt ?? 1})…`
+        : sd.status === "replaying" ? "Replaying the saved setup script…"
+        : sd.status === "done" ? `Set up: ${String(sd.summary ?? "installed").slice(0, 160)}`
+        : `Setup failed: ${String(sd.reason ?? sd.output ?? "").slice(-160)}`;
+      if (sd.status === "failed") steps.start.flag = "warned";
+    } else steps.start.summary = unique.length ? `${unique.join(" · ")}${starts.length > 1 ? ` (${starts.length} passes)` : ""}` : steps.start.events.length ? "Starting…" : "";
   }
 
   // Health and repair: the check, and what the agent did about a failure.
@@ -249,12 +275,23 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined) {
     const need = last("health", (e) => e.data?.phase === "run" && e.data?.status === "needs_input");
     const unhealthy = last("health", (e) => e.data?.phase === "run" && e.data?.status === "unhealthy");
     const concluded = last("health", (e) => e.data?.phase === "conclusion");
+    const check = last("health", (e) => e.data?.phase === "check");
     const visited = last("health", (e) => e.data?.phase === "visit");
     const err = last("health", (e) => e.kind === "error");
     const d = data(patch);
     const files = Array.isArray(d.files) ? d.files.length : 0;
     const attempt = d.attempt ?? data(starting).attempt;
-    if (concluded) steps.health.summary = `Nothing to serve: ${String(data(concluded).reason ?? "").slice(0, 200)}`;
+    const resolved = last("health", (e) => e.data?.phase === "resolve" && (e.data?.status === "plan" || e.data?.status === "blocked" || e.data?.status === "failed"));
+    const resolving = last("health", (e) => e.data?.phase === "resolve" && (e.data?.status === "starting" || e.data?.status === "reading"));
+    const rd = data(resolved);
+    const blocker = (rd.blocker ?? data(concluded).blocker) as { kind?: string; what?: string } | undefined;
+    if (check) { steps.health.summary = data(check).status === "ok" ? "The check passed" : `The check failed: ${String(data(check).reason ?? data(check).output ?? "").slice(-160)}`; if (data(check).status !== "ok") steps.health.flag = "warned"; }
+    else if (concluded && data(concluded).status === "blocked") { steps.health.summary = `Blocked${blocker?.kind ? ` (${blocker.kind})` : ""}: ${String(blocker?.what ?? data(concluded).reason ?? "").slice(0, 200)}`; steps.health.flag = "warned"; }
+    else if (concluded) steps.health.summary = `Nothing to serve: ${String(data(concluded).reason ?? "").slice(0, 200)}`;
+    else if (rd.status === "plan") { steps.health.summary = `The resolver corrected the plan: ${String(rd.hint ?? "").slice(0, 160)}`; steps.health.flag = "warned"; }
+    else if (rd.status === "blocked") { steps.health.summary = `Blocked${blocker?.kind ? ` (${blocker.kind})` : ""}: ${String(blocker?.what ?? "").slice(0, 200)}`; steps.health.flag = "warned"; }
+    else if (rd.status === "failed") { steps.health.summary = `The resolver could not decide${rd.reason ? `: ${String(rd.reason).slice(0, 120)}` : ""}`; steps.health.flag = "warned"; }
+    else if (resolving) steps.health.summary = data(resolving).status === "reading" ? "The resolver is reading files…" : "The resolver is looking at why it stopped…";
     else if (d.status === "applied") { steps.health.summary = `Repair attempt ${attempt ?? 1} edited ${count(files, "file")}`; steps.health.flag = "warned"; }
     else if (d.status === "replayed") { steps.health.summary = `Saved edits applied again (${count(files, "file")})`; steps.health.flag = "warned"; }
     else if (d.status === "none") steps.health.summary = "The repair agent found nothing to change";
@@ -275,7 +312,10 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined) {
     const captured = last("live", (e) => e.data?.phase === "recipe" && e.data?.status === "captured");
     const shared = last("live", (e) => e.data?.phase === "trail" && e.data?.status === "shared");
     const exited = last("live", (e) => e.data?.phase === "exited" || e.data?.phase === "error");
+    const usable = last("live", (e) => e.data?.phase === "usable");
+    const ub = (data(usable).blocker ?? run?.usage?.blocker) as { kind?: string; what?: string } | null | undefined;
     const parts = [
+      run?.status === "usable" || usable ? (ub ? `Set up; blocked by ${ub.kind ?? "something"}: ${String(ub.what ?? "").slice(0, 120)}` : `Set up and ready to use${data(usable).summary ? `: ${String(data(usable).summary).slice(0, 120)}` : ""}`) :
       run?.status === "running" && run.previewUrl ? `Live at ${run.previewUrl}` : ready ? "Up" : "",
       services > 1 ? count(services, "service") : "",
       shared ? "trail saved and shared" : captured ? "trail saved" : "",

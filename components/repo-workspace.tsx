@@ -11,7 +11,7 @@ import { RunTimeline } from "@/components/run-timeline";
 import { formatDay } from "@/lib/run-steps";
 import { getSharedTrail, type SharedTrail } from "@/app/workspace/[workspaceId]/trail-actions";
 import { Input } from "@/components/ui/input";
-import { environmentFromEvents, isRunActive, isRunCloned, isRunRunning, isSandboxLive, STATUS_LABEL, terminalLines, type PreviewService, type SandboxEvent, type SandboxRun } from "@/lib/sandbox";
+import { environmentFromEvents, isRunActive, isRunCloned, isRunRunning, isRunUsable, isSandboxLive, STATUS_LABEL, terminalLines, type PreviewService, type SandboxEvent, type SandboxRun } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
@@ -89,6 +89,7 @@ type RunControls = {
   onLaunch: (runId: string) => void;     // start the app in an existing cloned sandbox
   onStop: (runId: string) => void | Promise<void>;   // kill the sandbox
   onOpenEnvironment: () => void;         // switch to the Environment tab
+  onOpenTerminal: () => void;            // switch to the Terminal tab, where the shell is
   onRunWithoutPatch: () => void;         // drop the repair agent's edits and prepare again
   onSaveHint: (hint: string) => Promise<void>;   // keep the person's line about what to run
 };
@@ -108,7 +109,7 @@ type RepoContentProps = RunControls & {
   onFileSaved: () => void;
 };
 
-export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
+export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
   // The environment scan and any repair edits from this run's log if it
   // has them, else the last ones saved on the repository.
   const envReport = (run && environmentFromEvents(events, run.id)) ?? repo.envReport;
@@ -117,7 +118,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   const patch: RepoPatch | null = livePatch
     ? {
         ...livePatch,
-        worked: run.status === "running" ? true : run.status === "failed" ? false : null,
+        worked: run.status === "running" || run.status === "usable" ? true : run.status === "failed" ? false : null,
         // Where a replayed patch came from is known to the worker, not the log.
         origin: repo.patch?.runId === run.id ? repo.patch.origin ?? null : null,
       }
@@ -139,7 +140,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   }
 
   if (tab === "preview") {
-    return <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onRunWithoutPatch={onRunWithoutPatch} onSaveHint={onSaveHint} />;
+    return <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onOpenTerminal={onOpenTerminal} onRunWithoutPatch={onRunWithoutPatch} onSaveHint={onSaveHint} />;
   }
 
   // The run's log, and a shell in its sandbox once there is one to open.
@@ -164,11 +165,12 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
 
 type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; events: SandboxEvent[]; version: number; missing: string[]; localError: string | null; patch: RepoPatch | null };
 
-function Preview({ repo, run, error, events, version, missing, localError, patch, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onRunWithoutPatch, onSaveHint }: PreviewProps) {
+function Preview({ repo, run, error, events, version, missing, localError, patch, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: PreviewProps) {
   const [showPatch, setShowPatch] = useState(false);
   if (showPatch && patch) {
     return <PatchView patch={patch} onBack={() => setShowPatch(false)} onRunWithoutPatch={run && isRunActive(run) ? null : () => { setShowPatch(false); onRunWithoutPatch(); }} />;
   }
+  if (run && isRunUsable(run)) return <UsablePreview repo={repo} run={run} events={events} patch={patch} onShowPatch={() => setShowPatch(true)} onOpenTerminal={onOpenTerminal} onStop={onStop} onStartOver={onPrepareFresh} />;
   if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} events={events} version={version} patch={patch} onShowPatch={() => setShowPatch(true)} onStop={onStop} onStartOver={onPrepareFresh} />;
 
   const [title, detail, action] = error
@@ -212,6 +214,7 @@ function Preview({ repo, run, error, events, version, missing, localError, patch
   // A line for the planner, for repositories with several applications and
   // no declared entry point. Kept on the repository; used on the next run.
   const hintField = !(run && isRunActive(run)) && <HintField key={repo.id} hint={repo.hint} onSave={onSaveHint} />;
+  const briefBox = run && <BriefBox run={run} />;
 
   // With a run to show, the steps take the page: where it is, what each
   // step found, and what to do next at the top.
@@ -229,8 +232,9 @@ function Preview({ repo, run, error, events, version, missing, localError, patch
           </div>
         </div>
         <RunTimeline run={run} events={events} open className="border-y" />
-        {(patchBox || missingBox || hintField) && (
+        {(patchBox || missingBox || hintField || briefBox) && (
           <div className="flex flex-col gap-3 px-[22px] py-4">
+            {briefBox}
             {patchBox}
             {missingBox}
             {hintField}
@@ -250,6 +254,75 @@ function Preview({ repo, run, error, events, version, missing, localError, patch
       <TrailInsight repo={repo} />
       <div className="mt-4 w-full max-w-[420px] text-left">{hintField}</div>
     </section>
+  );
+}
+
+// Nothing to serve, but installed and checked: what was set up, and what
+// the person runs next, with the shell one tab over.
+function UsablePreview({ repo, run, events, patch, onShowPatch, onOpenTerminal, onStop, onStartOver }: { repo: Repo; run: SandboxRun; events: SandboxEvent[]; patch: RepoPatch | null; onShowPatch: () => void; onOpenTerminal: () => void; onStop: (runId: string) => void | Promise<void>; onStartOver: () => void }) {
+  const usage = run.usage;
+  const replayed = events.some((e) => e.data?.phase === "trail" && (e.data?.status === "own" || e.data?.status === "shared"));
+  return (
+    <section aria-label="Set up for use" className="flex h-full flex-col overflow-y-auto">
+      <div className="flex shrink-0 items-start justify-between gap-4 px-[22px] pt-[18px] pb-3.5">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[13px] text-foreground">{usage?.blocker ? `Set up, but blocked by ${usage.blocker.kind === "secret" ? "a missing key" : usage.blocker.kind === "service" ? "a missing service" : usage.blocker.kind === "hardware" ? "hardware it needs" : usage.blocker.kind === "data" ? "data it needs" : "the code as published"}: ${repo.fullName}` : `Set up and ready to use: ${repo.fullName}`}</span>
+          <span className="text-xs leading-normal text-muted-foreground/70">{usage?.blocker ? usage.blocker.what : usage?.summary || "No page to show; the repository is installed and its check passed. The shell is in the Terminal tab."}</span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {replayed && <Button variant="ghost" size="sm" onClick={async () => { await onStop(run.id); onStartOver(); }} title="Analyze and set up from scratch, ignoring the saved trail" className="font-normal text-muted-foreground">Start over</Button>}
+          {patch && <Button variant="ghost" size="sm" onClick={onShowPatch} className="font-normal text-muted-foreground">View the edits</Button>}
+          <Button variant="outline" size="sm" onClick={onOpenTerminal} className="font-normal">Open the shell</Button>
+        </div>
+      </div>
+      <RunTimeline run={run} events={events} open={false} className="border-y" />
+      <div className="px-[22px] pt-4"><BriefBox run={run} /></div>
+      {usage?.next ? (
+        <div className="px-[22px] py-4">
+          <p className="mb-2 text-xs text-muted-foreground">What to run next, as the setup agent wrote it in <span className="font-mono">.engelbart/NEXT.md</span>:</p>
+          <div className="rounded-md border bg-[#f6f6f6] px-4 py-3">
+            <Markdown source={usage.next} />
+          </div>
+        </div>
+      ) : null}
+      {usage?.output ? (
+        <details className="px-[22px] pb-4 text-xs text-muted-foreground">
+          <summary className="cursor-pointer">Output of the check</summary>
+          <pre className="mt-2 max-h-64 overflow-auto rounded-md border bg-[#f6f6f6] p-3 font-mono text-[11px] leading-snug whitespace-pre-wrap">{usage.output}</pre>
+        </details>
+      ) : null}
+    </section>
+  );
+}
+
+// What the run learned about the repository before planning, and how it
+// got where it got: straight through, repaired, corrected by the resolver,
+// or set up for use; with what its agent calls cost.
+function BriefBox({ run }: { run: SandboxRun }) {
+  const brief = run.brief;
+  const esc = run.escalation;
+  if (!brief && !esc) return null;
+  const required = (brief?.requires ?? []).filter((r) => !r.optional);
+  const path = esc?.path === "repaired" ? "after the repair agent edited the copy"
+    : esc?.path === "resolved" ? `after the resolver ${esc.resolver?.status === "plan" ? "corrected the plan" : "confirmed the blocker"}`
+    : esc?.path === "setup" ? "set up for use by the setup agent" : "";
+  const cost = esc?.cost?.total ? `$${esc.cost.total.toFixed(2)} in agent calls` : "";
+  return (
+    <details className="max-w-[640px] rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
+      <summary className="cursor-pointer text-foreground">
+        {brief ? brief.purpose.slice(0, 160) : "How this run went"}
+        {brief?.primaryApp?.path ? <span className="text-muted-foreground"> · runs <span className="font-mono">{brief.primaryApp.path}</span> ({brief.primaryApp.confidence} confidence)</span> : null}
+      </summary>
+      <div className="mt-2 flex flex-col gap-1.5">
+        {required.length > 0 && <span>Needs: {required.map((r) => `${r.name} (${r.kind}, ${r.neededFor})`).join("; ")}.</span>}
+        {brief?.traps?.length ? <span>Traps: {brief.traps.slice(0, 3).join(" · ")}</span> : null}
+        {brief?.examples?.length ? <span>Ready inputs: <span className="font-mono">{brief.examples.slice(0, 4).join(", ")}</span></span> : null}
+        {esc?.resolver?.hint && <span>Resolver: {esc.resolver.hint}</span>}
+        {esc?.blocker && <span>Blocker ({esc.blocker.kind}): {esc.blocker.what}</span>}
+        {(path || cost) && <span className="text-muted-foreground/80">{[path, cost].filter(Boolean).join(" · ")}</span>}
+        {brief && <span className="text-muted-foreground/80">The whole brief is in <span className="font-mono">.engelbart/BRIEF.md</span> in the sandbox.</span>}
+      </div>
+    </details>
   );
 }
 

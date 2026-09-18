@@ -1,7 +1,7 @@
 // The boundary between the workspace and whatever runs the code. The hosted
 // app implements it with E2B; the desktop app can implement it locally.
 import type { Repo } from "@/lib/repos";
-import type { EventKind, PreviewService, RunStatus, SandboxRun } from "@/lib/sandbox";
+import type { EventKind, PreviewService, RunBrief, RunEscalation, RunStatus, RunUsage, SandboxRun } from "@/lib/sandbox";
 import type { EnvReport } from "@/lib/environment";
 import type { RepoPatch } from "@/lib/patch";
 
@@ -21,6 +21,9 @@ export type RunFields = {
   previewUrl: string;
   port: number;
   services: PreviewService[];
+  usage: RunUsage | null;
+  brief: RunBrief | null;
+  escalation: RunEscalation | null;
   template: string;   // which runner image the sandbox came from
   commit: string | null;   // what the clone checked out
 };
@@ -41,7 +44,9 @@ export type LaunchOutcome =
   // `done` settles when the application stops, however that happens; the
   // run's status has been recorded by then. `recipe` is what worked this
   // time, for saving; `recipeFailed` says the saved one had to be dropped.
-  | { ok: true; previewUrl: string; port: number; services: PreviewService[]; done: Promise<void>; recipe: LaunchRecipe | null; recipeFailed: boolean }
+  // With `usable`, nothing is served: the repository is installed and
+  // checked, and the sandbox stays up with a shell; there is no preview.
+  | { ok: true; usable?: boolean; previewUrl: string | null; port: number | null; services: PreviewService[]; done: Promise<void>; recipe: LaunchRecipe | null; recipeFailed: boolean }
   | { ok: false; kind: string; message: string; recipeFailed: boolean };
 
 export type LaunchOptions = {
@@ -56,6 +61,9 @@ export type LaunchOptions = {
   onPatch?: (patch: RepoPatch) => void;
   // The person's one line about what to run, for the planner.
   hint?: string | null;
+  // The brief made for this commit by an earlier run, so this one does
+  // not make it again.
+  brief?: RunBrief | null;
 };
 
 export type Runtime = {
