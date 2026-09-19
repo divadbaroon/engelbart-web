@@ -104,7 +104,7 @@ export function readTarget(v: unknown): ElementTarget | null {
   return out.tag || out.selector ? out : null;
 }
 
-function readFrame(v: unknown): FrameRef {
+export function readFrame(v: unknown): FrameRef {
   const raw = obj(v) ?? {};
   const id = text(raw.frameId, 40);
   const depth = typeof raw.depth === "number" && Number.isFinite(raw.depth) ? Math.min(10, Math.max(0, Math.round(raw.depth))) : 0;
