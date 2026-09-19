@@ -114,7 +114,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   // application is never reloaded; only the wrapper's class changes.
   // On the side the trace stands alone: the preview is in the middle.
   if (tab === "preview" || tab === "trace") {
-    const canvas = tab === "trace" ? <BehaviorTrace repo={repo} run={run} runTrace={trace} trace={scopedTrace} selection={selection} detail={detail} onSelect={onSelect} onDetail={onDetail} onAskBart={onAskBart} slot={slot} onBack={slot === "middle" ? onOpenPreview : null} recordings={recording} notes={{ annotations, onOpen: (id) => { annotations.focusOn(id); onOpenPreview(); }, onAskBart: onAskAboutAnnotation }} canvas={canvasMark} bart={traceBart} /> : null;
+    const canvas = tab === "trace" ? <BehaviorTrace repo={repo} run={run} runTrace={trace} trace={scopedTrace} selection={selection} detail={detail} onSelect={onSelect} onDetail={onDetail} onAskBart={onAskBart} slot={slot} onBack={slot === "middle" ? onOpenPreview : null} recordings={recording} notes={{ annotations, onOpen: (id) => { annotations.focusOn(id); onOpenPreview(); }, onAskBart: onAskAboutAnnotation }} semantics={semantics} canvas={canvasMark} bart={traceBart} /> : null;
     if (tab === "trace" && slot === "side") return canvas;
     return (
       <>
@@ -415,7 +415,7 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
   // page is up. It turns nothing on and records nothing: the answer goes
   // to the workspace, which reads an interface it has not read before and
   // otherwise uses what it already knows.
-  useSurvey(frame, service.embeddable ? service.previewUrl : null, traced && service.embeddable && controls.semantics.enabled, reloads, controls.semantics.offer);
+  useSurvey(frame, service.embeddable ? service.previewUrl : null, traced && service.embeddable && controls.semantics.enabled, reloads + controls.semantics.round, controls.semantics.offer);
   const note = notes.list.find((a) => a.id === openNote) ?? null;
   // A note chosen somewhere else — the list, a reference in an answer —
   // is shown where it lives: the markers go up, the page is scrolled to

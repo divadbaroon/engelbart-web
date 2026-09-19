@@ -16,7 +16,7 @@ export const defaultName = (n: number) => `Recording ${n}`;
 // Where the Trace tab is: the whole run, the list of recordings, one
 // recording open on the same canvas, or the notes written on this
 // repository's interface.
-export type TraceNav = { kind: "full" } | { kind: "list" } | { kind: "recording"; id: string } | { kind: "annotations" };
+export type TraceNav = { kind: "full" } | { kind: "list" } | { kind: "recording"; id: string } | { kind: "annotations" } | { kind: "interface" };
 
 // ---- the window
 export type Window = { start: string; end: string | null };   // end null: still recording

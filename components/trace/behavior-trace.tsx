@@ -4,6 +4,8 @@ import { ArrowLeft, Circle, Eraser } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Recordings } from "@/hooks/use-recordings";
 import { statsLine, type Recording, type RecordingStats, type TraceNav } from "@/lib/trace/recording";
+import { InterfaceReadings } from "@/components/trace/interface-readings";
+import type { Semantics } from "@/hooks/use-semantics";
 import { RecordingsList } from "@/components/trace/recordings-list";
 import { AnnotationsList } from "@/components/trace/annotations-list";
 import type { Annotations } from "@/hooks/use-annotations";
@@ -33,6 +35,7 @@ type Props = {
   onBack: (() => void) | null;            // to the Live preview; none when the trace is beside it
   recordings: TraceRecordings;
   notes: TraceAnnotations;                // the repository's interface annotations, as a third view
+  semantics: Semantics;                   // what has been read about this application's interfaces, as a fourth
   canvas: CanvasMark;                     // where the canvas starts from, when a clean one was asked for
   bart: React.ReactNode;                  // the small Bart, floating over the canvas
 };
@@ -85,14 +88,14 @@ export type TraceRecordings = {
 // choice between the whole run and its recordings: a recording opens on
 // this same canvas, cut to its window by the parent (`trace` is then the
 // scoped view); the list is the other view.
-export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, onSelect, onDetail, onAskBart, slot, onBack, recordings, notes, canvas, bart }: Props) {
+export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, onSelect, onDetail, onAskBart, slot, onBack, recordings, notes, semantics, canvas, bart }: Props) {
   const { stages, diagnostics, callRows, error, loading } = trace;
   const { nav, onNav } = recordings;
   const rec = recordings.recordings;
   const openRecording = nav.kind === "recording" ? recordings.recordings.list.find((r) => r.id === nav.id) ?? null : null;
   const notesList = notes.annotations;
   // Two of the views are lists, and a list has no canvas under it.
-  const listing = nav.kind === "list" || nav.kind === "annotations";
+  const listing = nav.kind === "list" || nav.kind === "annotations" || nav.kind === "interface";
   const selected = selectedStage(stages, selection) ?? [...stages].reverse().find((s) => s.stage === "call") ?? stages[stages.length - 1] ?? null;
   const relation = selected ? relationFor(selected, stages, callRows) : null;
   // Beside the canvas, the details cost it width it can spare, so a card
@@ -185,6 +188,7 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
               <NavTab active={nav.kind === "full"} onClick={() => onNav({ kind: "full" })}>Full trace</NavTab>
               <NavTab active={nav.kind === "list"} onClick={() => onNav({ kind: "list" })}>Recordings{count ? ` · ${count}` : ""}</NavTab>
               <NavTab active={nav.kind === "annotations"} onClick={() => onNav({ kind: "annotations" })}>Annotations{notesList.list.length ? ` · ${notesList.list.length}` : ""}</NavTab>
+              <NavTab active={nav.kind === "interface"} onClick={() => onNav({ kind: "interface" })}>Interface{semantics.readings.length ? ` · ${semantics.readings.length}` : ""}</NavTab>
             </div>
             {/* Only over the canvas: on a list there is nothing to clear.
                 Cleared, the header says so and offers the way back, so the
@@ -209,7 +213,11 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
         )}
       </header>
       {error && <p role="alert" className="shrink-0 border-b px-[22px] py-2 text-xs text-destructive">{error}</p>}
-      {nav.kind === "annotations" ? (
+      {nav.kind === "interface" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <InterfaceReadings semantics={semantics} traced={!!run.previewUrl} />
+        </div>
+      ) : nav.kind === "annotations" ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <AnnotationsList
             annotations={notesList.list}

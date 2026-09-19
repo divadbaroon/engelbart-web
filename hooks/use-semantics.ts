@@ -40,6 +40,7 @@ export type Semantics = {
   error: string | null;
   offer: (survey: unknown) => void;     // a document said what it holds
   again: (key?: string) => void;        // read it again, cache or no cache
+  round: number;                        // bumped when a document should be asked again
   enabled: boolean;
 };
 
@@ -60,9 +61,13 @@ export function useSemantics(repo: Repo | undefined, run: SandboxRun | undefined
   // and a route together are one interface; a document that navigates
   // somewhere else is a different one and is asked about again.
   const done = useRef(new Set<string>());
+  // Which of those are to be read again from the model rather than from
+  // the cache, and the count that makes the preview ask once more.
+  const reread = useRef(new Set<string>());
+  const [round, setRound] = useState(0);
 
   useEffect(() => {
-    done.current = new Set();
+    done.current = new Set(); reread.current = new Set();
     setReadings([]); setAsked([]); setLoaded(false); setError(null);
     if (!repoId) { setLoaded(true); return; }
     let stale = false;
@@ -102,19 +107,21 @@ export function useSemantics(repo: Repo | undefined, run: SandboxRun | undefined
     const key = keyOf(s.frame, s.route ?? null);
     if (!key || done.current.has(key)) return;
     done.current.add(key);
-    void read(survey, key, false);
+    void read(survey, key, reread.current.delete(key));
   }, [repoId, read]);
 
   // Asking again is a person's choice and always costs a model call: it
   // is how a reading that got something wrong is corrected, and how the
   // signature policy is judged against a page that did change.
   const again = useCallback((key?: string) => {
-    if (key) done.current.delete(key);
-    else done.current = new Set();
+    for (const k of key ? [key] : [...done.current]) { done.current.delete(k); reread.current.add(k); }
     setAsked((all) => (key ? all.filter((r) => r.key !== key) : []));
+    // The answer has to come from the page: the workspace cannot survey a
+    // document it is not allowed to read. Bumping this asks the preview.
+    setRound((n) => n + 1);
   }, []);
 
   const index = useMemo(() => (readings.length ? buildIndex(mapsOf(readings)) : EMPTY_INDEX), [readings]);
 
-  return { index, readings, asked, loaded, busy, error, offer, again, enabled: !!repoId };
+  return { index, readings, asked, loaded, busy, error, offer, again, round, enabled: !!repoId };
 }

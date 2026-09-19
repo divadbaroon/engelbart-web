@@ -301,9 +301,9 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   // A moment chosen from outside the open recording (the preview's strip, a
   // reference in an answer) is shown in the full trace rather than ringed
   // where it cannot be seen. From the list there is no canvas at all, so a
-  // chosen moment always brings one back.
+  // chosen moment always brings one back — from any of the list views.
   const reveal = (target: { stageId?: string; callId?: string }) => {
-    if (traceNav.kind === "list") { setTraceNav({ kind: "full" }); return; }
+    if (traceNav.kind === "list" || traceNav.kind === "annotations" || traceNav.kind === "interface") { setTraceNav({ kind: "full" }); return; }
     if (!openRecording) return;
     const inside = target.stageId ? scopedTrace.stages.some((s) => s.id === target.stageId) : target.callId ? scopedTrace.callRows.has(target.callId) : true;
     if (!inside) setTraceNav({ kind: "full" });
