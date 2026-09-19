@@ -13,6 +13,7 @@ import { useSandboxRuns } from "@/hooks/use-sandbox-run";
 import { useScopedTraceView, useTraceView } from "@/hooks/use-trace-view";
 import { useRecordings } from "@/hooks/use-recordings";
 import { useAnnotations } from "@/hooks/use-annotations";
+import { useSemantics } from "@/hooks/use-semantics";
 import { clearMark, recordingStats, windowOf, type Recording, type TraceNav } from "@/lib/trace/recording";
 import type { CanvasMark, TraceRecordings } from "@/components/trace/behavior-trace";
 import { useTraceSelection } from "@/hooks/use-trace-selection";
@@ -261,7 +262,12 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   // The trace of the run in the middle, read by the Trace tab, the
   // preview's strip and Bart alike, and the moment selected in it.
   const run = repo ? sandbox.runs[repo.id] : undefined;
-  const trace = useTraceView(run);
+  // What this application's interfaces are for, read once per interface
+  // and kept. It is asked for in the Live preview, and the answer names
+  // rows in the trace; without it every label is what the page said,
+  // which is what the trace shows anyway.
+  const semantics = useSemantics(repo, run);
+  const trace = useTraceView(run, semantics.index);
   const picked = useTraceSelection(run?.id);
   // The run's recordings, and where the Trace tab is: the whole run, the
   // list, or one recording, which the tab shows on the same canvas from a
@@ -425,6 +431,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
       canvasMark={traceCanvasMark}
       annotations={annotations}
       onAskAboutAnnotation={(id) => { setAskedAnnotation(id); bart.ask("tab"); }}
+      semantics={semantics}
       traceBart={traceBart}
       repo={repo}
       tab={t}

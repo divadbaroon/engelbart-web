@@ -6,14 +6,16 @@ import { isAuthor, type Annotation } from "@/lib/annotations/model";
 import { describeTarget } from "@/lib/trace/timeline";
 import { formatWhen } from "@/lib/trace/recording";
 import { frameLine } from "@/lib/annotations/target";
+import { lookupTarget, type SemanticIndex } from "@/lib/semantics/lookup";
 
 // The notes written on this repository's interface, oldest first as they
 // were made: what each says, what it is on, and where it was written.
 // Opening one takes the person to the Live preview and to the element it
 // is about; if the page cannot find that element it is said there, not
 // guessed at here.
-export function AnnotationsList({ annotations, viewerId, loaded, error, onOpen, onAskBart, onRemove, onDismissError }: {
+export function AnnotationsList({ annotations, viewerId, loaded, error, semantics, onOpen, onAskBart, onRemove, onDismissError }: {
   annotations: Annotation[];
+  semantics: SemanticIndex;
   viewerId: string | null;
   loaded: boolean;
   error: string | null;
@@ -50,7 +52,7 @@ export function AnnotationsList({ annotations, viewerId, loaded, error, onOpen, 
               {a.body}
             </button>
             <p className="truncate text-[11px] text-muted-foreground">
-              {describeTarget(a.anchor.element)}
+              {describeTarget(a.anchor.element, lookupTarget(semantics, a.anchor.element))}
               {a.route && <span className="text-muted-foreground/70"> · {a.route}</span>}
               {frameLine(a.anchor) && <span className="text-muted-foreground/70"> · embedded</span>}
               <span className="text-muted-foreground/70"> · {formatWhen(a.createdAt)}</span>

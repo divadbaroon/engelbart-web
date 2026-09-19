@@ -216,6 +216,7 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
             viewerId={notesList.viewerId}
             loaded={notesList.loaded}
             error={notesList.error}
+            semantics={trace.semantics}
             onOpen={notes.onOpen}
             onAskBart={notes.onAskBart}
             onRemove={(id) => void notesList.remove(id)}

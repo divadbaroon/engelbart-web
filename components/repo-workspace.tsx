@@ -26,6 +26,8 @@ import { AnnotateControl } from "@/components/annotate/control";
 import { AnnotationComposer } from "@/components/annotate/composer";
 import { AnnotationNote } from "@/components/annotate/note";
 import { usePicker } from "@/hooks/use-picker";
+import { useSurvey } from "@/hooks/use-survey";
+import type { Semantics } from "@/hooks/use-semantics";
 import { sayWhy } from "@/lib/annotations/probe";
 import type { Annotations } from "@/hooks/use-annotations";
 import { LiveStrip } from "@/components/trace/live-strip";
@@ -81,13 +83,14 @@ type RepoContentProps = RunControls & {
   canvasMark: CanvasMark;                // where the Trace tab's canvas starts from, when a clean one was asked for
   annotations: Annotations;              // the notes written on this repository's interface
   onAskAboutAnnotation: (id: string) => void;   // ask Bart about one of them
+  semantics: Semantics;                         // what the parts of this application's interfaces are for
   traceBart: ReactNode;                  // Bart's small window, floating over the trace canvas
 };
 
 // The trace's selection callbacks, shared by the preview's strip and the Trace tab.
-export type TraceControls = { trace: TraceView; selection: Selection | null; onSelect: RepoContentProps["onSelect"]; onOpenTrace: () => void; traceAside: boolean; recording: TraceRecordings; annotations: Annotations; onAskAboutAnnotation: (id: string) => void };
+export type TraceControls = { trace: TraceView; selection: Selection | null; onSelect: RepoContentProps["onSelect"]; onOpenTrace: () => void; traceAside: boolean; recording: TraceRecordings; annotations: Annotations; onAskAboutAnnotation: (id: string) => void; semantics: Semantics };
 
-export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, trace, selection, detail, onSelect, onDetail, onAskBart, onOpenTrace, onOpenPreview, codeOpen, slot, traceAside, scopedTrace, recording, canvasMark, annotations, onAskAboutAnnotation, traceBart, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
+export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, trace, selection, detail, onSelect, onDetail, onAskBart, onOpenTrace, onOpenPreview, codeOpen, slot, traceAside, scopedTrace, recording, canvasMark, annotations, onAskAboutAnnotation, semantics, traceBart, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
   // The environment scan and any repair edits from this run's log if it
   // has them, else the last ones saved on the repository.
   const envReport = (run && environmentFromEvents(events, run.id)) ?? repo.envReport;
@@ -116,7 +119,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
     return (
       <>
         <div className={tab === "trace" ? "hidden h-full" : "h-full"}>
-          <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, traceAside, recording, annotations, onAskAboutAnnotation }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onOpenTerminal={onOpenTerminal} onRunWithoutPatch={onRunWithoutPatch} onSaveHint={onSaveHint} />
+          <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, traceAside, recording, annotations, onAskAboutAnnotation, semantics }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onOpenTerminal={onOpenTerminal} onRunWithoutPatch={onRunWithoutPatch} onSaveHint={onSaveHint} />
         </div>
         {canvas}
       </>
@@ -408,6 +411,11 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
   const [openNote, setOpenNote] = useState<string | null>(null);
   const marks = useMemo(() => notes.list.map((a) => ({ id: a.id, anchor: a.anchor })), [notes.list]);
   const picker = usePicker(frame, service.embeddable ? service.previewUrl : null, traced && service.embeddable, marks, setOpenNote);
+  // What this document holds, asked for in the background as soon as the
+  // page is up. It turns nothing on and records nothing: the answer goes
+  // to the workspace, which reads an interface it has not read before and
+  // otherwise uses what it already knows.
+  useSurvey(frame, service.embeddable ? service.previewUrl : null, traced && service.embeddable && controls.semantics.enabled, reloads, controls.semantics.offer);
   const note = notes.list.find((a) => a.id === openNote) ?? null;
   // A note chosen somewhere else — the list, a reference in an answer —
   // is shown where it lives: the markers go up, the page is scrolled to
@@ -503,7 +511,7 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
       {picker.picked && <AnnotationComposer frame={frame} picked={picker.picked} busy={notes.busy} error={notes.error} onSave={(body) => void save(body)} onCancel={picker.dismiss} />}
       {note && !picker.picked && (
         <AnnotationNote
-          frame={frame} note={note} resolution={picker.resolutions[note.id] ?? null} viewerId={notes.viewerId}
+          frame={frame} note={note} resolution={picker.resolutions[note.id] ?? null} viewerId={notes.viewerId} semantics={controls.semantics.index}
           onEdit={(body) => void notes.edit(note.id, body)}
           onDelete={() => { setOpenNote(null); void notes.remove(note.id); }}
           onAskBart={() => controls.onAskAboutAnnotation(note.id)}

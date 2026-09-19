@@ -21,8 +21,21 @@
 // key name), never from knowledge of a particular application. A link by
 // timing is called that; nothing here claims a cause.
 import { elementTarget, type Correlation, type ElementTarget, type ModelCall, type TraceEvent } from "@/lib/trace/types";
+import { leads, lookupFrame, lookupTarget, regionLabel, type SemanticIndex } from "@/lib/semantics/lookup";
+import type { SemanticMatch } from "@/lib/semantics/types";
+import type { FrameRef } from "@/lib/annotations/target";
 
 export type RequestLink = { request: TraceEvent; result: TraceEvent | null; correlation: Correlation; sinceMs: number | null };
+
+// What a reading of the interface says about a row, when there is one.
+// It is beside the raw label, never instead of it: `element` is a match
+// against the same ElementTarget the row was described from, and the row
+// keeps that description whether a reading exists or not.
+export type RowSemantics = {
+  element: SemanticMatch | null;   // what this element is called
+  region: string | null;           // the area of the interface it sits in
+  document: string | null;         // what this whole document is
+};
 
 export type CallRow = {
   kind: "call";
@@ -53,6 +66,7 @@ export type InteractionRow = {
   callIds: string[];       // model calls joined to it through a request
   key: { name: string; count: number; editable: boolean } | null;
   submit: boolean;         // a submit-like act: a form submit, Enter on a text field, a submit button
+  semantic: RowSemantics | null;   // what a reading of this interface calls the element, if one has been made
 };
 export type KeyGroupRow = {
   kind: "keys";
@@ -67,6 +81,7 @@ export type KeyGroupRow = {
   counts: { key: string; count: number }[];
   presses: number;         // every press, counting folded repeats
   rows: InteractionRow[];
+  semantic: RowSemantics | null;
 };
 export type NetworkRow = { kind: "network"; id: string; at: string; request: TraceEvent; result: TraceEvent | null; label: string; detail: string | null };
 export type TraceRow = CallRow | NoteRow | InteractionRow | KeyGroupRow | NetworkRow;
@@ -181,6 +196,39 @@ export function frameName(frames: Map<string, FrameInfo>, frameId: string | null
   return text.length > 32 ? text.slice(0, 31) + "…" : text;
 }
 
+// The durable handle for a document the trace saw: the chain of <iframe>
+// elements it sits inside, top-down, built from the same selectorFor()
+// the bridge writes into frame.attached. Never the frame id, which is
+// minted per served document and is gone on the next reload, so a reading
+// keyed on it would miss every time.
+export function frameRefOf(frames: Map<string, FrameInfo>, frameId: string | null): FrameRef | null {
+  if (!frameId) return null;
+  const f = frames.get(frameId);
+  if (!f) return null;
+  const path: string[] = [];
+  const seen = new Set<string>();
+  let cur: FrameInfo | undefined = f;
+  while (cur && cur.selectorInParent && !seen.has(cur.frameId)) {
+    seen.add(cur.frameId);
+    path.unshift(cur.selectorInParent);
+    cur = cur.parentFrameId ? frames.get(cur.parentFrameId) : undefined;
+  }
+  return { frameId: null, name: f.name, selectorInParent: f.selectorInParent, path, depth: f.depth ?? path.length, kind: "document" };
+}
+
+// What a reading says about one row: the element, the area it sits in,
+// and the document it is in. Nothing when no interface has been read, or
+// when nothing in the reading matches — a label that cannot be found is
+// absent rather than guessed at.
+function readingOf(index: SemanticIndex | null, frames: Map<string, FrameInfo>, target: ElementTarget | null, frameId: string | null): RowSemantics | null {
+  if (!index) return null;
+  const element = lookupTarget(index, target);
+  const doc = lookupFrame(index, frameRefOf(frames, frameId) ?? { frameId: null, name: null, selectorInParent: null, path: [], depth: 0, kind: "document" });
+  const region = regionLabel(index, element);
+  if (!element && !region && !doc) return null;
+  return { element, region, document: leads(doc) ? doc!.label : null };
+}
+
 // Where an embedded frame sits and what it loaded, for the details.
 export function frameDetail(f: FrameInfo): string {
   const params = f.query ? Object.entries(f.query).map(([k, v]) => `${k}=${v}`).join("&") : "";
@@ -196,21 +244,34 @@ export function frameDetail(f: FrameInfo): string {
 // what a person would have seen first, then the handles, then what it is.
 const descriptor = elementTarget;
 
-export function describeTarget(d: ElementTarget | null): string {
-  if (!d) return "something";
+// What the page said, and what the thing is: kept apart so a reading of
+// the interface can be put in front of both without either being lost.
+function targetParts(d: ElementTarget | null): { said: string | null; what: string } {
+  if (!d) return { said: null, what: "something" };
   const tag = d.tag ?? "element";
   const what = d.role ?? (tag === "a" ? "link" : tag === "input" && d.type ? `${d.type} input` : tag);
   const text = d.text || d.label || d.title || d.placeholder;
-  if (text) return `${quote(text)} (${what})`;
-  if (d.id) return `${what}#${d.id}`;
-  if (d.name) return `${what} “${d.name}”`;
-  if (d.testid) return `${what} [${d.testid}]`;
-  if (d.selector && d.selector !== tag) return `${what} ${d.selector}`;
-  return what === "body" ? "the page body" : what;
+  if (text) return { said: quote(text), what };
+  if (d.id) return { said: null, what: `${what}#${d.id}` };
+  if (d.name) return { said: null, what: `${what} “${d.name}”` };
+  if (d.testid) return { said: null, what: `${what} [${d.testid}]` };
+  if (d.selector && d.selector !== tag) return { said: null, what: `${what} ${d.selector}` };
+  return { said: null, what: what === "body" ? "the page body" : what };
+}
+
+// A reading enriches this description; it never replaces it. With a
+// confident match the name a person would use leads and the evidence
+// follows it in the parenthesis, so what the page actually held is still
+// on the line. A weak match is not shown here at all — the raw
+// description keeps the front, and the guess stays in the details.
+export function describeTarget(d: ElementTarget | null, m: SemanticMatch | null = null): string {
+  const { said, what } = targetParts(d);
+  if (!leads(m)) return said ? `${said} (${what})` : what;
+  return `${m!.label} (${said ? `${said} ${what}` : what})`;
 }
 
 // ---- notes: the word on an event that is not an interaction
-export function describeNote(e: TraceEvent, frames: Map<string, FrameInfo> = new Map()): { label: string; detail: string | null } {
+export function describeNote(e: TraceEvent, frames: Map<string, FrameInfo> = new Map(), semantics: SemanticIndex | null = null): { label: string; detail: string | null } {
   const d = e.data ?? {};
   const frame = (id: unknown) => frameLabel(frames, str(id));
   switch (e.kind) {
@@ -244,7 +305,7 @@ export function describeNote(e: TraceEvent, frames: Map<string, FrameInfo> = new
     case "bridge.dropped":
       return { label: `${num(d.count) ?? "Some"} browser events dropped`, detail: "more than the gateway accepts per second" };
     case "ui.change":
-      return { label: changeLabel(d), detail: changeDetail(d) };
+      return { label: changeLabel(d), detail: changeDetail(d, readingOf(semantics, frames, descriptor(d.container), str(d.frameId))) };
     default:
       return { label: e.kind, detail: null };
   }
@@ -271,45 +332,50 @@ function changeLabel(d: Record<string, unknown>): string {
 }
 // A container is named by its handle, not by the text inside it: the
 // text is what changed, and it is quoted separately.
-const describeContainer = (d: ElementTarget | null) => describeTarget(d ? { ...d, text: undefined } : null);
+const describeContainer = (d: ElementTarget | null, m: SemanticMatch | null = null) => describeTarget(d ? { ...d, text: undefined } : null, m);
 
-function changeDetail(d: Record<string, unknown>): string {
+function changeDetail(d: Record<string, unknown>, reading: RowSemantics | null = null): string {
   const container = descriptor(d.container);
   const bits = [`${num(d.mutations) ?? 0} mutations over ${formatMs(num(d.durationMs) ?? 0)}`];
   if (num(d.sinceInteractionMs) !== null) bits.push(`${formatMs(num(d.sinceInteractionMs))} after the interaction`);
-  if (container) bits.push(`in ${describeContainer(container)}`);
+  if (container) bits.push(`in ${describeContainer(container, reading?.element ?? null)}`);
   if (num(d.part) && (num(d.part) as number) > 1) bits.push(`part ${d.part}`);
   return bits.join(" · ");
 }
 
 // ---- interactions
-function interactionLabel(e: TraceEvent, frames: Map<string, FrameInfo>): { label: string; detail: string | null; key: InteractionRow["key"] } {
+function interactionLabel(e: TraceEvent, frames: Map<string, FrameInfo>, reading: RowSemantics | null = null): { label: string; detail: string | null; key: InteractionRow["key"] } {
   const d = e.data ?? {};
   const target = descriptor(d.target);
   const control = descriptor(d.control);
-  const where = frameLabel(frames, str(d.frameId));
+  // The reading is of the element the row is about — the control where
+  // there is one, since that is what describeTarget names.
+  const m = reading?.element ?? null;
+  // A named document is said instead of "embedded frame “solution”";
+  // the page stays the page.
+  const where = reading?.document && frameLabel(frames, str(d.frameId)) !== "the page" ? reading.document : frameLabel(frames, str(d.frameId));
   const inFrame = where === "the page" ? "" : ` in ${where}`;
   switch (e.kind) {
     case "ui.click":
-      return { label: `Clicked ${describeTarget(control ?? target)}${inFrame}`, detail: [control && target ? `on ${describeTarget(target)}` : null, target?.selector ? target.selector : null, d.trusted === false ? "synthetic" : null].filter(Boolean).join(" · ") || null, key: null };
+      return { label: `Clicked ${describeTarget(control ?? target, m)}${inFrame}`, detail: [control && target ? `on ${describeTarget(target)}` : null, reading?.region ? `in ${reading.region}` : null, target?.selector ? target.selector : null, d.trusted === false ? "synthetic" : null].filter(Boolean).join(" · ") || null, key: null };
     case "ui.submit": {
       const form = descriptor(d.form); const submitter = descriptor(d.submitter);
       const fields = Array.isArray(d.fields) ? d.fields.length : 0;
-      return { label: `Submitted ${submitter ? `${describeTarget(submitter)} → ` : ""}${(form?.method ?? "get").toUpperCase()} ${form?.action ?? "form"}${inFrame}`, detail: `${fields} field${fields === 1 ? "" : "s"}${form?.selector ? ` · ${form.selector}` : ""} · values not recorded`, key: null };
+      return { label: `Submitted ${submitter ? `${describeTarget(submitter, m)} → ` : ""}${(form?.method ?? "get").toUpperCase()} ${form?.action ?? "form"}${inFrame}`, detail: `${fields} field${fields === 1 ? "" : "s"}${form?.selector ? ` · ${form.selector}` : ""} · values not recorded`, key: null };
     }
     case "ui.key": {
       const name = str(d.key) ?? "?"; const count = num(d.count) ?? 1; const cls = str(d.class);
       const editable = !!d.editable;
       const label = name === "[printable]" ? `Typed ${count} ${cls ?? "printable"} key${count === 1 ? "" : "s"}${inFrame}` : `Pressed ${name}${count > 1 ? ` ×${count}` : ""}${inFrame}`;
-      return { label, detail: `on ${describeTarget(target)}${name === "[printable]" ? " · characters not recorded" : ""}${d.repeat === true ? " · held" : ""}`, key: { name, count, editable } };
+      return { label, detail: `on ${describeTarget(target, m)}${reading?.region ? ` in ${reading.region}` : ""}${name === "[printable]" ? " · characters not recorded" : ""}${d.repeat === true ? " · held" : ""}`, key: { name, count, editable } };
     }
     case "ui.input": {
       const kind = str(d.kind);
       const value = list(d.selected).length ? list(d.selected).map((s) => quote(s)).join(", ") : typeof d.checked === "boolean" ? (d.checked ? "on" : "off") : str(d.value) ?? (kind === "text" || kind === "password" ? `${num(d.valueLength) ?? "?"} characters (not recorded)` : kind === "file" ? `${num(d.files) ?? 0} file(s)` : "changed");
-      return { label: `Changed ${describeTarget(target)} → ${value}${inFrame}`, detail: target?.selector ?? null, key: null };
+      return { label: `Changed ${describeTarget(target, m)} → ${value}${inFrame}`, detail: [reading?.region ? `in ${reading.region}` : null, target?.selector].filter(Boolean).join(" · ") || null, key: null };
     }
     case "ui.focus":
-      return { label: `Moved into ${where}`, detail: target ? `focus on ${describeTarget(target)}` : null, key: null };
+      return { label: `Moved into ${where}`, detail: target ? `focus on ${describeTarget(target, m)}` : null, key: null };
     case "ui.route":
       return { label: `Navigated ${str(d.from) ?? "?"} → ${str(d.to) ?? "?"}${inFrame}`, detail: str(d.how) ? `${d.how}${str(d.title) ? ` · ${d.title}` : ""}` : null, key: null };
     default:
@@ -337,7 +403,12 @@ export const requestLabel = (e: TraceEvent) => {
 
 // The frame index defaults to the events given; a slice of a run passes the
 // whole run's, so frames named before the slice keep their names.
-export function traceRows(events: TraceEvent[], calls: ModelCall[], frames: Map<string, FrameInfo> = frameIndex(events)): TraceRow[] {
+//
+// A reading of the interface, where one has been made, is baked onto the
+// rows here — the way a frame's name is — rather than looked up again
+// wherever a row is drawn. The rows are the same rows without it: every
+// label falls back to what the page said about the element.
+export function traceRows(events: TraceEvent[], calls: ModelCall[], frames: Map<string, FrameInfo> = frameIndex(events), semantics: SemanticIndex | null = null): TraceRow[] {
   const byCall = new Map(calls.map((c) => [c.callId, c]));
   const interactions = new Map<string, InteractionRow>();
   const requests: TraceEvent[] = [];
@@ -351,8 +422,9 @@ export function traceRows(events: TraceEvent[], calls: ModelCall[], frames: Map<
   for (const e of events) {
     const d = e.data ?? {};
     if (isInteraction(e)) {
-      const { label, detail, key } = interactionLabel(e, frames);
-      const row: InteractionRow = { kind: "interaction", id: e.interactionId as string, at: e.at, event: e, frameId: str(d.frameId), frameLabel: frameLabel(frames, str(d.frameId)), frameName: frameName(frames, str(d.frameId)), label, detail, links: [], changes: [], callIds: [], key, submit: isSubmitLike(e) };
+      const semantic = readingOf(semantics, frames, descriptor(d.control) ?? descriptor(d.target), str(d.frameId));
+      const { label, detail, key } = interactionLabel(e, frames, semantic);
+      const row: InteractionRow = { kind: "interaction", id: e.interactionId as string, at: e.at, event: e, frameId: str(d.frameId), frameLabel: frameLabel(frames, str(d.frameId)), frameName: semantic?.document ?? frameName(frames, str(d.frameId)), label, detail, links: [], changes: [], callIds: [], key, submit: isSubmitLike(e), semantic };
       interactions.set(row.id, row);
     } else if (e.kind === "ui.change") changes.push(e);
     else if (e.kind === "network.request") requests.push(e);
@@ -360,7 +432,7 @@ export function traceRows(events: TraceEvent[], calls: ModelCall[], frames: Map<
     else if (e.kind === "model.request" && e.callId) callRequests.push(e);
     else if ((e.kind === "model.response" || e.kind === "model.error") && e.callId) callResults.push(e);
     else if (e.kind === "frame.served" || e.kind === "gateway.rejected") { /* folded into the frame index; not a row */ }
-    else { const { label, detail } = describeNote(e, frames); notes.push({ kind: "note", id: String(e.id), at: e.at, event: e, label, detail }); }
+    else { const { label, detail } = describeNote(e, frames, semantics); notes.push({ kind: "note", id: String(e.id), at: e.at, event: e, label, detail }); }
   }
   const byTime = [...interactions.values()].sort((a, b) => ms(a.at) - ms(b.at) || a.event.seq - b.event.seq);
   const latestBefore = (at: string, windowMs: number): InteractionRow | null => {
@@ -417,7 +489,7 @@ export function traceRows(events: TraceEvent[], calls: ModelCall[], frames: Map<
   for (const e of changes) {
     const owner = e.interactionId ? interactions.get(e.interactionId) : undefined;
     if (owner) owner.changes.push(e);
-    else { const { label, detail } = describeNote(e, frames); notes.push({ kind: "note", id: String(e.id), at: e.at, event: e, label, detail }); }
+    else { const { label, detail } = describeNote(e, frames, semantics); notes.push({ kind: "note", id: String(e.id), at: e.at, event: e, label, detail }); }
   }
   for (const r of interactions.values()) rows.set(`interaction:${r.id}`, r);
   for (const n of notes) rows.set(`note:${n.id}`, n);
@@ -452,7 +524,8 @@ function groupKeys(rows: TraceRow[]): TraceRow[] {
       const links = run.flatMap((r) => r.links);
       out.push({
         kind: "keys", id: `keys:${run[0].id}`, at: run[0].at, endAt, frameId: run[0].frameId, frameLabel: run[0].frameLabel, frameName: run[0].frameName,
-        label: `Keyboard in ${run[0].frameLabel} · ${formatMs(duration)}`,
+        semantic: run.find((r) => r.semantic)?.semantic ?? null,
+        label: `Keyboard in ${run[0].semantic?.document ?? run[0].frameLabel} · ${formatMs(duration)}`,
         detail: `${counted.map(({ key, count }) => `${key === "[printable]" ? "printable" : key} ×${count}`).join(", ")}${links.length ? ` · ${summarizeLinks(links)}` : ""}`,
         counts: counted, presses, rows: run,
       });

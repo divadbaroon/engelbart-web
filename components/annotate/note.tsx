@@ -8,14 +8,16 @@ import { MAX_BODY } from "@/lib/annotations/target";
 import { isAuthor, type Annotation } from "@/lib/annotations/model";
 import { describeTarget } from "@/lib/trace/timeline";
 import type { Resolution } from "@/lib/annotations/protocol";
+import { lookupTarget, type SemanticIndex } from "@/lib/semantics/lookup";
 
 // A saved note, opened from its marker: what was written, what it is on,
 // and how sure the page is that it found that element again. Editing and
 // deleting are the author's; everyone else reads it, and is told so
 // rather than shown a control that would be refused.
-export function AnnotationNote({ frame, note, resolution, viewerId, onEdit, onDelete, onAskBart, onClose }: {
+export function AnnotationNote({ frame, note, resolution, viewerId, semantics, onEdit, onDelete, onAskBart, onClose }: {
   frame: RefObject<HTMLIFrameElement | null>;
   note: Annotation;
+  semantics: SemanticIndex;
   resolution: Resolution | null;
   viewerId: string | null;
   onEdit: (body: string) => void;
@@ -44,7 +46,7 @@ export function AnnotationNote({ frame, note, resolution, viewerId, onEdit, onDe
         style={{ left: box.left, top: box.top, width: PANEL_WIDTH }}
         onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); if (editing) setEditing(false); else onClose(); } }}
       >
-        <p className="truncate text-[11px] text-muted-foreground" title={describeTarget(note.anchor.element)}>{describeTarget(note.anchor.element)}</p>
+        <p className="truncate text-[11px] text-muted-foreground" title={describeTarget(note.anchor.element, lookupTarget(semantics, note.anchor.element))}>{describeTarget(note.anchor.element, lookupTarget(semantics, note.anchor.element))}</p>
         {editing ? (
           <textarea
             ref={input}
