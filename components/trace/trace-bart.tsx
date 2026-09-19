@@ -37,6 +37,7 @@ const SIZE_KEY = "engelbart:bart:window";
 
 export function TraceBart({ session, context, repo, open, onOpenChange, placeholder, selectionText, recording, onClearSelection, onOpenRef, labelRef, onOpenPanel }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
+  const empty = session.messages.length === 0 && !session.pending;
   const [size, setSize] = useState(DEFAULT);
   const sized = useRef(DEFAULT);        // the size just set, a render ahead of the state
   const drag = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -124,6 +125,13 @@ export function TraceBart({ session, context, repo, open, onOpenChange, placehol
           </div>
           <header className="flex h-9 shrink-0 items-center gap-0.5 border-b pr-1.5 pl-6 text-[13px]">
             <h2 className="mr-auto font-semibold">Bart</h2>
+            {/* The same Clear the panel has, over the same conversation:
+                clearing here leaves the panel on a new thread too. */}
+            {!empty && (
+              <Button variant="ghost" size="sm" onClick={() => void session.reset()} title="Start a new conversation" className="h-7 px-1.5 text-xs font-normal text-muted-foreground/70 hover:text-muted-foreground">
+                Clear
+              </Button>
+            )}
             <Button variant="ghost" size="icon" aria-label="Open Bart in the side panel" title="Open Bart in the side panel" onClick={onOpenPanel} className="size-7 text-muted-foreground">
               <PanelRight className="size-4" />
             </Button>
