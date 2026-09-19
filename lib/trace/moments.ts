@@ -162,9 +162,13 @@ function actionLines(rows: TraceRow[]): string[] {
     if (r.kind === "keys") { for (const c of r.counts) lines.push(`${keyName(c.key)} ×${c.count}`); continue; }
     if (r.kind !== "interaction") continue;
     const target = elementTarget(r.event.data?.target);
+    // The reading is already on the row (traceRows baked it there); a
+    // confident one puts the application's own name in front of the raw
+    // description, and an absent or weak one changes nothing.
+    const m = r.semantic?.element ?? null;
     switch (r.event.kind) {
-      case "ui.click": lines.push(clip(`Clicked ${describeTarget(target)}`, 80)); break;
-      case "ui.input": lines.push(clip(`Changed ${describeTarget(target)}`, 80)); break;
+      case "ui.click": lines.push(clip(`Clicked ${describeTarget(target, m)}`, 80)); break;
+      case "ui.input": lines.push(clip(`Changed ${describeTarget(target, m)}`, 80)); break;
       case "ui.key": if (r.key) lines.push(`${keyName(r.key.name)} ×${r.key.count}`); break;
       case "ui.submit": case "ui.route": lines.push(clip(r.label, 80)); break;
       default: break;   // a move into a frame is where the acts happened, not an act

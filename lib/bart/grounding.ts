@@ -10,6 +10,7 @@ import {
 } from "@/lib/trace/timeline";
 import { callOwner, callState, liveLine, momentActions, momentKind, relatedCall, relationWord, responseQuotes, shortClock, submitEcho } from "@/lib/trace/moments";
 import { conversation, messageText, promptSections, type Message } from "@/lib/trace/context";
+import type { SemanticIndex } from "@/lib/semantics/lookup";
 
 export type TraceModel = {
   events: TraceEvent[];
@@ -23,8 +24,8 @@ export type TraceModel = {
 
 // A slice of a run passes the whole run's frame index, so documents named
 // before the slice began keep their names inside it.
-export function traceModel(events: TraceEvent[], calls: ModelCall[], frames: Map<string, FrameInfo> = frameIndex(events)): TraceModel {
-  const rows = traceRows(events, calls, frames);
+export function traceModel(events: TraceEvent[], calls: ModelCall[], frames: Map<string, FrameInfo> = frameIndex(events), semantics: SemanticIndex | null = null): TraceModel {
+  const rows = traceRows(events, calls, frames, semantics);
   const grouped = traceStages(rows);
   return {
     events, calls: Object.fromEntries(calls.map((c) => [c.callId, c])), rows, stages: grouped.primary, diagnostics: grouped.diagnostics,

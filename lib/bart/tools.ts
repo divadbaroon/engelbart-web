@@ -9,6 +9,8 @@ import type { SandboxRun } from "@/lib/sandbox";
 import { CALL_PARTS, SLICE, callReport, compareCalls, momentReport, searchTrace, slice, tableOfContents, type CallPart, type TraceModel } from "@/lib/bart/grounding";
 import { listFiles, readFile, readReadme, searchFiles, type RepoAccess } from "@/lib/bart/repo";
 import { annotationList, annotationReport } from "@/lib/bart/annotations";
+import { semanticsList, semanticsReport } from "@/lib/bart/semantics";
+import type { StoredSemantics } from "@/lib/semantics/model";
 import type { Annotation } from "@/lib/annotations/model";
 
 export type ToolContext = {
@@ -18,6 +20,7 @@ export type ToolContext = {
   annotation: (id: string) => Promise<Annotation | null>;   // a note of this repository, or nothing
   annotations: () => Promise<{ notes: Annotation[]; error: string | null }>;  // every note of this repository; the error is kept so a tool can say why the list is empty
   recordingId: string | null;                       // the recording open in the workspace, so a listed note can be marked as written inside it
+  semantics: () => Promise<{ readings: StoredSemantics[]; error: string | null }>;   // what has been read about this application's interfaces
   trace: () => Promise<TraceModel | null>;          // loaded once, when first asked; cut to the open recording
   fullTrace: () => Promise<TraceModel | null>;      // the whole run, when a tool is asked for it
   rawCall: (call: ModelCall) => Promise<ModelCall>; // the same call with its raw bodies
@@ -38,6 +41,7 @@ export const TOOLS: Anthropic.Messages.Tool[] = [
   { name: "read_repo_file", description: "A file's lines, numbered. Defaults to the first 200 lines; pass from and to for a window. Secrets and environment files are not readable, and saved environment values are struck out.", input_schema: obj({ path: { type: "string" }, from: { type: "integer", minimum: 1 }, to: { type: "integer", minimum: 1 } }, ["path"]) },
   { name: "search_repo", description: "Lines in the repository containing a literal phrase, case-insensitive, as path:line. Pass glob (like '*.ts' or 'src/**') to narrow. Use this to find where something is implemented before describing it.", input_schema: obj({ query: { type: "string" }, glob: { type: "string" } }, ["query"]) },
   { name: "list_annotations", description: "Every note a researcher has written on this repository's interface, one line each with its id, the element it is on and the start of what was written. Start here for questions about what the researcher has noted, marked or wondered about. Notes belong to the repository, so the list spans its runs; which run or recording each was written in is marked.", input_schema: obj({}) },
+  { name: "inspect_ui_semantics", description: "What the parts of this application's interfaces are called and what they are for: the areas of a page, and the things a person acts on or reads. Call it with no argument to list every document that has been read; pass document to read one in full. This is a model's reading of a page, not a recording of anything that happened — every name comes with the raw elements it was read from, and those are the evidence. Use it to say what a person was doing in the application's own words; do not use it as proof that something happened.", input_schema: obj({ document: { type: "string", description: "A document path as the list prints it (\"top\", \"#solution\"), a route, or part of the document's own name." }, offset: { type: "integer", minimum: 0 } }) },
   { name: "inspect_annotation", description: "A note a researcher wrote about one element of the running interface: what they wrote, which element it is on and inside which frame, and the run, recording and commit it was written in. The note is a person's own observation or question, not a recording of the system.", input_schema: obj({ annotation_id: { type: "string", description: "An annotation id from list_annotations, or the one the situation names as open." }, offset: { type: "integer", minimum: 0 } }, ["annotation_id"]) },
 ];
 
@@ -54,6 +58,7 @@ export function toolLabel(name: string, input: Record<string, unknown>): string 
     case "repo_tree": return s("prefix") ? `Listing files under ${s("prefix")}` : "Listing the repository's files";
     case "read_repo_file": return `Reading ${s("path")}`;
     case "search_repo": return `Searching the repository for “${s("query")}”`;
+    case "inspect_ui_semantics": return s("document") ? `Reading what ${s("document")} is for` : "Reading what the interface is for";
     case "list_annotations": return "Listing the researcher's notes";
     case "inspect_annotation": return "Reading the annotation";
     default: return name;
@@ -144,6 +149,14 @@ export async function runTool(name: string, input: Record<string, unknown>, ctx:
         const { notes, error } = await ctx.annotations();
         if (error) return fail(error);
         return ok(annotationList(notes, { runId: ctx.run?.id ?? null, recordingId: ctx.recordingId }));
+      }
+      case "inspect_ui_semantics": {
+        if (!ctx.repo) return fail(noRepo());
+        const { readings, error } = await ctx.semantics();
+        if (error) return fail(error);
+        if (!str("document")) return ok(semanticsList(readings));
+        const report = semanticsReport(readings, str("document"), int("offset") ?? 0);
+        return report ? ok(report) : fail(`No interface of this application has been read that matches ${str("document")}. Call inspect_ui_semantics with no argument for the list.`);
       }
       case "inspect_annotation": {
         const note = await ctx.annotation(str("annotation_id"));

@@ -9,6 +9,8 @@ import { getModelCall, getTrace } from "@/app/workspace/[workspaceId]/trace-acti
 import { isBartModel } from "@/lib/bart/models";
 import { MAX_MESSAGE_CHARS, refsIn, type BartEvent, type BartRequest, type MessageContext, type SelectionRef } from "@/lib/bart/protocol";
 import { traceModel, type TraceModel } from "@/lib/bart/grounding";
+import { buildIndex } from "@/lib/semantics/lookup";
+import { mapsOf, toStoredSemantics, SEMANTIC_COLUMNS, type SemanticRow, type StoredSemantics } from "@/lib/semantics/model";
 import { SYSTEM_PROMPT, situationBlock } from "@/lib/bart/prompt";
 import { TOOLS, runTool, toolLabel, type ToolContext } from "@/lib/bart/tools";
 import { redactor } from "@/lib/bart/repo";
@@ -95,13 +97,29 @@ export async function POST(req: NextRequest) {
   }
   const context: MessageContext = { runId: runOk?.id ?? null, repoId: repo?.id ?? null, selection, recordingId: recording?.id ?? null, annotationId: annotation?.id ?? null };
 
+  // What has been read about this application's interfaces, once per
+  // turn. It is the repository's, like the notes, and it is filtered here
+  // for the same reason: a project holds several repositories and the
+  // read policy is the project's. The error is kept so a missing table
+  // reads as what it is rather than as an application nobody has read.
+  let readings: Promise<{ readings: StoredSemantics[]; error: string | null }> | null = null;
+  const semantics = () => (readings ??= (async () => {
+    if (!repo) return { readings: [], error: null };
+    const { data, error } = await supabase.from("engelbart_ui_semantics").select(SEMANTIC_COLUMNS).eq("repo_id", repo.id).order("created_at", { ascending: true });
+    if (error) return { readings: [], error: `What the interface is for could not be read: ${error.message}` };
+    return { readings: (data ?? []).map((r) => toStoredSemantics(r as SemanticRow)), error: null };
+  })());
+
   // The trace is read once per turn, when the situation is written; the
-  // same model serves every tool call of the turn.
+  // same model serves every tool call of the turn. The rows are named
+  // with the reading where there is one, exactly as the Trace tab names
+  // them, so Bart and the person are reading the same words.
   let loaded: Promise<TraceModel | null> | null = null;
+  const index = async () => { const got = await semantics(); return buildIndex(mapsOf(got.readings)); };
   const fullTrace = () => (loaded ??= (async () => {
     if (!runOk || runOk.trace === "off") return null;
     const snap = await getTrace(runOk.id);
-    return snap.ok ? traceModel(snap.events, snap.calls) : null;
+    return snap.ok ? traceModel(snap.events, snap.calls, undefined, await index()) : null;
   })());
   let notes: Promise<{ notes: Annotation[]; error: string | null }> | null = null;
   let scoped: Promise<TraceModel | null> | null = null;
@@ -109,7 +127,7 @@ export async function POST(req: NextRequest) {
     const full = await fullTrace();
     if (!full || !recording) return full;
     const cut = scopeTrace(full.events, Object.values(full.calls), windowOf(recording));
-    return traceModel(cut.events, cut.calls, full.frames);
+    return traceModel(cut.events, cut.calls, full.frames, await index());
   })());
   const ctx: ToolContext = {
     repo, run: runOk, access: repo ? { repo, run: runOk, redact: await redactor(repo.id) } : null, trace, fullTrace,
@@ -136,6 +154,7 @@ export async function POST(req: NextRequest) {
       return { notes: (data ?? []).map((r) => toAnnotation(r as AnnotationRow)), error: null };
     })()),
     recordingId: recording?.id ?? null,
+    semantics,
     rawCall: async (call) => { const got = await getModelCall(call.id, true); return got.ok ? got.call : call; },
   };
   const situation = situationBlock({ repo, run: runOk, selection, trace: await trace(), source: isSandboxLive(runOk ?? undefined) ? "sandbox" : repo ? "github" : "none", recording, annotation });
