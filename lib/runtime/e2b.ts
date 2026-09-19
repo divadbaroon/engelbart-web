@@ -1,8 +1,12 @@
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { Sandbox, CommandExitError } from "e2b";
-import type { LaunchOutcome, LaunchRecipe, Recorder, Runtime } from "@/lib/runtime/types";
+import type { LaunchOptions, LaunchOutcome, LaunchRecipe, Recorder, Runtime } from "@/lib/runtime/types";
 import type { AgentCost, PreviewService, RunBlocker, RunBrief, RunEscalation } from "@/lib/sandbox";
 import { toEnvReport } from "@/lib/environment";
 import { toPatch } from "@/lib/patch";
+import type { Repo } from "@/lib/repos";
 
 // The templates runner sandboxes start from. Built by sandbox/build-template.mjs.
 // The Docker one has Docker, Compose, the Supabase CLI and more memory.
@@ -28,6 +32,19 @@ const PROXY_PORT = 43110;   // the first public port; each service gets the next
 const RECIPE_FILE = "/home/user/.engelbart-recipe.json";
 const ENV_FILE = "/home/user/.engelbart-env.json";   // the wrapper deletes it once read
 const BRIEF_FILE = "/home/user/.engelbart-brief.json";
+// The behavior trace's model gateway: loopback only, one per run, with
+// the run's token in its path. The application's model client is pointed
+// at it by the wrapper.
+const MODEL_GATEWAY = "/opt/engelbart/trace/model-gateway.mjs";
+const MODEL_GATEWAY_PORT = 43200;
+const REDACT_FILE = "/home/user/.engelbart-redact.json";   // the gateway deletes it once read
+const GATEWAY_START_MS = 15_000;
+// The preview gateway takes proxy.mjs's place for a traced run: same
+// public ports, plus the browser bridge in every document and network
+// events for the trace. Its own redaction file, since the model gateway
+// deletes the first once read.
+const PREVIEW_GATEWAY = "/opt/engelbart/trace/preview-gateway.mjs";
+const PREVIEW_REDACT_FILE = "/home/user/.engelbart-redact-preview.json";
 
 const errorKind = (err: unknown) => (err instanceof Error ? err.constructor.name : "Error");
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -154,6 +171,12 @@ export const e2bRuntime: Runtime = {
       }
     }
 
+    // The behavior trace: a model gateway the application's model client
+    // is pointed at, whose stdout the collector turns into rows. Without
+    // one the run is exactly what it was before tracing existed.
+    const trace = options.trace ?? null;
+    const gateway = trace ? await startModelGateway(sandbox, repo, trace, options.env ?? {}, record) : null;
+
     const cmd = `python3 ${WRAPPER} ${shellQuote(run.workdir)}`;
     record.event("command", cmd);
     const lines = new LineReader();
@@ -180,7 +203,10 @@ export const e2bRuntime: Runtime = {
         const ev = parseEvent(line);
         if (!ev) { record.event("stdout", line + "\n"); return; }
         describe(ev, record);
-        if (ev.phase === "resolve" || ev.phase === "setup" || ev.phase === "conclusion" || (ev.phase === "order" && ev.status === "gave_up") || (ev.phase === "patch" && ev.status === "starting")) extendForLadder();
+        if (ev.phase === "instrument" && trace) {
+          trace.collector.note("wrapper", `instrument.${String(ev.status ?? "unknown")}`, Object.fromEntries(Object.entries(ev).filter(([k]) => k !== "phase")));
+        }
+        if (ev.phase === "resolve" || ev.phase === "setup" || ev.phase === "start" || ev.phase === "conclusion" || (ev.phase === "order" && ev.status === "gave_up") || (ev.phase === "patch" && ev.status === "starting")) extendForLadder();
         if (ev.phase === "recipe") {
           if (ev.status === "captured" && ev.recipe && typeof ev.recipe === "object") recipe = ev.recipe as LaunchRecipe;
           if (ev.status === "failed") recipeFailed = true;
@@ -206,7 +232,10 @@ export const e2bRuntime: Runtime = {
           const patch = toPatch(ev, run.id, new Date().toISOString());
           if (patch) options.onPatch?.(patch);
         } else if (ev.phase === "ready" && typeof ev.port === "number") {
-          expose(sandbox, readyServices(ev), record)
+          // An application that answers is not blocked, whatever a rung
+          // below concluded on the way here.
+          escalation.blocker = null;
+          expose(sandbox, readyServices(ev), record, trace, options.env ?? {})
             .then((services) => {
               const entry = services[0];
               const fields = { previewUrl: entry.previewUrl, port: entry.port, services };
@@ -266,6 +295,9 @@ export const e2bRuntime: Runtime = {
           ...Object.fromEntries(Object.entries(process.env).filter(([k]) => /^HC_(BRIEF|RESOLVER|REPAIR|SETUP|SETUP_RETRY)_(MODEL|BUDGET_USD)$/.test(k)).map(([k, v]) => [k, v ?? ""])),
           ...(options.hint ? { HC_PROJECT_HINT: options.hint.slice(0, 500) } : {}),
           ...(handedEnv ? { HC_ENV_FILE: ENV_FILE } : {}),
+          // With a gateway up, the wrapper applies the repository's registered
+          // sandbox-only instrumentation and hands the application the URL.
+          ...(gateway ? { ENGELBART_TRACE: "1", ENGELBART_REPO: repo.fullName, ENGELBART_MODEL_GATEWAY_URL: gateway.url } : {}),
         },
         onStdout: (d) => lines.push(d),
         onStderr: (d) => record.event("stderr", d),
@@ -312,6 +344,86 @@ export const e2bRuntime: Runtime = {
     }
   },
 };
+
+// What sandbox/instrumentation registers for a repository: the diff the
+// wrapper applies and the upstream hosts the artifact already talks to.
+type Instrumentation = { diff: string; why: string; upstreams?: string[]; environment?: Record<string, string> };
+function instrumentationFor(repo: Repo): Instrumentation | null {
+  try {
+    const dir = process.env.ENGELBART_INSTRUMENTATION_DIR ?? path.join(process.cwd(), "sandbox", "instrumentation");
+    const index = JSON.parse(fs.readFileSync(path.join(dir, "index.json"), "utf8")) as Record<string, Instrumentation>;
+    return index[repo.fullName.toLowerCase()] ?? null;
+  } catch { return null; }
+}
+
+// Start the preview gateway on the same mappings proxy.mjs would take and
+// wait for it to announce itself. Best effort: if it does not come up, it
+// is stopped and the plain proxy serves the run, which is then traced on
+// the model side only.
+async function startPreviewGateway(sandbox: Sandbox, specs: string, trace: NonNullable<LaunchOptions["trace"]>, env: Record<string, string>, record: Recorder): Promise<boolean> {
+  const lines = new LineReader();
+  lines.onLine = (line) => { if (!trace.collector.line(line)) record.event("stdout", line + "\n"); };
+  try {
+    await sandbox.files.write(PREVIEW_REDACT_FILE, JSON.stringify(env));
+    const cmd = `node ${PREVIEW_GATEWAY} ${specs}`;
+    record.event("command", cmd);
+    const handle = await sandbox.commands.run(cmd, {
+      background: true,
+      timeoutMs: RUN_SANDBOX_TIMEOUT_MS,
+      envs: { ENGELBART_TRACE_CAPTURE: trace.capture, ENGELBART_REDACT_FILE: PREVIEW_REDACT_FILE },
+      onStdout: (d) => lines.push(d),
+      onStderr: (d) => record.event("stderr", d),
+    });
+    const up = await trace.collector.listening("preview", GATEWAY_START_MS);
+    if (up) return true;
+    record.event("error", "the preview gateway did not start in time; interactions and requests will not be traced", { kind: "TraceGatewayError" });
+    try { await handle.kill(); } catch { /* gone */ }
+    return false;
+  } catch (err) {
+    record.event("error", `the preview gateway could not be started: ${errorMessage(err)}; interactions and requests will not be traced`, { kind: "TraceGatewayError" });
+    return false;
+  }
+}
+
+// Start the run's model gateway and wait for it to announce itself. The
+// saved environment values go to it as the list of what to redact, in a
+// file it deletes once read. Best effort: without a gateway the run goes
+// on untraced, and says so.
+type ModelGateway = { url: string; port: number };
+async function startModelGateway(sandbox: Sandbox, repo: Repo, trace: NonNullable<LaunchOptions["trace"]>, env: Record<string, string>, record: Recorder): Promise<ModelGateway | null> {
+  const token = crypto.randomBytes(18).toString("base64url");
+  const registered = instrumentationFor(repo);
+  const lines = new LineReader();
+  lines.onLine = (line) => { if (!trace.collector.line(line)) record.event("stdout", line + "\n"); };
+  try {
+    await sandbox.files.write(REDACT_FILE, JSON.stringify(env));
+    const cmd = `node ${MODEL_GATEWAY}`;
+    record.event("command", cmd);
+    await sandbox.commands.run(cmd, {
+      background: true,
+      timeoutMs: RUN_SANDBOX_TIMEOUT_MS,
+      envs: {
+        ENGELBART_TRACE_TOKEN: token,
+        ENGELBART_TRACE_CAPTURE: trace.capture,
+        ENGELBART_MODEL_GATEWAY_PORT: String(MODEL_GATEWAY_PORT),
+        ENGELBART_REDACT_FILE: REDACT_FILE,
+        ...(registered?.upstreams?.length ? { ENGELBART_MODEL_UPSTREAMS: registered.upstreams.join(",") } : {}),
+      },
+      onStdout: (d) => lines.push(d),
+      onStderr: (d) => record.event("stderr", d),
+    });
+    const up = await trace.collector.listening("model", GATEWAY_START_MS);
+    if (!up) {
+      record.event("error", "the model gateway did not start in time; model calls will not be traced", { kind: "TraceGatewayError" });
+      return null;
+    }
+    if (registered) record.event("status", `sandbox-only instrumentation is registered for ${repo.fullName}: ${registered.why}`, { phase: "trace", instrumentation: registered.diff, upstreams: registered.upstreams });
+    return { url: `http://127.0.0.1:${up.port}/t/${token}`, port: up.port };
+  } catch (err) {
+    record.event("error", `the model gateway could not be started: ${errorMessage(err)}; model calls will not be traced`, { kind: "TraceGatewayError" });
+    return null;
+  }
+}
 
 // Bring up the Docker daemon in a sandbox built from the Docker template,
 // and open its socket to the sandbox user the app runs as. Best effort:
@@ -363,16 +475,20 @@ function readyPath(url: unknown): string | undefined {
 // check the entry's public URL answers, so "running" means reachable from
 // the browser, not just healthy on loopback. The others are not probed:
 // an API may well answer 404 at its root and still be fine.
-async function expose(sandbox: Sandbox, wanted: ReadyService[], record: Recorder): Promise<PreviewService[]> {
+async function expose(sandbox: Sandbox, wanted: ReadyService[], record: Recorder, trace: LaunchOptions["trace"] | null, env: Record<string, string>): Promise<PreviewService[]> {
   const mappings = wanted.map((s, i) => ({ ...s, listenPort: PROXY_PORT + i }));
-  const cmd = `node ${PROXY} ${mappings.map((m) => shellQuote(`${m.listenPort}:${m.port}:${m.host}`)).join(" ")}`;
-  record.event("command", cmd);
-  await sandbox.commands.run(cmd, {
-    background: true,
-    timeoutMs: RUN_SANDBOX_TIMEOUT_MS,
-    onStdout: (d) => record.event("stdout", d),
-    onStderr: (d) => record.event("stderr", d),
-  });
+  const specs = mappings.map((m) => shellQuote(`${m.listenPort}:${m.port}:${m.host}`)).join(" ");
+  const traced = trace ? await startPreviewGateway(sandbox, specs, trace, env, record) : false;
+  if (!traced) {
+    const cmd = `node ${PROXY} ${specs}`;
+    record.event("command", cmd);
+    await sandbox.commands.run(cmd, {
+      background: true,
+      timeoutMs: RUN_SANDBOX_TIMEOUT_MS,
+      onStdout: (d) => record.event("stdout", d),
+      onStderr: (d) => record.event("stderr", d),
+    });
+  }
   const services: PreviewService[] = mappings.map((m) => ({
     id: m.id, port: m.port, previewUrl: `https://${sandbox.getHost(m.listenPort)}${m.path ?? ""}`, isEntry: m.isEntry, embeddable: m.embeddable,
   }));
@@ -444,8 +560,10 @@ function describe(ev: WrapperEvent, record: Recorder) {
       const skipped = (ev.skipped as string[] | undefined) ?? [];
       const provided = (ev.provided as string[] | undefined) ?? [];
       const ignored = (ev.ignored as string[] | undefined) ?? [];
+      const instrumented = (ev.instrumented as string[] | undefined) ?? [];
       const parts = [
-        provided.length ? `using saved values for ${provided.join(", ")}` : "",
+        provided.filter((n) => !instrumented.includes(n)).length ? `using saved values for ${provided.filter((n) => !instrumented.includes(n)).join(", ")}` : "",
+        instrumented.length ? `routing model calls through the gateway via ${instrumented.join(", ")}` : "",
         skipped.length ? `skipping missing environment values: ${skipped.join(", ")}` : "",
         ignored.length ? `saved values not read by this app: ${ignored.join(", ")}` : "",
       ].filter(Boolean);
@@ -475,6 +593,17 @@ function describe(ev: WrapperEvent, record: Recorder) {
         : ev.status === "none" ? `repair agent changed nothing${ev.reason ? `: ${ev.reason}` : ""}`
         : `repair agent ${ev.status}${ev.reason ? `: ${ev.reason}` : ""}`;
       // The diff is kept in the event's data, not its text; the summary says enough.
+      record.event("status", text, ev);
+      return;
+    }
+    case "instrument": {
+      const files = Array.isArray(ev.files) ? (ev.files as string[]) : [];
+      const text =
+        ev.status === "applied" ? `sandbox-only instrumentation applied to ${files.join(", ")} so model calls pass through the gateway; committed in the sandbox copy only, never upstream`
+        : ev.status === "present" ? `sandbox-only instrumentation already in place in ${files.join(", ")} from an earlier launch; handing the application the gateway's URL`
+        : ev.status === "none" ? `no sandbox-only instrumentation is registered for ${ev.repo ?? "this repository"}; model calls are traced only if the application reads its provider's base URL from the environment`
+        : `instrumentation ${ev.status}${ev.reason ? `: ${ev.reason}` : ""}`;
+      // The diff rides in the event's data, like a repair patch.
       record.event("status", text, ev);
       return;
     }
@@ -510,12 +639,18 @@ function describe(ev: WrapperEvent, record: Recorder) {
       record.event("status", `${ev.rung} (${ev.model ?? "?"}): ${typeof ev.cost === "number" ? `$${ev.cost.toFixed(3)}` : "cost unknown"}${typeof ev.turns === "number" ? `, ${ev.turns} turns` : ""}${ev.error ? ` — ${ev.error}` : ""} · run total $${typeof ev.total === "number" ? ev.total.toFixed(3) : "?"}`, ev);
       return;
     case "setup":
-      record.event("status", ev.status === "starting" ? `setup agent: installing the repository for use (attempt ${ev.attempt ?? 1})`
+      record.event("status", ev.status === "starting" ? `setup agent: ${ev.goal === "start" ? "starting the application" : "installing the repository for use"} (attempt ${ev.attempt ?? 1})`
         : ev.status === "replaying" ? "setup: replaying the saved setup script"
         : ev.status === "done" ? `setup: ${ev.summary ?? "done"}` : `setup failed: ${ev.reason ?? String(ev.output ?? "").slice(-200)}`, ev);
       return;
     case "check":
       record.event("status", ev.status === "ok" ? "check passed" : `check failed: ${ev.reason ?? String(ev.output ?? "").slice(-200)}`, ev);
+      return;
+    case "start":
+      record.event("status", ev.status === "starting" ? `setup: starting the application, waiting for ${ev.url ?? "it"}`
+        : ev.status === "answering" ? `setup: the application answers at ${ev.url ?? ""}`
+        : ev.status === "leftover" ? `setup: stopping what the agent left on port ${ev.port ?? "?"}`
+        : `setup: the application did not start: ${ev.reason ?? ""}`, ev);
       return;
     case "usable":
       record.event("status", `set up and ready to use: ${ev.summary ?? ""}`, ev);

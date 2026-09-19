@@ -71,6 +71,8 @@ function stepOf(e: SandboxEvent, seenReady: boolean): StepId | null {
     // Setting a repository up for use: the install, its check, and the result.
     case "setup": return "start";
     case "check": return "health";
+    // The setup rung starting the application: the launch, then whether it answered.
+    case "start": return d.status === "starting" || d.status === "leftover" ? "start" : "health";
     case "usable": return "live";
     // A pipeline error names the step it came from; before the app is up
     // that is where it belongs, not the health check.
@@ -285,7 +287,10 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined) {
     const resolving = last("health", (e) => e.data?.phase === "resolve" && (e.data?.status === "starting" || e.data?.status === "reading"));
     const rd = data(resolved);
     const blocker = (rd.blocker ?? data(concluded).blocker) as { kind?: string; what?: string } | undefined;
-    if (check) { steps.health.summary = data(check).status === "ok" ? "The check passed" : `The check failed: ${String(data(check).reason ?? data(check).output ?? "").slice(-160)}`; if (data(check).status !== "ok") steps.health.flag = "warned"; }
+    const started = last("health", (e) => e.data?.phase === "start");
+    if (started && data(started).status === "failed") { steps.health.summary = `The application did not start: ${String(data(started).reason ?? "").slice(0, 160)}`; steps.health.flag = "warned"; }
+    else if (started && data(started).status === "answering") steps.health.summary = `The application answers at ${String(data(started).url ?? "")}`;
+    else if (check) { steps.health.summary = data(check).status === "ok" ? "The check passed" : `The check failed: ${String(data(check).reason ?? data(check).output ?? "").slice(-160)}`; if (data(check).status !== "ok") steps.health.flag = "warned"; }
     else if (concluded && data(concluded).status === "blocked") { steps.health.summary = `Blocked${blocker?.kind ? ` (${blocker.kind})` : ""}: ${String(blocker?.what ?? data(concluded).reason ?? "").slice(0, 200)}`; steps.health.flag = "warned"; }
     else if (concluded) steps.health.summary = `Nothing to serve: ${String(data(concluded).reason ?? "").slice(0, 200)}`;
     else if (rd.status === "plan") { steps.health.summary = `The resolver corrected the plan: ${String(rd.hint ?? "").slice(0, 160)}`; steps.health.flag = "warned"; }

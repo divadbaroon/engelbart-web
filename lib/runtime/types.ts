@@ -4,6 +4,8 @@ import type { Repo } from "@/lib/repos";
 import type { EventKind, PreviewService, RunBrief, RunEscalation, RunStatus, RunUsage, SandboxRun } from "@/lib/sandbox";
 import type { EnvReport } from "@/lib/environment";
 import type { RepoPatch } from "@/lib/patch";
+import type { ContentCapture } from "@/lib/trace/types";
+import type { Collector } from "@/lib/trace/collector";
 
 // Where a run writes what happened. Every status change, command and chunk
 // of output goes through here, so the record is complete by construction.
@@ -64,6 +66,10 @@ export type LaunchOptions = {
   // The brief made for this commit by an earlier run, so this one does
   // not make it again.
   brief?: RunBrief | null;
+  // Record a behavior trace: model calls through a gateway in the sandbox,
+  // with their content ("full") or only its shape ("metadata"), written by
+  // the collector. Null means no gateway and no instrumentation.
+  trace?: { capture: ContentCapture; collector: Collector } | null;
 };
 
 export type Runtime = {

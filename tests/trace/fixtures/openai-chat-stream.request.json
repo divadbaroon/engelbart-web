@@ -1,0 +1,79 @@
+{
+  "model": "gpt-4o-2024-08-06",
+  "max_tokens": 4096,
+  "temperature": 0.7,
+  "stream": true,
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are ROPE, a tutor who helps a learner plan a small Python game step by step. Reply with JSON that matches the outline_json schema. The learner's API key is sk-test-secret-key-000000000000000000 and must never be repeated."
+    },
+    {
+      "role": "user",
+      "content": "I want to build Tetris."
+    }
+  ],
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "outline_json",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "chatContent": {
+            "type": "string"
+          },
+          "gameDoc": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "show": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "description",
+                    "show"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "name",
+              "steps"
+            ],
+            "additionalProperties": false
+          },
+          "action": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "chatContent",
+          "gameDoc",
+          "action"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

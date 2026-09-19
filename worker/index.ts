@@ -21,6 +21,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Sandbox } from "e2b";
 import { getRuntime, type LaunchRecipe, type Recorder, type Runtime } from "@/lib/runtime";
 import { createRecorder } from "@/lib/runtime/recorder";
+import { createCollector, type Collector } from "@/lib/trace/collector";
 import { REPO_COLUMNS, toRepo, type RepoRow } from "@/lib/repos";
 import { RUN_COLUMNS, toRun, type RunRow, type SandboxRun, type RunBrief } from "@/lib/sandbox";
 import type { EnvReport } from "@/lib/environment";
@@ -107,7 +108,9 @@ class Worker {
     const repo = toRepo(repoRow);
     this.inFlight.set(run.id, run);
     const record = createRecorder(this.supabase, run.id);
-    log({ event: "claimed", run: run.id, repo: repo.fullName, resume: !!run.sandboxId });
+    // The run's behavior trace, when it asked for one.
+    const collector: Collector | null = run.trace !== "off" ? createCollector(this.supabase, run.id, record) : null;
+    log({ event: "claimed", run: run.id, repo: repo.fullName, resume: !!run.sandboxId, trace: run.trace });
     record.event("status", `picked up by runner ${WORKER_ID}`, { worker: WORKER_ID });
     try {
       // A run that still has its sandbox (asked to launch again) skips the clone.
@@ -131,6 +134,7 @@ class Worker {
         const brief = launchable.fresh ? null : await this.pickBrief(repo.id, launchable.commit);
         const launched = await this.runtime.launch(repo, launchable, record, {
           recipe, env, hint: repo.hint, brief,
+          trace: collector && launchable.trace !== "off" ? { capture: launchable.trace, collector } : null,
           onEnvironment: (report) => void this.saveEnvReport(repo.id, report),
           // A patch made in this run has no origin; one replayed from a recipe does.
           onPatch: (p) => { patch = { ...p, origin: p.replayed ? origin : null }; void this.savePatch(repo.id, patch); },
@@ -150,6 +154,8 @@ class Worker {
       await record.status("failed", { errorKind: "WorkerError", error: message });
     } finally {
       await record.flush();
+      await collector?.flush();
+      if (collector) log({ event: "trace", run: run.id, ...collector.stats() });
       this.inFlight.delete(run.id);
       log({ event: "released", run: run.id });
     }

@@ -11,12 +11,15 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import time
 import uuid
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit, urlunsplit
+from urllib.request import urlopen
 
 # Every answer the planner and the runner can settle on. A planner answer
 # outside this list once kept the wrapper polling until the deadline.
@@ -46,6 +49,15 @@ REPAIR_BUDGET = float(setting("HC_REPAIR_BUDGET_USD", "6"))
 SETUP_BUDGET = float(setting("HC_SETUP_BUDGET_USD", "8"))
 COSTS = []   # every agent call this run: rung, model, cost, turns, seconds
 
+# --- The behavior trace. When the worker runs a model gateway for the run,
+# the repository's registered sandbox-only instrumentation is applied and
+# the application is handed the gateway's URL under the names the
+# registry lists. Nothing here runs when the run is not traced.
+INSTRUMENTATION_DIR = os.environ.get("ENGELBART_INSTRUMENTATION_DIR") or "/opt/engelbart/instrumentation"
+INSTRUMENT_COMMIT = "engelbart: sandbox-only instrumentation, never upstream"
+TRACE_ENV = {}        # values Engelbart hands the application so its model calls pass through the gateway
+TRACE_NAMES = set()   # their names, for the environment report
+
 
 def agent(rung, prompt, model, budget, tools=None, max_turns=1, timeout=600, cwd=None, schema=None, system=None):
     """One claude -p call. Returns (answer, info): the agent's final JSON
@@ -55,20 +67,23 @@ def agent(rung, prompt, model, budget, tools=None, max_turns=1, timeout=600, cwd
     # A structured answer takes the CLI a turn of its own on top of the reply.
     if schema:
         max_turns = max(max_turns, 3)
-    command = ["claude", "-p", prompt, "--output-format", "json", "--model", model,
+    # The prompt goes in on stdin, not as an argument: an agent that stops a
+    # server with `pkill -f <pattern>` would otherwise match its own command
+    # line, which carried the whole prompt (a port, "start.sh", the app's name).
+    command = ["claude", "-p", "--output-format", "json", "--model", model,
                "--max-budget-usd", f"{budget:g}", "--max-turns", str(max_turns)]
     command += ["--allowedTools", *tools] if tools else ["--tools", ""]
     if schema:
         command += ["--json-schema", json.dumps(schema)]
     if system:
         command += ["--system-prompt", system]
-    env = {k: v for k, v in os.environ.items() if k not in ("HC_RECIPE_FILE", "HC_ENV_FILE", "HC_BRIEF_FILE")}
+    env = {k: v for k, v in os.environ.items() if k not in ("HC_RECIPE_FILE", "HC_ENV_FILE", "HC_BRIEF_FILE", "ENGELBART_MODEL_GATEWAY_URL")}
     env["PIP_NO_CACHE_DIR"] = "1"
     info = {"rung": rung, "model": model, "cost": None, "turns": None, "seconds": None, "error": None}
     started = time.time()
     answer = {}
     try:
-        proc = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(command, cwd=cwd, env=env, input=prompt, capture_output=True, text=True, timeout=timeout)
         envelope = {}
         try:
             envelope = json.loads(proc.stdout)
@@ -126,7 +141,7 @@ def blocked(reason, blocker, step):
     the first line of what to do next."""
     reason = str(reason or "The application could not be started")[:2000]
     emit(phase="conclusion", status="blocked", step=step, reason=reason, blocker=blocker)
-    if setup_for_use(REPO, reason, blocker=blocker):
+    if setup_for_use(REPO, reason, blocker=blocker, blocked=True):
         stay_alive()
     fail("Blocked, and the repository could not be set up for use either: " + (LAST_CHECK or "the check did not pass"), step="setup", outcome="blocked", blocker=blocker)
 
@@ -180,6 +195,7 @@ def main():
     os.environ.setdefault("HUMAN_COMPACT_HOME", str(Path.home() / ".human-compact"))
     if not os.environ.get("ANTHROPIC_API_KEY"):
         fail("ANTHROPIC_API_KEY is not set in the sandbox")
+    instrument(repo)
 
     from human_compact.trajectory import (project_analysis as PA, project_components as PC,
                                           project_environment as PE, project_order as PO, project_run as PR,
@@ -190,7 +206,11 @@ def main():
     if recipe and recipe.get("kind") == "setup":
         # The saved way to set this repository up for use, without the agent.
         emit(phase="recipe", status="replaying", kind="setup", saved=recipe.get("savedAt"))
-        emit(phase="conclusion", status="no_service", step="trail", reason=str(recipe.get("reason") or "Nothing to serve, as saved")[:2000])
+        if not recipe.get("startUrl"):
+            # Last time the setup rung's ending was usable; say again why.
+            saved_blocker = recipe.get("blocker") if isinstance(recipe.get("blocker"), dict) else None
+            emit(phase="conclusion", status="blocked" if saved_blocker else "no_service", step="trail",
+                 reason=str(recipe.get("reason") or "Nothing to serve, as saved")[:2000], blocker=saved_blocker)
         if setup_for_use(repo, recipe.get("reason"), recipe=recipe):
             stay_alive()
         emit(phase="recipe", status="failed", reason=LAST_CHECK or "the saved setup did not pass its check")
@@ -298,6 +318,66 @@ def apply_patch(root, patch):
         raise ValueError("the saved patch no longer applies")
     PATCH = {k: patch.get(k) for k in ("summary", "reason", "files", "diff", "truncated", "attempt")}
     emit(phase="patch", status="replayed", summary=patch.get("summary"), files=patch.get("files"))
+
+
+def instrument(repo):
+    """Engelbart's own change to the sandbox copy, when the run is traced
+    and the registry has one for this repository: the smallest edit that
+    lets the application's model calls be routed through the gateway,
+    with its original behavior kept as the default. Applied before
+    anything reads the repository and committed there, so the repair
+    agent's diffs and the saved trail never carry it; reported in full,
+    diff included, so nothing about it is hidden. Separate from PATCH on
+    purpose: a repair fixes the application, this only observes it."""
+    if os.environ.get("ENGELBART_TRACE") != "1":
+        return
+    name = (os.environ.get("ENGELBART_REPO") or "").strip().lower()
+    gateway = (os.environ.get("ENGELBART_MODEL_GATEWAY_URL") or "").rstrip("/")
+    try:
+        with open(Path(INSTRUMENTATION_DIR) / "index.json", encoding="utf-8") as f:
+            entry = (json.load(f) or {}).get(name)
+    except (OSError, ValueError) as exc:
+        emit(phase="instrument", status="failed", repo=name, reason=f"the instrumentation registry could not be read: {str(exc)[:200]}")
+        return
+    if not entry:
+        emit(phase="instrument", status="none", repo=name)
+        return
+    if not gateway:
+        emit(phase="instrument", status="skipped", repo=name, reason="no model gateway URL was handed to the wrapper")
+        return
+    try:
+        diff = (Path(INSTRUMENTATION_DIR) / entry["diff"]).read_text(encoding="utf-8")
+    except (OSError, KeyError, TypeError) as exc:
+        emit(phase="instrument", status="failed", repo=name, reason=f"the registered diff could not be read: {str(exc)[:200]}")
+        return
+    files = [line[6:] for line in diff.splitlines() if line.startswith("+++ b/")]
+    values = {k: str(v).replace("{gateway}", gateway) for k, v in (entry.get("environment") or {}).items() if isinstance(k, str)}
+    # A sandbox launched again already carries the commit; only the
+    # gateway URL is new.
+    subjects = subprocess.run(["git", "log", "--format=%s", "-n", "20"], cwd=repo, capture_output=True, text=True).stdout.splitlines()
+    if INSTRUMENT_COMMIT in subjects:
+        TRACE_ENV.update(values)
+        TRACE_NAMES.update(values)
+        os.environ.update(values)
+        emit(phase="instrument", status="present", repo=name, files=files, environment=sorted(values))
+        return
+    proc = subprocess.run(["git", "apply", "--whitespace=nowarn", "-"], cwd=repo, input=diff, capture_output=True, text=True)
+    if proc.returncode != 0:
+        emit(phase="instrument", status="failed", repo=name, files=files, reason="the diff no longer applies to this commit: " + (proc.stderr or proc.stdout).strip()[:300])
+        return
+    subprocess.run(["git", "add", "--", *files], cwd=repo, capture_output=True)
+    commit = subprocess.run(["git", "-c", "user.name=Engelbart", "-c", "user.email=engelbart@sandbox.invalid", "commit", "-q", "-m", INSTRUMENT_COMMIT],
+                            cwd=repo, capture_output=True, text=True)
+    if commit.returncode != 0:
+        # Not committed means a repair diff would carry it; undo rather than blur the two.
+        subprocess.run(["git", "checkout", "--", *files], cwd=repo, capture_output=True)
+        emit(phase="instrument", status="failed", repo=name, files=files, reason="the edit could not be committed in the sandbox copy: " + (commit.stderr or commit.stdout).strip()[:300])
+        return
+    TRACE_ENV.update(values)
+    TRACE_NAMES.update(values)
+    os.environ.update(values)   # the setup rung's scripts inherit the wrapper's environment
+    emit(phase="instrument", status="applied", repo=name, files=files, diff=diff, why=entry.get("why"),
+         environment=sorted(values), upstreams=entry.get("upstreams"), commit=INSTRUMENT_COMMIT)
 
 
 def stop_leftovers(PR, run_id):
@@ -508,13 +588,14 @@ def environment(PE, dirs, provided, ignored, local, local_error=None):
                     missing.append(name)
                 if name not in variables or status == "missing":
                     variables[name] = {"name": name, "status": status, "requirement": v.get("requirement"), "group": v.get("group"),
-                                       "source": "local Supabase" if name in local else "saved" if saved else v.get("source"),
+                                       "source": "local Supabase" if name in local else "Engelbart trace" if name in TRACE_NAMES else "saved" if saved else v.get("source"),
                                        "public": bool(v.get("public"))}
             if missing:
                 skips[d] = missing
         rows = list(variables.values())
         emit(phase="environment", variables=rows, skipped=sorted({n for names in skips.values() for n in names}), provided=sorted(provided),
-             ignored=ignored, local=sorted(local), localError=local_error, directories=len(dirs))
+             ignored=ignored, local=sorted(local), localError=local_error, directories=len(dirs),
+             instrumented=sorted(TRACE_NAMES & set(provided)))
     except Exception as exc:  # noqa: BLE001
         emit(phase="environment", warning=str(exc)[:300])
     return skips
@@ -525,7 +606,7 @@ def run(PR, PE, PS, run_id, cwd, root):
     gives up (the reason). On ready the recipe is emitted for saving."""
     global LAST_LOCAL_ERROR, LAST_MISSING, LAST_APP_ERROR
     dirs = plan_directories(PR, run_id, cwd, root)
-    provided, ignored = hand_over(PE, dirs, load_env())
+    provided, ignored = hand_over(PE, dirs, {**load_env(), **TRACE_ENV})
     local, local_error = local_supabase(PS, PE, cwd, root)
     skips = environment(PE, dirs, provided, ignored, local, local_error)
     LAST_LOCAL_ERROR = local_error
@@ -1109,6 +1190,12 @@ def ensure_brief(repo):
     answer, info = agent("brief", brief_prompt(BUNDLE), BRIEF_MODEL, BRIEF_BUDGET, timeout=BRIEF_TIMEOUT_S, cwd=root,
                          schema=BRIEF_SCHEMA, system=BRIEF_SYSTEM, max_turns=10)
     if not answer.get("purpose"):
+        # Without a brief every rung below works half blind; one more try
+        # with the stronger model is cheaper than that.
+        emit(phase="brief", status="retrying", reason=info["error"] or "no brief came back", model=RESOLVER_MODEL, **cost_fields(info))
+        answer, info = agent("brief", brief_prompt(BUNDLE), RESOLVER_MODEL, BRIEF_BUDGET * 2, timeout=BRIEF_TIMEOUT_S, cwd=root,
+                             schema=BRIEF_SCHEMA, system=BRIEF_SYSTEM, max_turns=10)
+    if not answer.get("purpose"):
         emit(phase="brief", status="failed", reason=info["error"] or "no brief came back", **cost_fields(info))
         return
     BRIEF = answer
@@ -1226,6 +1313,7 @@ def escalate(step, status, reason, stage=None, output="", plan=None, commands=No
     repository is set up for use with the blocker written down (never
     returns)."""
     global ESCALATIONS, RESOLVER_HINT
+    LAST_ESCALATION.update(stage=stage, output=str(output or "")[-4000:], plan=plan)
     if secret_only(status, reason):
         blocked(reason, {"kind": "secret", "what": str(reason)[:500], "names": list(LAST_MISSING)}, step)
     if ESCALATIONS == 0:
@@ -1240,12 +1328,19 @@ def escalate(step, status, reason, stage=None, output="", plan=None, commands=No
     blocked(reason, {"kind": "unknown", "what": "The corrected plan did not start it either: " + str(reason)[:400]}, step)
 
 
-# --- Setting a repository up for use when there is nothing to serve.
+# --- Setting a repository up for use when the pipeline could not start it.
 #
 # An agent installs the repository the way its documentation says, writes a
 # check that proves it works, and writes what the person runs next. The
 # check is run by the pipeline itself before the run is called usable, and
 # the scripts are the trail for next time.
+#
+# When the brief says there is an application, "usable" is not an ending
+# unless something outside the sandbox's reach (a secret, a service, a
+# device, a dataset) keeps it from starting. Otherwise the rung has to start
+# the application itself and get a page, with everything the earlier rungs
+# found handed to it: the repair agent's edits (already in this copy), the
+# resolver's correction, and the failing stage's output.
 
 REPO = None
 LAST_CHECK = None
@@ -1255,49 +1350,242 @@ CHECK_TIMEOUT_S = 5 * 60
 SETUP_ATTEMPTS = 2
 SETUP_TOOLS = ["Read", "Grep", "Glob", "LS", "Edit", "MultiEdit", "Write", "Bash"]
 SETUP_IGNORE = "venv/\nnode_modules/\ndata/\n*.log\n"
+SETUP_START_TIMEOUT_S = 10 * 60   # how long the started application gets to answer at its URL
+START_POLL_S = 3
+HARD_BLOCKERS = ("secret", "service", "hardware", "data")   # what no agent in this sandbox can supply
+LAST_ESCALATION = {}    # what the failed attempt left for the setup rung: the stage output and the plan
+APP = None              # the application the setup rung started: its process, URL and log
 
 
-def setup_prompt(repo, reason, attempt, last_output, blocker=None):
-    if blocker:
+def app_expected(blocked=False):
+    """Whether there is an application a person would open. The brief
+    says; without one, a pipeline that was blocked starting something was
+    starting an application."""
+    if not BRIEF:
+        return blocked
+    nothing = (BRIEF.get("nothingToServe") or {}).get("value")
+    return not nothing and (blocked or bool((BRIEF.get("primaryApp") or {}).get("path")))
+
+
+def must_start(blocker, blocked=False):
+    """Usable is an ending for an application only when the blocker is
+    something this sandbox cannot supply; otherwise the rung starts it."""
+    return app_expected(blocked) and (blocker or {}).get("kind") not in HARD_BLOCKERS
+
+
+def tried():
+    """What the earlier rungs found, so nothing is lost on the way down."""
+    lines = []
+    if PATCH and PATCH.get("files"):
+        lines.append(f"A repair agent already edited this copy ({PATCH.get('summary')}): " + ", ".join(str(f) for f in PATCH["files"][:20])
+                     + f". Its diff is at {SETUP_DIR}/REPAIR.diff; build on it rather than undoing it.")
+    if RESOLVER_HINT:
+        lines.append("A reviewer's correction of the plan, which did not start it either: " + RESOLVER_HINT)
+    if LAST_ESCALATION.get("plan"):
+        lines.append("The plan the pipeline ran: " + json.dumps(LAST_ESCALATION["plan"])[:1500])
+    if LAST_ESCALATION.get("output"):
+        lines.append("The last output of the failing stage" + (f" ({LAST_ESCALATION.get('stage')})" if LAST_ESCALATION.get("stage") else "") + ":\n"
+                     + str(LAST_ESCALATION["output"])[-2500:])
+    return lines
+
+
+def setup_prompt(repo, reason, attempt, last_output, blocker=None, start=False):
+    if start:
+        app = (BRIEF or {}).get("primaryApp") or {}
+        situation = [f"The repository is at {repo}. Its brief says it has an application a person would open ({app.get('path')}: {str(app.get('why') or '')[:300]}), but the automated pipeline could not start it: {reason}"]
+        if blocker:
+            situation.append(f"A review read the failure as {blocker.get('kind', 'unknown')}: {blocker.get('what', '')}. That is a reading, not a verdict; if you can start the application, do.")
+        situation += tried()
+        situation.append("Your job is to get that application running here, answering on a port, and to leave a script that starts it the same way. "
+                         "You have a shell: start it yourself to see what happens, read the server's output and the page, and fix what stops it. What is broken as published you fix in this copy "
+                         "(pin a dependency, patch a line, write a configuration file). A value the code needs that is not a secret (a port, a host, a flag, a placeholder project id for something that runs locally) you set. "
+                         "Only a secret, an external service, a device or a dataset that this sandbox truly cannot have is a blocker; then you answer with the blocker instead of a start, and NEXT.md opens with what the person must provide.")
+    elif blocker:
         what = f"{blocker.get('kind', 'unknown')}: {blocker.get('what', reason)}"
         situation = [f"The repository is at {repo}. It has an application, but the pipeline could not start it here, and a review confirmed the blocker is outside this sandbox's reach ({what}).",
+                     *tried(),
                      "Install and build everything the blocker does not prevent, so that once the person supplies what is missing, starting is one command. "
                      "The first line of NEXT.md states the blocker and exactly what the person must provide (which variable, which service, which download); then the command that starts the application once it is provided."]
     else:
         situation = [f"The repository is at {repo}. The pipeline already concluded it has no web application of its own to serve: {reason}"]
+    processes = ("You may start servers to try them, and must stop every process you started before you answer: the pipeline starts the application from your start script." if start
+                 else "Do not start servers or background processes.")
+    files = [
+        f"1. {SETUP_DIR}/setup.sh: idempotent; runs from a fresh clone as `bash {SETUP_DIR}/setup.sh` from the repository root. It creates the environment inside {SETUP_DIR}/: a Python venv at {SETUP_DIR}/venv (`uv venv --python X.Y {SETUP_DIR}/venv` when the project needs a Python other than 3.11, else `python3 -m venv {SETUP_DIR}/venv`), then installs the project the way its documentation says (editable install, the extras it needs, requirements files; npm install and a build for JavaScript), and downloads only what is small and required. Datasets the README says to download by the gigabyte are not downloaded; say how in NEXT.md instead.",
+        f"2. {SETUP_DIR}/check.sh: finishes in under two minutes and exits 0 only when the setup works: import the package, run the tool with --help, run the smallest documented example or the fastest unit test, or list the files a dataset repository provides. Runs as `bash {SETUP_DIR}/check.sh` from the repository root.",
+        f"3. {SETUP_DIR}/NEXT.md: for the researcher. First a line on what this repository is. Then the exact commands to run next to reproduce what the README or paper describes (the analyses, experiments, figures), each with a line on what it does and roughly how long it takes, and what still needs data, credentials or a GPU. Commands use {SETUP_DIR}/venv/bin/python or the tool's path in that venv.",
+    ]
+    if start:
+        files.append(f"4. {SETUP_DIR}/start.sh: starts the application from the repository root as `bash {SETUP_DIR}/start.sh`, with the environment setup.sh made, on a fixed port on 127.0.0.1 or 0.0.0.0. It stays in the foreground: `exec` the entry server as its last line, and when there are several processes (a frontend and its API), start the others in the background first, then `exec` the entry. No daemonizing, no `nohup`, nothing that returns before the server does.")
+        answer = ('Answer, last, with one JSON object: {"summary": "one line on what was set up", "check": "what check.sh proves", "next": "one paragraph: the first thing the researcher runs and why", '
+                  '"start": {"url": "http://127.0.0.1:PORT/the-path-a-person-opens", "readyWithin": seconds the server needs before it answers}}. '
+                  'Only when a blocker outside the sandbox truly prevents starting, answer instead with {"summary": ..., "check": ..., "next": ..., "blocker": {"kind": "secret" | "service" | "hardware" | "data", "what": "exactly what is missing and how the person supplies it"}} and no start.')
+        practice = (f"Run setup.sh, then check.sh, then start.sh yourself; fetch the URL with curl and read the page and the server's output until the application answers without an error; then stop it. Fix until this holds. "
+                    "Stop what you started by the process id you recorded (`$!`, or `kill` on the pid a port belongs to), never with `pkill -f` on a pattern. "
+                    f"Put large downloads under {SETUP_DIR}/data/, which git ignores. Edit the repository's own files where the install or start cannot work otherwise, and say what you changed in NEXT.md.")
+    else:
+        answer = 'Answer, last, with one JSON object: {"summary": "one line on what was set up", "check": "what check.sh proves", "next": "one paragraph: the first thing the researcher runs and why"}'
+        practice = (f"Run setup.sh and then check.sh yourself and fix them until check.sh exits 0. Put large downloads under {SETUP_DIR}/data/, which git ignores. If a dependency is broken as published, pin or replace it in setup.sh and say so in NEXT.md. "
+                    "Do not edit the repository's own files unless the install cannot work otherwise, and then say what you changed in NEXT.md.")
     lines = [
         "You are setting up a repository so that a researcher can use it: the next thing they do should be running what its README or paper describes (an analysis, an experiment, a benchmark, a notebook, a simulation, or the application itself), not installing anything.",
         *situation,
         *([f"The person's hint: {PERSON_HINT}"] if PERSON_HINT else []),
         *([f"What is known about the repository (read {SETUP_DIR}/BRIEF.md for the whole brief): {brief_hint()}"] if BRIEF else []),
         "",
-        "This is a disposable Linux sandbox: Debian, Python 3.11 at /usr/local/bin/python3, uv for other Python versions, Node 22 with npm, pnpm and bun. You may install packages and download small, documented assets. Do not start servers or background processes, do not use sudo, and write only inside the repository.",
+        f"This is a disposable Linux sandbox: Debian, Python 3.11 at /usr/local/bin/python3, uv for other Python versions, Node 22 with npm, pnpm and bun. You may install packages and download small, documented assets. {processes} Do not use sudo, and write only inside the repository.",
         "",
-        f"Write three files in {SETUP_DIR}/ inside the repository:",
-        f"1. {SETUP_DIR}/setup.sh: idempotent; runs from a fresh clone as `bash {SETUP_DIR}/setup.sh` from the repository root. It creates the environment inside {SETUP_DIR}/: a Python venv at {SETUP_DIR}/venv (`uv venv --python X.Y {SETUP_DIR}/venv` when the project needs a Python other than 3.11, else `python3 -m venv {SETUP_DIR}/venv`), then installs the project the way its documentation says (editable install, the extras it needs, requirements files; npm install and a build for JavaScript), and downloads only what is small and required. Datasets the README says to download by the gigabyte are not downloaded; say how in NEXT.md instead.",
-        f"2. {SETUP_DIR}/check.sh: finishes in under two minutes and exits 0 only when the setup works: import the package, run the tool with --help, run the smallest documented example or the fastest unit test, or list the files a dataset repository provides. Runs as `bash {SETUP_DIR}/check.sh` from the repository root.",
-        f"3. {SETUP_DIR}/NEXT.md: for the researcher. First a line on what this repository is. Then the exact commands to run next to reproduce what the README or paper describes (the analyses, experiments, figures), each with a line on what it does and roughly how long it takes, and what still needs data, credentials or a GPU. Commands use {SETUP_DIR}/venv/bin/python or the tool's path in that venv.",
+        f"Write {'four' if start else 'three'} files in {SETUP_DIR}/ inside the repository:",
+        *files,
         "",
-        f"Run setup.sh and then check.sh yourself and fix them until check.sh exits 0. Put large downloads under {SETUP_DIR}/data/, which git ignores. If a dependency is broken as published, pin or replace it in setup.sh and say so in NEXT.md. Do not edit the repository's own files unless the install cannot work otherwise, and then say what you changed in NEXT.md.",
+        practice,
         "",
-        'Answer, last, with one JSON object: {"summary": "one line on what was set up", "check": "what check.sh proves", "next": "one paragraph: the first thing the researcher runs and why"}',
+        answer,
     ]
     if attempt > 1 and last_output:
-        lines += ["", f"This is attempt {attempt}. The previous attempt's check.sh failed; its output ended with:", last_output[-2500:]]
+        lines += ["", f"This is attempt {attempt}. The previous attempt did not pass; its output ended with:", last_output[-2500:]]
     return "\n".join(lines)
 
 
-def setup_agent(repo, reason, attempt, last_output, blocker=None):
+def setup_agent(repo, reason, attempt, last_output, blocker=None, start=False):
     """Run the setup agent in the repository; returns its final answer."""
     model = SETUP_MODEL if attempt == 1 else SETUP_RETRY_MODEL
-    emit(phase="setup", status="starting", attempt=attempt, model=model)
-    answer, info = agent("setup", setup_prompt(repo, reason, attempt, last_output, blocker), model, SETUP_BUDGET,
+    emit(phase="setup", status="starting", attempt=attempt, model=model, goal="start" if start else "use")
+    answer, info = agent("setup", setup_prompt(repo, reason, attempt, last_output, blocker, start), model, SETUP_BUDGET,
                          tools=SETUP_TOOLS, max_turns=150, timeout=SETUP_TIMEOUT_S, cwd=repo)
     if info["error"] and not answer:
         emit(phase="setup", status="failed", attempt=attempt, reason="the setup agent " + info["error"], **cost_fields(info))
         return {}
     emit(phase="setup", status="done", attempt=attempt, summary=answer.get("summary"), check=answer.get("check"), **cost_fields(info))
     return answer
+
+
+def local_url(url):
+    """The URL as the sandbox reaches it: every name for this machine is 127.0.0.1."""
+    url = str(url or "").strip()
+    if "://" not in url:
+        url = "http://" + url
+    try:
+        parts = urlsplit(url)
+        if not parts.port:
+            return None
+    except ValueError:
+        return None
+    host = parts.hostname or "127.0.0.1"
+    if host in ("0.0.0.0", "localhost", "::", "[::]"):
+        host = "127.0.0.1"
+    return urlunsplit((parts.scheme or "http", f"{host}:{parts.port}", parts.path or "/", parts.query, ""))
+
+
+def answers(url):
+    """Whether something answers HTTP at the URL; any response counts."""
+    try:
+        urlopen(url, timeout=5).close()
+        return True
+    except HTTPError:
+        return True
+    except (URLError, OSError, ValueError):
+        return False
+
+
+def log_tail(path, limit=4000):
+    try:
+        return Path(path).read_text(encoding="utf-8", errors="replace")[-limit:].strip()
+    except OSError:
+        return ""
+
+
+def stop_app(proc):
+    """Stop the start script and everything it started."""
+    if proc.poll() is not None:
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+        proc.wait(timeout=8)
+    except (ProcessLookupError, PermissionError):
+        return
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+
+
+def free_port(port):
+    """A server the agent left running on the port would answer in place
+    of the one start.sh starts, and the recipe would lie next time."""
+    if not answers(f"http://127.0.0.1:{port}/"):
+        return
+    emit(phase="start", status="leftover", port=port)
+    try:
+        subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    time.sleep(2)
+
+
+def start_app(root, url, attempt=None):
+    """Run the setup rung's start script, wait for the application to
+    answer at its URL, and open the page as a person would. True when it
+    is live; the process is kept in APP for the watch."""
+    global APP, LAST_CHECK
+    url = local_url(url)
+    if not url:
+        LAST_CHECK = "the start URL names no port"
+        emit(phase="start", status="failed", attempt=attempt, reason=LAST_CHECK)
+        return False
+    port = urlsplit(url).port
+    free_port(port)
+    log = Path(root) / SETUP_DIR / "start.log"
+    emit(phase="start", status="starting", attempt=attempt, url=url)
+    with open(log, "w", encoding="utf-8") as handle:
+        proc = subprocess.Popen(["bash", str(Path(root) / SETUP_DIR / "start.sh")], cwd=root, env=dict(os.environ, PIP_NO_CACHE_DIR="1"),
+                                stdout=handle, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)
+    deadline = time.time() + SETUP_START_TIMEOUT_S
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            tail = log_tail(log)
+            LAST_CHECK = f"the start script exited with {proc.returncode} before the application answered: " + tail[-300:]
+            emit(phase="start", status="failed", attempt=attempt, reason=LAST_CHECK[:600], output=tail)
+            return False
+        if answers(url):
+            break
+        time.sleep(START_POLL_S)
+    else:
+        stop_app(proc)
+        tail = log_tail(log)
+        LAST_CHECK = f"the application did not answer at {url} within {SETUP_START_TIMEOUT_S // 60} minutes: " + tail[-300:]
+        emit(phase="start", status="failed", attempt=attempt, reason=LAST_CHECK[:600], output=tail)
+        return False
+    time.sleep(2)
+    report = visit(url)
+    emit(phase="visit", status=report.get("status"), title=report.get("title"), text=(report.get("text") or "")[:300],
+         consoleErrors=len(report.get("consoleErrors") or []), failedRequests=len(report.get("failedRequests") or []),
+         error=report.get("error"))
+    time.sleep(2)
+    tail = log_tail(log)
+    text = report.get("text") or ""
+    hit = next((m for m in PAGE_ERROR_MARKERS if m in text), None) or next((m for m in APP_ERROR_MARKERS if m in tail), None)
+    if proc.poll() is not None:
+        LAST_CHECK = f"the application answered once at {url}, then exited with {proc.returncode}: " + tail[-300:]
+        emit(phase="start", status="failed", attempt=attempt, reason=LAST_CHECK[:600], output=tail)
+        return False
+    if hit:
+        stop_app(proc)
+        LAST_CHECK = f"the application answers at {url}, but shows an error ({hit})"
+        emit(phase="start", status="failed", attempt=attempt, reason=LAST_CHECK, output=f"Page text:\n{text[:2500]}\n\nServer output:\n{tail}")
+        return False
+    APP = {"proc": proc, "url": url, "log": log}
+    emit(phase="start", status="answering", attempt=attempt, url=url)
+    return True
+
+
+def go_live(url):
+    """Announce the application the setup rung started, as the run loop
+    would: the same ready event, one entry service."""
+    parts = urlsplit(url)
+    service = {"id": "app", "host": parts.hostname, "port": parts.port, "isEntry": True, "embeddable": True}
+    emit(phase="ready", url=url, host=parts.hostname, port=parts.port, pid=APP["proc"].pid, services=[service])
 
 
 def run_script(script, cwd, timeout):
@@ -1316,15 +1604,19 @@ def read_setup_file(root, name):
         return ""
 
 
-def setup_for_use(repo, reason, recipe=None, blocker=None):
-    """Install the repository for use and prove it with its check. From a
-    saved recipe when there is one, else with the agent. True when usable."""
+def setup_for_use(repo, reason, recipe=None, blocker=None, blocked=False):
+    """Install the repository for use and prove it with its check; when the
+    brief says there is an application and nothing outside the sandbox
+    blocks it, start it and get a page. From a saved recipe when there is
+    one, else with the agent. True when usable or live."""
     global LAST_CHECK
     root = str(Path(repo).resolve())
     folder = Path(root) / SETUP_DIR
     folder.mkdir(exist_ok=True)
     (folder / ".gitignore").write_text(SETUP_IGNORE)
     write_brief_files(root)
+    if PATCH and PATCH.get("diff"):
+        (folder / "REPAIR.diff").write_text(PATCH["diff"], encoding="utf-8")
     if recipe:
         patch = recipe.get("patch") or {}
         if patch.get("diff"):
@@ -1332,7 +1624,7 @@ def setup_for_use(repo, reason, recipe=None, blocker=None):
                 apply_patch(root, patch)
             except ValueError:
                 return False
-        for name, key in (("setup.sh", "setup"), ("check.sh", "check"), ("NEXT.md", "next")):
+        for name, key in (("setup.sh", "setup"), ("check.sh", "check"), ("NEXT.md", "next"), ("start.sh", "start")):
             if recipe.get(key):
                 (folder / name).write_text(recipe[key])
         emit(phase="setup", status="replaying")
@@ -1346,12 +1638,20 @@ def setup_for_use(repo, reason, recipe=None, blocker=None):
         if not ok:
             LAST_CHECK = output[-500:]
             return False
+        if recipe.get("startUrl"):
+            if not start_app(root, recipe["startUrl"]):
+                return False
+            go_live(APP["url"])
+            return True
         emit(phase="usable", summary=recipe.get("summary"), next=(recipe.get("next") or "")[:4000], check=recipe.get("checkSummary"), output=output[-1500:], blocker=recipe.get("blocker"))
         return True
 
+    start = must_start(blocker, blocked=blocked)
+    fallback = None   # the last attempt that was installed and checked, when the application would not start
+    last_url = ""     # the start URL an earlier attempt named, for one whose agent left no answer
     last_output = ""
     for attempt in range(1, SETUP_ATTEMPTS + 1):
-        answer = setup_agent(repo, reason, attempt, last_output, blocker)
+        answer = setup_agent(repo, reason, attempt, last_output, blocker, start)
         if not (folder / "check.sh").exists():
             last_output = LAST_CHECK = "the setup agent left no check script"
             emit(phase="check", status="failed", attempt=attempt, reason=LAST_CHECK)
@@ -1369,8 +1669,45 @@ def setup_for_use(repo, reason, recipe=None, blocker=None):
         next_text = read_setup_file(root, "NEXT.md")
         recipe = {"version": 1, "kind": "setup", "reason": reason, "summary": answer.get("summary"), "checkSummary": answer.get("check"),
                   "setup": read_setup_file(root, "setup.sh"), "check": read_setup_file(root, "check.sh"), "next": next_text,
-                  "patch": patch if diff.strip() and not truncated else None, "savedAt": time.time(),
-                  **({"blocker": blocker} if blocker else {})}
+                  "patch": patch if diff.strip() and not truncated else None, "savedAt": time.time()}
+        if start:
+            said = answer.get("blocker") if isinstance(answer.get("blocker"), dict) else None
+            url = str((answer.get("start") or {}).get("url") or "") if isinstance(answer.get("start"), dict) else ""
+            if not url and not answer and last_url and (folder / "start.sh").exists():
+                # The agent died mid-way (a stop that caught itself, a timeout);
+                # what it left may still start the way the last attempt said.
+                emit(phase="start", status="retrying", attempt=attempt, url=last_url, reason="the setup agent gave no answer; trying the start script it left with the last known URL")
+                url = last_url
+            last_url = url or last_url
+            if url and (folder / "start.sh").exists():
+                if start_app(root, url, attempt):
+                    recipe.update(start=read_setup_file(root, "start.sh"), startUrl=APP["url"])
+                    emit(phase="recipe", status="captured", recipe=recipe)
+                    go_live(APP["url"])
+                    return True
+                last_output = LAST_CHECK
+                fallback = (recipe, answer, next_text, output)
+                continue
+            if said and said.get("kind") in HARD_BLOCKERS:
+                # The agent found what the review missed: a blocker nothing
+                # here can supply. Usable, with it written down, is the ending.
+                blocker = {"kind": said["kind"], "what": str(said.get("what") or "")[:500]}
+            else:
+                last_output = LAST_CHECK = "the setup agent left no start script and URL, and named no blocker outside the sandbox"
+                emit(phase="start", status="failed", attempt=attempt, reason=LAST_CHECK)
+                fallback = (recipe, answer, next_text, output)
+                continue
+        if blocker:
+            recipe["blocker"] = blocker
+        emit(phase="recipe", status="captured", recipe=recipe)
+        emit(phase="usable", summary=answer.get("summary"), next=next_text[:4000], check=answer.get("check"), output=output[-1500:], blocker=blocker)
+        return True
+    if fallback:
+        # Installed and checked, but the application would not start: the
+        # floor, with the last failure as the blocker.
+        recipe, answer, next_text, output = fallback
+        blocker = {"kind": "unknown", "what": ("The application did not start: " + str(LAST_CHECK or ""))[:500]}
+        recipe["blocker"] = blocker
         emit(phase="recipe", status="captured", recipe=recipe)
         emit(phase="usable", summary=answer.get("summary"), next=next_text[:4000], check=answer.get("check"), output=output[-1500:], blocker=blocker)
         return True
@@ -1378,9 +1715,13 @@ def setup_for_use(repo, reason, recipe=None, blocker=None):
 
 
 def stay_alive():
-    """Stay as the sandbox's process while the person uses it."""
+    """Stay as the sandbox's process while the person uses it, and watch
+    the application when the setup rung started one."""
     while True:
-        time.sleep(30)
+        time.sleep(2 if APP else 30)
+        if APP and APP["proc"].poll() is not None:
+            emit(phase="exited", status="exited", reason=f"the application stopped (exit {APP['proc'].returncode}): " + log_tail(APP["log"], 600))
+            sys.exit(1)
 
 
 def supervise(PR, run_id):
