@@ -1,0 +1,29 @@
+{
+  "74071e83-b855-47bf-a220-80915dc16579": {
+    "at": "2026-09-18T19:49:56.874Z",
+    "previewUrl": "https://43110-ii065clyp2bkci9c0c7yp.e2b.app",
+    "http": {
+      "status": 200,
+      "title": "Farsight — In Situ Widgets for Responsible AI"
+    },
+    "screenshot": "chi4/ea101e9b-bb64-497a-b8a1-c5e62dd45474.png"
+  },
+  "d1e8b093-6e59-454c-acf8-de73b839a292": {
+    "at": "2026-09-18T19:55:38.138Z",
+    "previewUrl": "https://43110-igyacdddef1ry3i67j969.e2b.app/lab?token=62cc368c7bfb3e6a262cd0b9c742ed7b11e9bbfe28a8ac74",
+    "http": {
+      "status": 200,
+      "title": "JupyterLab"
+    },
+    "screenshot": "chi4/16863683-6a28-4b98-b2c0-b0a9925a4d29.png"
+  },
+  "a8b7dc50-5e4a-40cd-80fc-40df5d184cee": {
+    "at": "2026-09-18T19:56:43.443Z",
+    "previewUrl": "https://43110-ieti3tr0dvzt07bpqbskk.e2b.app",
+    "http": {
+      "status": 200,
+      "title": "AGDebugger"
+    },
+    "screenshot": "chi4/148ac579-07dd-450f-88f7-1de425ae893f.png"
+  }
+}

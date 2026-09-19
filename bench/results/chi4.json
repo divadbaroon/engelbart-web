@@ -1,0 +1,490 @@
+[
+  {
+    "url": "https://github.com/microsoft/agdebugger",
+    "owner": "microsoft",
+    "name": "agdebugger",
+    "kind": "system",
+    "constraints": "CHI 2025 systems paper. The artifact is: AGDebugger interface. Area: AI safety; human-AI interaction.",
+    "repoId": "148ac579-07dd-450f-88f7-1de425ae893f",
+    "runId": "a8b7dc50-5e4a-40cd-80fc-40df5d184cee",
+    "status": "expired",
+    "template": "engelbart-runner",
+    "commit": "e8ff06c5dcc7542b01694e9cd22ae562c83f71f7",
+    "startedAt": "2026-09-18T19:46:45.504052+00:00",
+    "totalMs": 597325,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned e8ff06c",
+        "ms": 14279
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1638
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "2 components · Brief: AGDebugger is an interactive web-based debugging tool for multi-agent AI systems built on Microsoft AutoGen's AgentChat  → . · AGDebugger is a FastAPI+React app for debugging AutoGen agent teams. Per personHint, build the frontend (bundled as package-data into the python package), install the python package, then launch the agdebugger CLI against the shipped example scenario examples/local-agents/scenario.py.",
+        "ms": 152339
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 446
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "Set up: Built the AGDebugger frontend, installed the python package into .engelbart/venv, and confirmed the app boots and serves its UI against the bundled zero-LLM-cal",
+        "ms": 297025
+      },
+      {
+        "id": "health",
+        "state": "done",
+        "summary": "The application answers at http://127.0.0.1:8123/",
+        "ms": 113122
+      },
+      {
+        "id": "live",
+        "state": "done",
+        "summary": "Up · trail saved and shared · stopped",
+        "ms": 18476
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "shared",
+    "replayHeld": null,
+    "repairAttempts": 2,
+    "patch": {
+      "files": [
+        ".engelbart/.gitignore",
+        ".engelbart/BRIEF.md",
+        ".engelbart/NEXT.md",
+        ".engelbart/REPAIR.diff",
+        ".engelbart/brief.json",
+        ".engelbart/check.sh",
+        ".engelbart/setup.sh",
+        ".engelbart/start.sh"
+      ],
+      "summary": "Built the AGDebugger frontend, installed the python package into .engelbart/venv, and confirmed the app boots and serves its UI against the bundled zero-LLM-call local-agents demo scenario using a placeholder OPENAI_API_KEY."
+    },
+    "previewUrl": "https://43110-ieti3tr0dvzt07bpqbskk.e2b.app",
+    "http": {
+      "status": 200,
+      "title": "AGDebugger"
+    },
+    "screenshot": "chi4/148ac579-07dd-450f-88f7-1de425ae893f.png",
+    "liveAt": "2026-09-18T19:56:43.443Z",
+    "error": null,
+    "next": null,
+    "stages": [
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared",
+      "frontend-install: npm install",
+      "frontend-build: npm run build",
+      "pip-install: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/python -m pip install .",
+      "agdebugger: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/agdebugger scenario:get_agent_team",
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared",
+      "frontend-install: npm install",
+      "frontend-build: npm run build",
+      "pkg-install: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/python -m pip install .",
+      "agdebugger: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/agdebugger scenario:get_agent_team",
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared",
+      "frontend-install: npm install",
+      "frontend-build: npm run build",
+      "pip-install: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/python -m pip install .",
+      "agdebugger: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/agdebugger scenario:get_agent_team"
+    ],
+    "failures": [
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "needs_input: The service crashes at import time because openai.AsyncOpenAI requires an OPENAI_API_KEY (or OPENAI_ADMIN_KEY) environment variable to be set, even though no real API calls are needed just to boot AGDebugger and load the example scenario (examples/local-agents/scenario.py). This is a required, non-secret-shaped configuration value (the OpenAI SDK only validates its presence/format at client construction, not by calling out to the network), so a placeholder value such as OPENAI_API_KEY=sk-local-placeholder is sufficient to pass this check and reach HTTP health. Please provide the OPENAI_API_KEY",
+        "stage": "setup",
+        "detail": {
+          "agent": {
+            "call": 1,
+            "name": "Setup Repair Agent",
+            "model": "sonnet",
+            "phase": "Model response received",
+            "status": "done",
+            "outcome": "needs_input",
+            "seconds": 5.57
+          },
+          "attempt": 2
+        }
+      },
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "needs_input: The service requires OPENAI_API_KEY to construct the OpenAIChatCompletionClient during scenario:get_agent_team startup (see traceback: 'Missing credentials... set the OPENAI_API_KEY... environment variable'), and this is not present in the environment. The personHint claims a placeholder value suffices, but the traceback shows the AsyncOpenAI client validates the key is non-None at construction time before any network call, so booting the agent team requires a real (or at least syntactically present) OPENAI_API_KEY value to be supplied as a secret via input, not a plan-embedded credential. Ple",
+        "stage": "setup",
+        "detail": {
+          "agent": {
+            "call": 1,
+            "name": "Setup Repair Agent",
+            "model": "sonnet",
+            "phase": "Model response received",
+            "status": "done",
+            "outcome": "needs_input",
+            "seconds": 6.27
+          },
+          "attempt": 2
+        }
+      },
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "needs_input: The agdebugger CLI requires the AutoGen scenario file (examples/local-agents/scenario.py) to construct an OpenAIChatCompletionClient, which raises OpenAIError unless a valid OPENAI_API_KEY is set (see traceback in AsyncOpenAI init and openai/_client.py:1033). This is not a runner limitation or missing package — it's an application requirement for a real credential to construct the model client before the server can start and pass health checks. The env allowlist here excludes secrets (OPENAI_API_KEY), so this cannot be supplied automatically. Please provide a valid OPENAI_API_KEY (or confirm a",
+        "stage": "setup",
+        "detail": {
+          "agent": {
+            "call": 1,
+            "name": "Setup Repair Agent",
+            "model": "sonnet",
+            "phase": "Model response received",
+            "status": "done",
+            "outcome": "needs_input",
+            "seconds": 5.31
+          },
+          "attempt": 2
+        }
+      }
+    ],
+    "output": "│   156 │   if inspect.iscoroutinefunction(app_attr):                          │\n│ ❱ 157 │   │   result = await app_attr()                                      │\n│   158 │   │   return result                                                  │\n│   159 │   else:                                                              │\n│   160 │   │   return app_attr()                                              │\n│                                                                              │\n│ /home/user/agdebugger/examples/local-agents/scenario.py:10 in get_agent_team │\n│                                                                              │\n│    7                                                                         │\n│    8                                                                         │\n│    9 async def get_agent_team():                                             │\n│ ❱ 10 │   model_client = OpenAIChatCompletionClient(model=\"gpt-4o\")           │\n│   11 │                                                                       │\n│   12 │   agent1 = LocalAgent(\"LOCAL_AGENT_1\", model_client=model_client)     │\n│   13 │   agent2 = LocalAgent(\"LOCAL_AGENT_2\", model_client=model_client)     │\n│                                                                              │\n│ /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11 │\n│ -shared/lib/python3.11/site-packages/autogen_ext/models/openai/_openai_clien │\n│ t.py:1484 in __init__                                                        │\n│                                                                              │\n│   1481 │   │   │   if \"api_key\" not in copied_args and \"LLAMA_API_KEY\" in    │\n│        os.environ:                                                           │\n│   1482 │   │   │   │   copied_args[\"api_key\"] = os.environ[\"LLAMA_API_KEY\"]  │\n│   1483 │   │                                                                 │\n│ ❱ 1484 │   │   client = _openai_client_from_config(copied_args)              │\n│   1485 │   │   create_args = _create_args_from_config(copied_args)           │\n│   1486 │   │                                                                 │\n│   1487 │   │   super().__init__(                                             │\n│                                                                              │\n│ /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11 │\n│ -shared/lib/python3.11/site-packages/autogen_ext/models/openai/_openai_clien │\n│ t.py:134 in _openai_client_from_config                                       │\n│                                                                              │\n│    131 def _openai_client_from_config(config: Mapping[str, Any]) ->          │\n│        AsyncOpenAI:                                                          │\n│    132 │   # Shave down the config to just the OpenAI kwargs                 │\n│    133 │   openai_config = {k: v for k, v in config.items() if k in          │\n│        openai_init_kwargs}                                                   │\n│ ❱  134 │   return AsyncOpenAI(**openai_config)                               │\n│    135                                                                       │\n│    136                                                                       │\n│    137 def _create_args_from_config(config: Mapping[str, Any]) -> Dict[str,  │\n│        Any]:                                                                 │\n│                                                                              │\n│ /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11 │\n│ -shared/lib/python3.11/site-packages/openai/_client.py:1033 in __init__      │\n│                                                                              │\n│   1030 │   │   │   and workload_identity is None                             │\n│   1031 │   │   │   and self.admin_api_key is None                            │\n│   1032 │   │   ):                                                            │\n│ ❱ 1033 │   │   │   raise OpenAIError(                                        │\n│   1034 │   │   │   │   \"Missing credentials. Please pass an `api_key`,       │\n│        `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or  │\n│        `OPENAI_ADMIN_KEY` environment variable.\"                             │\n│   1035 │   │   │   )                                                         │\n│   1036                                                                       │\n╰──────────────────────────────────────────────────────────────────────────────╯\nOpenAIError: Missing credentials. Please pass an `api_key`, `workload_identity`,\n`admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment \nvariable.",
+    "path": "setup",
+    "cost": 1.0508,
+    "brief": {
+      "purpose": "AGDebugger is an interactive web-based debugging tool for multi-agent AI systems built on Microsoft AutoGen's AgentChat framework. It lets a user send/step through agent messages, edit or revert previously sent messages, and navigate agent conversations via an interactive graph visualization; described in the CHI 2025 paper 'Interactive Debugging and Steering of Multi-Agent AI Systems'.",
+      "primaryApp": ".",
+      "confidence": "high",
+      "nothingToServe": false
+    },
+    "resolver": {
+      "status": "plan",
+      "hint": "examples/local-agents/scenario.py DOES exist — the pipeline missed it. From repo root: cd frontend && npm install && npm run build (MUST precede pip install; pyproject bundles frontend/dist as package-data). Then cd .. && python -m venv .venv && . .venv/bin/activate && pip install . — no real key is needed just to boot: export OPENAI_API_KEY=sk-placeholder. Finally: cd examples/local-agents && agdebugger scenario:get_agent_team --port 8123 (must run from that dir — scenario.py does a bare `from local_agent import LocalAgent`). Do not use examples/magentic-agents (needs Playwright browsers)."
+    },
+    "blocker": null
+  },
+  {
+    "url": "https://github.com/RichardHGL/CHI2025_Plan-then-Execute_LLMAgent",
+    "owner": "RichardHGL",
+    "name": "CHI2025_Plan-then-Execute_LLMAgent",
+    "kind": "system",
+    "constraints": "CHI 2025 systems paper. The artifact is: Agent planning and execution study system. Area: Human-AI interaction; AI safety.",
+    "repoId": "034c78de-80f3-4983-baee-b4bf90fd7ec2",
+    "runId": "1ed23fd1-e157-45f4-b999-b286a66cbbe5",
+    "status": "usable",
+    "template": "engelbart-runner",
+    "commit": "3c478386823d98f4dee93ed6eff86bb1539177e9",
+    "startedAt": "2026-09-18T19:46:45.931773+00:00",
+    "totalMs": 1009456,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 3c47838",
+        "ms": 21104
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1265
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "Brief: Companion repository for the CHI 2025 paper \"Plan-Then-Execute: An Empirical Study of User Trust and Team Performance Wh → interface · Nothing to serve: No runnable component was found: nothing in the repository declares an application to start",
+        "ms": 90904
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Not scanned",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "warned",
+        "summary": "Setup failed: the setup agent exit 143",
+        "ms": 879836
+      },
+      {
+        "id": "health",
+        "state": "warned",
+        "summary": "The application did not start: the setup agent left no start script and URL, and named no blocker outside the sandbox",
+        "ms": 3945
+      },
+      {
+        "id": "live",
+        "state": "done",
+        "summary": "Set up; blocked by unknown: The application did not start: the setup agent left no start script and URL, and named no blocker outside the sandbox · trail saved and shared",
+        "ms": 12402
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "shared",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": {
+      "files": [
+        ".engelbart/.gitignore",
+        ".engelbart/BRIEF.md",
+        ".engelbart/NEXT.md",
+        ".engelbart/brief.json",
+        ".engelbart/check.sh",
+        ".engelbart/setup.sh",
+        ".engelbart/start.sh",
+        "interface/flaskr/db.py",
+        "interface/flaskr/planning_agent.py"
+      ],
+      "summary": "The setup agent prepared the repository for use."
+    },
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": "# What this repository is\n\nCompanion repository for the CHI 2025 paper \"Plan-Then-Execute: An Empirical\nStudy of User Trust and Team Performance When Using LLM Agents As A Daily\nAssistant.\" It has two parts: `interface/` is the Flask study interface\n248 participants used (a plan-then-execute LLM agent for daily-assistant\ntasks like booking flights or paying bills), and `data_analysis/` is a set\nof Jupyter notebooks over the anonymized study data that produce the\npaper's figures and statistics.\n\n## 1. Run the study interface (the app itself)\n\n```\nbash .engelbart/start.sh\n```\n\nStarts the Flask app (`gunicorn wsgi:app`) on `http://127.0.0.1:8000`. Ready\nwithin ~5 seconds. Open in a browser:\n\n```\nhttp://127.0.0.1:8000/planning_agent/user_port?PROLIFIC_PID=demo\n```\n\nThis is the actual entry point participants used (normally reached via a\nProlific recruitment link that appends `PROLIFIC_PID`); it sets up a session\nand redirects to the consent form, then the task flow. `/hello` is a trivial\nhealth-check route with no DB/session dependency.\n\n**What was changed to make it boot, and why:**\n\n- `interface/flaskr/db.py` hardcoded `postgresql+psycopg2://` with an empty\n  host (`internal_link = \"\"`), which only ever worked on Render where a\n  Postgres add-on is already running. No Postgres server exists in this\n  sandbox and none can be installed system-wide (no `sudo`, no `apt` access,\n  no Docker). Since this is a \"no Postgres available\" gap rather than an\n  external secret, `db.py` now:\n  - uses `DATABASE_URL` if you set it (e.g. pointing at a real Postgres\n    instance you provision), otherwise\n  - falls back to a self-contained, embedded Postgres server via the\n    `pgserver` PyPI package (added to `requirements_new.txt`), which runs\n    entirely as your own user with no root and no system service. Data\n    lives in `.engelbart/data/pgdata/` (gitignored) and the server starts\n    and stops with the app process.\n  - `pgserver` also needed `XDG_RUNTIME_DIR` pointed at a writable path\n    (the sandbox's `/run/user/<uid>` is not writable); `db.py` now always\n    sets it to `.engelbart/data/xdg_runtime/` before importing `pgserver`.\n- `interface/flaskr/db.py` only creates tables via the `flask init-db` CLI\n  command (not automatically on app start) — this was already true of the\n  original code but is easy to miss since `interface/README.md` never\n  mentions it (only `interface/run.sh` does). `.engelbart/start.sh` and\n  `.engelbart/check.sh` both run `flask init-db` before serving/testing.\n- `SECRET_KEY` was already hardcoded to `'dev'` in `flaskr/__init__.py`, so\n  it did not block boot — left as-is since changing it isn't required to\n  run the app locally.\n\n**Needs credentials for the LLM-agent features, but not for boot:**\n`OPENAI_API_KEY` is read lazily (only inside `get_llm()` in\n`flaskr/planning_agent.py`, when a participant actually reaches a planning\ntask) via `langchain-openai`'s `ChatOpenAI`. Without it, the consent form,\ninstructions, questionnaires,",
+    "stages": [],
+    "failures": [],
+    "output": "",
+    "path": "setup",
+    "cost": 1.8401,
+    "brief": {
+      "purpose": "Companion repository for the CHI 2025 paper \"Plan-Then-Execute: An Empirical Study of User Trust and Team Performance When Using LLM Agents As A Daily Assistant\" (PDF included as CHI2025_LLM_Agent_preprint.pdf). It contains the Flask-based study interface through which 248 participants interacted with an LLM agent that plans then executes daily-assistant tasks (e.g., flight booking, payments), plus the anonymized study data and Jupyter-notebook analysis code used to produce the paper's findings.",
+      "primaryApp": "interface",
+      "confidence": "high",
+      "nothingToServe": false
+    },
+    "resolver": null,
+    "blocker": {
+      "kind": "unknown",
+      "what": "The application did not start: the setup agent left no start script and URL, and named no blocker outside the sandbox"
+    }
+  },
+  {
+    "url": "https://github.com/PAIR-code/farsight",
+    "owner": "PAIR-code",
+    "name": "farsight",
+    "kind": "system",
+    "constraints": "CHI 2024 systems paper. The artifact is: Responsible-AI prototyping widgets. Area: AI safety; HCI.",
+    "repoId": "ea101e9b-bb64-497a-b8a1-c5e62dd45474",
+    "runId": "74071e83-b855-47bf-a220-80915dc16579",
+    "status": "expired",
+    "template": "engelbart-runner",
+    "commit": "6d1b1214aa7307da90cb5142909c096ca0369fe0",
+    "startedAt": "2026-09-18T19:46:46.433447+00:00",
+    "totalMs": 188893,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 6d1b121",
+        "ms": 27823
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1565
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "5 components · Brief: Farsight is a collection of in-situ interactive Web Components (built with Lit/TypeScript) that help LLM prompt creators → . · Follow personHint: run the root Farsight demo with npm install then npm run dev (Vite dev server on port 3000). chrome-extension and notebook-widget are excluded as build-only/non-serving per hint; other static folders (lite, signal, extension-privacy-policy) are docs/example artifacts, not the intended app.",
+        "ms": 97281
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 316
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "npm install · npm run dev",
+        "ms": 49643
+      },
+      {
+        "id": "health",
+        "state": "done",
+        "summary": "Opened the page in a browser (Farsight — In Situ Widgets for Responsible AI)",
+        "ms": 2083
+      },
+      {
+        "id": "live",
+        "state": "done",
+        "summary": "Up · trail saved and shared · stopped",
+        "ms": 10182
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "shared",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": "https://43110-ii065clyp2bkci9c0c7yp.e2b.app",
+    "http": {
+      "status": 200,
+      "title": "Farsight — In Situ Widgets for Responsible AI"
+    },
+    "screenshot": "chi4/ea101e9b-bb64-497a-b8a1-c5e62dd45474.png",
+    "liveAt": "2026-09-18T19:49:56.874Z",
+    "error": null,
+    "next": null,
+    "stages": [
+      "install: npm install",
+      "web: npm run dev"
+    ],
+    "failures": [],
+    "output": "More info and automated migrator: https://sass-lang.com/d/import\n    ╷\n558 │       background-color: adjust-color($color: $gray-800, $lightness: 12%);\n    │                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ╵\n    src/components/envision-node/envision-node.scss 558:25  root stylesheet\nDEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.\nMore info: https://sass-lang.com/d/legacy-js-api\nDEPRECATION WARNING [import]: Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0.\nMore info and automated migrator: https://sass-lang.com/d/import\n   ╷\n17 │ @import '../../define.scss';\n   │         ^^^^^^^^^^^^^^^^^^^\n   ╵\n    src/components/harm-node-accident/harm-node-accident.scss 17:9  root stylesheet\nDEPRECATION WARNING [global-builtin]: Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0.\nUse color.change instead.\nMore info and automated migrator: https://sass-lang.com/d/import\n   ╷\n19 │   $section-background-color: change-color(\n   │ ┌────────────────────────────^\n20 │ │   $color: $blue-gray-100,\n21 │ │   $lightness: 92%\n22 │ │ );\n   │ └─^\n   ╵\n    src/components/harm-node-accident/harm-node-accident.scss 19:28  root stylesheet\nDEPRECATION WARNING [global-builtin]: Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0.\nUse color.change instead.\nMore info and automated migrator: https://sass-lang.com/d/import\n   ╷\n94 │       text-decoration-color: change-color($color: $gray-400, $alpha: 0.4);\n   │                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   ╵\n    src/components/harm-node-accident/harm-node-accident.scss 94:30  root stylesheet\nDEPRECATION WARNING [global-builtin]: Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0.\nUse color.change instead.\nMore info and automated migrator: https://sass-lang.com/d/import\n    ╷\n115 │     background-color: change-color($color: $blue-gray-100, $alpha: 0.4);\n    │                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ╵\n    src/components/harm-node-accident/harm-node-accident.scss 115:23  root stylesheet\nDEPRECATION WARNING [global-builtin]: Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0.\nUse color.change instead.\nMore info and automated migrator: https://sass-lang.com/d/import\n    ╷\n123 │       background-color: change-color($color: $blue-gray-100, $lightness: 88%);\n    │                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ╵\n    src/components/harm-node-accident/harm-node-accident.scss 123:25  root stylesheet\nDEPRECATION WARNING [global-builtin]: Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0.\nUse color.change instead.\nMore info and automated migrator: https://sass-lang.com/d/import\n    ╷\n128 │       background-color: change-color($color: $blue-gray-100, $lightness: 86%);\n    │                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ╵\n    src/components/harm-node-accident/harm-node-accident.scss 128:25  root stylesheet\nWARNING: 2 repetitive deprecation warnings omitted.",
+    "path": "direct",
+    "cost": 0.1464,
+    "brief": {
+      "purpose": "Farsight is a collection of in-situ interactive Web Components (built with Lit/TypeScript) that help LLM prompt creators envision potential harms of their AI applications (alert symbol, incident panel, use-case panel, harm envisioner). It accompanies the CHI 2024 paper \"Farsight: Fostering Responsible AI Awareness During AI Application Prototyping\" and ships as a web demo, a Chrome extension, a JS component library, and a Python/Jupyter widget package.",
+      "primaryApp": ".",
+      "confidence": "high",
+      "nothingToServe": false
+    },
+    "resolver": null,
+    "blocker": null
+  },
+  {
+    "url": "https://github.com/behavioral-data/Data-Assistant-Interface",
+    "owner": "behavioral-data",
+    "name": "Data-Assistant-Interface",
+    "kind": "system",
+    "constraints": "CHI 2024 systems paper. The artifact is: Data analysis assistant study interface. Area: Human-AI interaction; HCI.",
+    "repoId": "16863683-6a28-4b98-b2c0-b0a9925a4d29",
+    "runId": "d1e8b093-6e59-454c-acf8-de73b839a292",
+    "status": "expired",
+    "template": "engelbart-runner",
+    "commit": "8b279fbab2c64feb09959a6a4a5c867369ab8fb6",
+    "startedAt": "2026-09-18T19:46:46.925344+00:00",
+    "totalMs": 530107,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 8b279fb",
+        "ms": 18526
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1453
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "3 components · Brief: A JupyterLab 3 extension ('jupyterlab-comments', adapted here as the 'Data Analysis Assistant Interface') that adds an i → . · This is the jupyterlab-comments JupyterLab 3 extension (analyst/wizard mode Wizard-of-Oz study UI). Per personHint, build a Python 3.8 venv, install pinned jupyterlab/jupyter_server versions plus hatchling/hatch-jupyter-builder, install the extension editable, build the frontend, enable the server extension, then launch JupyterLab itself as the running application. The previous plan's use of the bare `jlpm` binary was rejected as outside supported preparation operations; since package-lock.json is present (a valid npm project) and jlpm is JupyterLab's bundled yarn wrapper invoked internally by the package.json `build`/`install:extension` scripts anyway, frontend steps are run through npm (`npm install`, `npm run build`) instead of calling jlpm directly. binder/ is only mybinder.org bootstrap config (no server of its own) and docs/ is a Sphinx documentation build, so both are excluded.",
+        "ms": 147436
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 202
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "/usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared · /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m pip install jupyterlab==3.5.3 jupyter_server==1.24.0 hatchling hatch-jupyter-builder editables · /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m pip install -e . --no-build-isolation · /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m jupyter labextension develop . --overwrite · /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m jupyter server extension enable jupyterlab_comments · /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/jupyter lab --ip=127.0.0.1 --no-browser --port 8888 (2 passes)",
+        "ms": 94824
+      },
+      {
+        "id": "health",
+        "state": "done",
+        "summary": "Opened the page in a browser (JupyterLab)",
+        "ms": 253733
+      },
+      {
+        "id": "live",
+        "state": "done",
+        "summary": "Up · trail saved and shared · stopped",
+        "ms": 13933
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "shared",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": "https://43110-igyacdddef1ry3i67j969.e2b.app/lab?token=62cc368c7bfb3e6a262cd0b9c742ed7b11e9bbfe28a8ac74",
+    "http": {
+      "status": 200,
+      "title": "JupyterLab"
+    },
+    "screenshot": "chi4/16863683-6a28-4b98-b2c0-b0a9925a4d29.png",
+    "liveAt": "2026-09-18T19:55:38.138Z",
+    "error": null,
+    "next": null,
+    "stages": [
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared",
+      "install-jupyterlab: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m pip install jupyterlab==3.5.3 jupyter_server==1.24.0 hatchling",
+      "install-extension: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m pip install -e . --no-build-isolation",
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared",
+      "install-jupyterlab: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m pip install jupyterlab==3.5.3 jupyter_server==1.24.0 hatchling",
+      "install-extension: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m pip install -e . --no-build-isolation",
+      "labextension-develop: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m jupyter labextension develop . --overwrite",
+      "enable-extension: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m jupyter server extension enable jupyterlab_comments",
+      "lab: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/jupyter lab --ip=127.0.0.1 --no-browser --port 8888"
+    ],
+    "failures": [],
+    "output": "6->jupyterlab-comments==0.1.2) (2026.6.3)\nRequirement already satisfied: six>=1.5 in /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages (from python-dateutil>=2.8.2->jupyter-client>=6.1.12->jupyter-server<2,>=1.6->jupyterlab-comments==0.1.2) (1.17.0)\nRequirement already satisfied: cffi>=1.0.1 in /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages (from argon2-cffi-bindings->argon2-cffi->jupyter-server<2,>=1.6->jupyterlab-comments==0.1.2) (2.1.1)\nRequirement already satisfied: soupsieve>=1.6.1 in /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages (from beautifulsoup4->nbconvert>=6.4.4->jupyter-server<2,>=1.6->jupyterlab-comments==0.1.2) (2.9.2)\nRequirement already satisfied: typing-extensions>=4.0.0 in /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages (from beautifulsoup4->nbconvert>=6.4.4->jupyter-server<2,>=1.6->jupyterlab-comments==0.1.2) (4.16.0)\nRequirement already satisfied: pycparser in /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages (from cffi>=1.0.1->argon2-cffi-bindings->argon2-cffi->jupyter-server<2,>=1.6->jupyterlab-comments==0.1.2) (3.0)\nBuilding wheels for collected packages: jupyterlab-comments\n  Building editable for jupyterlab-comments (pyproject.toml): started\n  Building editable for jupyterlab-comments (pyproject.toml): finished with status 'done'\n  Created wheel for jupyterlab-comments: filename=jupyterlab_comments-0.1.2-py3-none-any.whl size=1112074 sha256=b4e6888d23984c74205fb7b5db34209d9911ae101829aa282772846596b1bdd2\n  Stored in directory: /tmp/pip-ephem-wheel-cache-01zoti7r/wheels/79/80/cc/bd36112cca6d63413f09e36ca3203cb5107546d68d98ac0fe8\nSuccessfully built jupyterlab-comments\nInstalling collected packages: jupyterlab-comments\nSuccessfully installed jupyterlab-comments-0.1.2\n[notice] A new release of pip is available: 23.2.1 -> 26.2.1\n[notice] To update, run: pip install --upgrade pip\nInstalling /home/user/Data-Assistant-Interface/jupyterlab_comments/labextension -> jupyterlab-comments\nRemoving: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/share/jupyter/labextensions/jupyterlab-comments\nSymlinking: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/share/jupyter/labextensions/jupyterlab-comments -> /home/user/Data-Assistant-Interface/jupyterlab_comments/labextension\nEnabling: jupyterlab_comments\n- Writing config: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/etc/jupyter\n    - Validating jupyterlab_comments...\n      jupyterlab_comments 0.1.2 \u001b[32mOK\u001b[0m\n    - Extension successfully enabled.\n[I 2026-09-18 19:55:10.531 ServerApp] jupyterlab | extension was successfully linked.\n[I 2026-09-18 19:55:10.532 ServerApp] jupyterlab_comments | extension was successfully linked.\n[I 2026-09-18 19:55:10.534 ServerApp] nbclassic | extension was successfully linked.\n[I 2026-09-18 19:55:10.564 ServerApp] notebook_shim | extension was successfully linked.\n[I 2026-09-18 19:55:10.577 ServerApp] notebook_shim | extension was successfully loaded.\n[I 2026-09-18 19:55:10.578 LabApp] JupyterLab extension loaded from /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyterlab\n[I 2026-09-18 19:55:10.578 LabApp] JupyterLab application directory is /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/share/jupyter/lab\n[I 2026-09-18 19:55:10.582 ServerApp] jupyterlab | extension was successfully loaded.\n[I 2026-09-18 19:55:10.582 ServerApp] Registered HelloWorld extension at URL path\n[I 2026-09-18 19:55:10.582 ServerApp] jupyterlab_comments | extension was successfully loaded.\n[I 2026-09-18 19:55:10.584 ServerApp] nbclassic | extension was successfully loaded.\n[I 2026-09-18 19:55:10.584 ServerApp] Serving notebooks from local directory: /home/user/Data-Assistant-Interface\n[I 2026-09-18 19:55:10.584 ServerApp] Jupyter Server 1.24.0 is running at:\n[I 2026-09-18 19:55:10.584 ServerApp] http://127.0.0.1:8888/lab?token=62cc368c7bfb3e6a262cd0b9c742ed7b11e9bbfe28a8ac74\n[I 2026-09-18 19:55:10.584 ServerApp]  or http://127.0.0.1:8888/lab?token=62cc368c7bfb3e6a262cd0b9c742ed7b11e9bbfe28a8ac74\n[I 2026-09-18 19:55:10.584 ServerApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).\n[C 2026-09-18 19:55:10.587 ServerApp] \n    To access the server, open this file in a browser:\n        file:///home/user/.local/share/jupyter/runtime/jpserver-2802-open.html\n    Or copy and paste one of these URLs:\n        http://127.0.0.1:8888/lab?token=62cc368c7bfb3e6a262cd0b9c742ed7b11e9bbfe28a8ac74\n     or http://127.0.0.1:8888/lab?token=62cc368c7bfb3e6a262cd0b9c742ed7b11e9bbfe28a8ac74\n[I 2026-09-18 19:55:10.591 ServerApp] 302 GET / (127.0.0.1) 0.61ms\n[I 2026-09-18 19:55:10.599 ServerApp] 302 GET / (127.0.0.1) 0.41ms\n[W 2026-09-18 19:55:16.438 ServerApp] 403 GET /lab/extensions/jupyterlab-comments/static/remoteEntry.1bc00df49d58f6c70c60.js (127.0.0.1): jupyterlab-comments/static/remoteEntry.1bc00df49d58f6c70c60.js is not in root static directory\n[W 2026-09-18 19:55:16.455 ServerApp] 403 GET /lab/extensions/jupyterlab-comments/static/remoteEntry.1bc00df49d58f6c70c60.js (127.0.0.1) 18.12ms referer=http://127.0.0.1:8888/lab\n[I 2026-09-18 19:55:18.346 LabApp] Build is up to date\n[W 2026-09-18 19:55:35.444 ServerApp] 403 GET /lab/extensions/jupyterlab-comments/static/remoteEntry.1bc00df49d58f6c70c60.js (127.0.0.1): jupyterlab-comments/static/remoteEntry.1bc00df49d58f6c70c60.js is not in root static directory\n[W 2026-09-18 19:55:35.445 ServerApp] 403 GET /lab/extensions/jupyterlab-comments/static/remoteEntry.1bc00df49d58f6c70c60.js (127.0.0.1) 1.24ms referer=http://127.0.0.1:8888/lab",
+    "path": "direct",
+    "cost": 0.1116,
+    "brief": {
+      "purpose": "A JupyterLab 3 extension ('jupyterlab-comments', adapted here as the 'Data Analysis Assistant Interface') that adds an in-notebook commenting/suggestion side-panel with two modes—Analyst Mode (view AI-style suggestions) and Wizard Mode (an experimenter writes/toggles suggestions saved to a comment file that the analyst view polls). It is the study apparatus for the CHI 2024 paper 'How Do Data Analysts Respond to AI Assistance? A Wizard-of-Oz Study' (Gu, Grunde-McLaughlin, McNutt, Heer, Althoff).",
+      "primaryApp": ".",
+      "confidence": "high",
+      "nothingToServe": false
+    },
+    "resolver": null,
+    "blocker": null
+  }
+]

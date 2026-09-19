@@ -1,0 +1,671 @@
+[
+  {
+    "url": "https://github.com/StanfordHCI/Bloom",
+    "owner": "StanfordHCI",
+    "name": "Bloom",
+    "kind": "system",
+    "constraints": "CHI 2026 systems paper. The artifact is: Behavior change application. Area: Human-AI interaction; social science.",
+    "repoId": "753f204b-c72b-44ca-929c-3917df2030c5",
+    "runId": "22e7b3e6-aaef-4f28-bdea-116eaea84955",
+    "status": "expired",
+    "template": "engelbart-runner-docker",
+    "commit": "4854ec37d617e7a873b9129f739df4c0794b844d",
+    "startedAt": "2026-09-18T18:46:43.66378+00:00",
+    "totalMs": 1177921,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Runner with Docker · cloned 4854ec3",
+        "ms": 40275
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1927
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "4 components · Brief: Bloom is a Stanford-developed iOS application (React Native UI over a Swift/HealthKit shell) that pairs an LLM-based hea → backend · Blocked: backend/config.py asserts APP_ENV must be set (line 8: `assert APP_ENV is not None`) and uses it to load a dotenv file `.env.{APP_ENV}` (line 10) that is not present anywhere in the repository (no exa",
+        "ms": 186496
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Not scanned",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "Set up: Set up and started Bloom's backend/ FastAPI service against a locally-run Firebase Firestore emulator (no Docker/real credentials needed) after fixing the missi",
+        "ms": 848507
+      },
+      {
+        "id": "health",
+        "state": "done",
+        "summary": "The application answers at http://127.0.0.1:5001/docs",
+        "ms": 80698
+      },
+      {
+        "id": "live",
+        "state": "done",
+        "summary": "Up · trail saved and shared · stopped",
+        "ms": 20018
+      }
+    ],
+    "docker": true,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "shared",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": {
+      "files": [
+        ".engelbart/.gitignore",
+        ".engelbart/BRIEF.md",
+        ".engelbart/NEXT.md",
+        ".engelbart/brief.json",
+        ".engelbart/check.sh",
+        ".engelbart/setup.sh",
+        ".engelbart/start.sh",
+        ".env.local"
+      ],
+      "summary": "Set up and started Bloom's backend/ FastAPI service against a locally-run Firebase Firestore emulator (no Docker/real credentials needed) after fixing the missing APP_ENV config and empty Firebase placeholder values that crashed startup."
+    },
+    "previewUrl": "https://43110-im6f3v3szm8ikadlr7ywt.e2b.app/docs",
+    "http": {
+      "status": 200,
+      "title": "FastAPI - Swagger UI"
+    },
+    "screenshot": "chi3/753f204b-c72b-44ca-929c-3917df2030c5.png",
+    "liveAt": "2026-09-18T19:06:23.166Z",
+    "error": null,
+    "next": null,
+    "stages": [],
+    "failures": [],
+    "output": "",
+    "path": "setup",
+    "cost": 2.3774,
+    "brief": {
+      "purpose": "Bloom is a Stanford-developed iOS application (React Native UI over a Swift/HealthKit shell) that pairs an LLM-based health-coaching chatbot with activity tracking, push notifications, data visualizations, and a garden-based ambient display to promote physical activity; the repo accompanies the CHI 2026 paper 'Bloom: Designing for LLM-Augmented Behavior Change Interactions' and also bundles the field-study analysis data/scripts (analysis/) and an LLM safety-taxonomy/redteaming benchmark and eval scripts (safety/).",
+      "primaryApp": "backend",
+      "confidence": "low",
+      "nothingToServe": false
+    },
+    "resolver": null,
+    "blocker": null
+  },
+  {
+    "url": "https://github.com/microsoft/agdebugger",
+    "owner": "microsoft",
+    "name": "agdebugger",
+    "kind": "system",
+    "constraints": "CHI 2025 systems paper. The artifact is: AGDebugger interface. Area: AI safety; human-AI interaction.",
+    "repoId": "148ac579-07dd-450f-88f7-1de425ae893f",
+    "runId": "b31223d3-faa3-4351-942a-072d1a03c303",
+    "status": "usable",
+    "template": "engelbart-runner",
+    "commit": "e8ff06c5dcc7542b01694e9cd22ae562c83f71f7",
+    "startedAt": "2026-09-18T18:46:44.073797+00:00",
+    "totalMs": 664310,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned e8ff06c",
+        "ms": 16071
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1761
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "2 components · No brief · Run AGDebugger in dev mode per the user's correction: backend serves examples/local-agents/scenario.py (LocalAgent, no real LLM calls) with UI serving disabled, and the Vite frontend dev server runs separately and talks to it via VITE_AGDEBUGGER_FRONTEND_API_URL, per DEV.md.",
+        "ms": 194817
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 239
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "Set up: Built the frontend and installed agdebugger editable into .engelbart/venv, pinning autogen-agentchat/autogen-ext to 0.4.9.3 (the unpinned >=0.4.0 range in pypro",
+        "ms": 229092
+      },
+      {
+        "id": "health",
+        "state": "done",
+        "summary": "The check passed",
+        "ms": 209911
+      },
+      {
+        "id": "live",
+        "state": "done",
+        "summary": "Set up; blocked by unknown: The corrected plan did not start it either: Setup evidence budget exceeded · trail saved and shared",
+        "ms": 12419
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "shared",
+    "replayHeld": null,
+    "repairAttempts": 1,
+    "patch": {
+      "files": [
+        ".engelbart/.gitignore",
+        ".engelbart/NEXT.md",
+        ".engelbart/check.sh",
+        ".engelbart/setup.sh"
+      ],
+      "summary": "Built the frontend and installed agdebugger editable into .engelbart/venv, pinning autogen-agentchat/autogen-ext to 0.4.9.3 (the unpinned >=0.4.0 range in pyproject.toml was pulling 0.7.5, which breaks message serialization the code relies on)."
+    },
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": "BLOCKER: the app needs a real `OPENAI_API_KEY` (any AutoGen model client will do, but the bundled example expects OpenAI's `gpt-4o`) to actually run agent conversations. Everything below that doesn't need it has already been installed and built.\n\nAGDebugger is an interactive web UI (CHI 2025 paper: https://arxiv.org/abs/2503.02068) for stepping through, editing, and visualizing conversations between AutoGen AgentChat agents. You point it at a Python function that builds an AgentChat team, and it serves a debugger UI against that team.\n\n## What's already done (`.engelbart/setup.sh`)\n- `frontend/`: `npm install` + `npm run build` → `frontend/dist/` (the built UI the backend serves).\n- `.engelbart/venv`: Python 3.11 venv with `agdebugger` installed editable (`pip install -e \".[dev]\"`).\n- **Dependency fix**: `pyproject.toml` only pins `autogen-agentchat`/`autogen-ext` to `>=0.4.0`, so a plain install pulls the current release (0.7.5). That release renamed/removed APIs this repo's code and tests call directly (e.g. `GroupChatAgentResponse` requires new fields, message classes gained abstract methods) — `pytest` fails on 3 serialization tests otherwise. `setup.sh` re-pins to `autogen-agentchat==0.4.9.3` and `autogen-ext[openai]==0.4.9.3` after the editable install, which makes all 9 tests pass. This is a pin in the setup script only; `pyproject.toml` itself was not edited.\n\n## Commands to run next\n\n1. **Sanity check (no key needed, ~1s):**\n   ```sh\n   OPENAI_API_KEY=sk-dummy .engelbart/venv/bin/python -m pytest tests/ -q\n   ```\n   Runs the backend/serialization unit tests. The dummy key only satisfies `OpenAIChatCompletionClient`'s constructor (which validates that *some* key string is present); no test makes a real network call.\n\n2. **Launch the debugger against the bundled no-LLM example (once you export a real key, or keep using the dummy one — this specific example never calls the model):**\n   ```sh\n   cd examples/local-agents\n   PYTHONPATH=. OPENAI_API_KEY=sk-dummy .engelbart/venv/bin/agdebugger scenario:get_agent_team --port 8123\n   ```\n   (run from repo root, adjust the venv path, e.g. `../../.engelbart/venv/bin/agdebugger`, or `cd` first). `examples/local-agents/scenario.py` wires up `LocalAgent` (see `local_agent.py`), which just increments a number and never calls `model_client` — so this is fully runnable now with the dummy key, no GPU, no real credentials. Open `http://127.0.0.1:8123` and send a `GroupChatStart` message to step through the (fake) conversation. Instant startup.\n   - If the served UI 404s, run in dev mode instead (see `DEV.md`): set `AGDEBUGGER_BACKEND_SERVE_UI=FALSE` on the backend command above, and in a second terminal run `cd frontend && npm run dev` after creating `frontend/.env.development.local` with `VITE_AGDEBUGGER_FRONTEND_API_URL=http://localhost:8123/api`.\n\n3. **Run AGDebugger against a real agent team (needs a real `OPENAI_API_KEY`, and optionally other provider credentials for non-OpenAI models):**\n   ```sh\n   e",
+    "stages": [
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared",
+      "frontend-install: npm install",
+      "install-backend: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/python -m pip install -e .",
+      "backend: /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11-shared/bin/agdebugger scenario:get_agent_team --port 8123"
+    ],
+    "failures": [
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "failed: Setup evidence budget exceeded",
+        "stage": "setup",
+        "detail": {
+          "attempt": 3
+        }
+      }
+    ],
+    "output": "│   156 │   if inspect.iscoroutinefunction(app_attr):                          │\n│ ❱ 157 │   │   result = await app_attr()                                      │\n│   158 │   │   return result                                                  │\n│   159 │   else:                                                              │\n│   160 │   │   return app_attr()                                              │\n│                                                                              │\n│ /home/user/agdebugger/examples/local-agents/scenario.py:10 in get_agent_team │\n│                                                                              │\n│    7                                                                         │\n│    8                                                                         │\n│    9 async def get_agent_team():                                             │\n│ ❱ 10 │   model_client = OpenAIChatCompletionClient(model=\"gpt-4o\")           │\n│   11 │                                                                       │\n│   12 │   agent1 = LocalAgent(\"LOCAL_AGENT_1\", model_client=model_client)     │\n│   13 │   agent2 = LocalAgent(\"LOCAL_AGENT_2\", model_client=model_client)     │\n│                                                                              │\n│ /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11 │\n│ -shared/lib/python3.11/site-packages/autogen_ext/models/openai/_openai_clien │\n│ t.py:1484 in __init__                                                        │\n│                                                                              │\n│   1481 │   │   │   if \"api_key\" not in copied_args and \"LLAMA_API_KEY\" in    │\n│        os.environ:                                                           │\n│   1482 │   │   │   │   copied_args[\"api_key\"] = os.environ[\"LLAMA_API_KEY\"]  │\n│   1483 │   │                                                                 │\n│ ❱ 1484 │   │   client = _openai_client_from_config(copied_args)              │\n│   1485 │   │   create_args = _create_args_from_config(copied_args)           │\n│   1486 │   │                                                                 │\n│   1487 │   │   super().__init__(                                             │\n│                                                                              │\n│ /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11 │\n│ -shared/lib/python3.11/site-packages/autogen_ext/models/openai/_openai_clien │\n│ t.py:134 in _openai_client_from_config                                       │\n│                                                                              │\n│    131 def _openai_client_from_config(config: Mapping[str, Any]) ->          │\n│        AsyncOpenAI:                                                          │\n│    132 │   # Shave down the config to just the OpenAI kwargs                 │\n│    133 │   openai_config = {k: v for k, v in config.items() if k in          │\n│        openai_init_kwargs}                                                   │\n│ ❱  134 │   return AsyncOpenAI(**openai_config)                               │\n│    135                                                                       │\n│    136                                                                       │\n│    137 def _create_args_from_config(config: Mapping[str, Any]) -> Dict[str,  │\n│        Any]:                                                                 │\n│                                                                              │\n│ /home/user/.human-compact/project-environments/77588e0534493b6e4b8b30ac/3.11 │\n│ -shared/lib/python3.11/site-packages/openai/_client.py:1033 in __init__      │\n│                                                                              │\n│   1030 │   │   │   and workload_identity is None                             │\n│   1031 │   │   │   and self.admin_api_key is None                            │\n│   1032 │   │   ):                                                            │\n│ ❱ 1033 │   │   │   raise OpenAIError(                                        │\n│   1034 │   │   │   │   \"Missing credentials. Please pass an `api_key`,       │\n│        `workload_identity`, `admin_api_key`, or set the `OPENAI_API_KEY` or  │\n│        `OPENAI_ADMIN_KEY` environment variable.\"                             │\n│   1035 │   │   │   )                                                         │\n│   1036                                                                       │\n╰──────────────────────────────────────────────────────────────────────────────╯\nOpenAIError: Missing credentials. Please pass an `api_key`, `workload_identity`,\n`admin_api_key`, or set the `OPENAI_API_KEY` or `OPENAI_ADMIN_KEY` environment \nvariable.",
+    "path": "setup",
+    "cost": 1.021,
+    "brief": null,
+    "resolver": {
+      "status": "plan",
+      "hint": "examples/ DOES exist. Use examples/local-agents/scenario.py — LocalAgent never calls an LLM. Steps: cd frontend && npm install && npm run build; cd .. && uv venv && pip install -e .; then cd examples/local-agents && PYTHONPATH=. OPENAI_API_KEY=sk-dummy agdebugger scenario:get_agent_team --port 8123 --host 0.0.0.0. Run from that dir: scenario.py does `from local_agent import LocalAgent`. The dummy key only satisfies OpenAIChatCompletionClient construction; no real call is made. If the served UI 404s, use DEV.md path: AGDEBUGGER_BACKEND_SERVE_UI=FALSE plus frontend `npm run dev` with .env.develo"
+    },
+    "blocker": {
+      "kind": "unknown",
+      "what": "The corrected plan did not start it either: Setup evidence budget exceeded"
+    }
+  },
+  {
+    "url": "https://github.com/RichardHGL/CHI2025_Plan-then-Execute_LLMAgent",
+    "owner": "RichardHGL",
+    "name": "CHI2025_Plan-then-Execute_LLMAgent",
+    "kind": "system",
+    "constraints": "CHI 2025 systems paper. The artifact is: Agent planning and execution study system. Area: Human-AI interaction; AI safety.",
+    "repoId": "034c78de-80f3-4983-baee-b4bf90fd7ec2",
+    "runId": "b39301fe-3590-4299-8f69-ffe99f228e90",
+    "status": "failed",
+    "template": "engelbart-runner",
+    "commit": "3c478386823d98f4dee93ed6eff86bb1539177e9",
+    "startedAt": "2026-09-18T18:46:44.685617+00:00",
+    "totalMs": 1285668,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 3c47838",
+        "ms": 29338
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1586
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "Brief: Companion repository for the CHI 2025 paper 'Plan-Then-Execute: An Empirical Study of User Trust and Team Performance Wh → interface · Nothing to serve: No runnable component was found: nothing in the repository declares an application to start",
+        "ms": 45432
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "skipped",
+        "summary": "Not scanned",
+        "ms": null
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "The setup agent is installing the repository for use (attempt 2)…",
+        "ms": 1206410
+      },
+      {
+        "id": "health",
+        "state": "failed",
+        "summary": "The application did not start: the application answers at http://127.0.0.1:8000/planning_agent/user_port?PROLIFIC_PID=test, but shows an error (Traceback (most recent call last)) · 2: [unknown] terminated",
+        "ms": 2902
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "unknown",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": {
+      "files": [
+        ".engelbart/.gitignore",
+        ".engelbart/BRIEF.md",
+        ".engelbart/NEXT.md",
+        ".engelbart/brief.json",
+        ".engelbart/check.sh",
+        ".engelbart/setup.sh",
+        ".engelbart/start.sh",
+        "interface/flaskr/db.py"
+      ],
+      "summary": "Fixed the hardcoded empty-DSN Postgres connection in interface/flaskr/db.py to fall back to a local SQLite DB (via DATABASE_URL), then built .engelbart/{setup,check,start}.sh + NEXT.md so the CHI'25 Flask study interface installs and runs standalone."
+    },
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "2: [unknown] terminated",
+    "next": null,
+    "stages": [],
+    "failures": [
+      {
+        "step": "worker",
+        "source": "worker",
+        "reason": "2: [unknown] terminated",
+        "stage": null,
+        "detail": {
+          "kind": "SandboxError"
+        }
+      }
+    ],
+    "output": "",
+    "path": "setup",
+    "cost": 1.0675,
+    "brief": {
+      "purpose": "Companion repository for the CHI 2025 paper 'Plan-Then-Execute: An Empirical Study of User Trust and Team Performance When Using LLM Agents As A Daily Assistant.' It contains (1) the Flask-based experimental web interface through which participants interacted with an LLM plan-then-execute agent across six simulated daily-assistant tasks, and (2) the anonymized study data and Jupyter notebooks used to analyze the resulting user-trust and performance findings.",
+      "primaryApp": "interface",
+      "confidence": "high",
+      "nothingToServe": false
+    },
+    "resolver": null,
+    "blocker": null
+  },
+  {
+    "url": "https://github.com/michelle123lam/lloom",
+    "owner": "michelle123lam",
+    "name": "lloom",
+    "kind": "system",
+    "constraints": "CHI 2024 systems paper. The artifact is: Interactive qualitative text analysis tool. Area: Social science; human-AI interaction.",
+    "repoId": "cdb1f74d-ac75-4493-908b-491ec0a5908f",
+    "runId": "a6cd5afb-6e4f-485a-8b79-4996ccc62072",
+    "status": "usable",
+    "template": "engelbart-runner",
+    "commit": "8252533ab6018bea89c1e33e31c0f8fb6a07a707",
+    "startedAt": "2026-09-18T18:46:45.207576+00:00",
+    "totalMs": 399900,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 8252533",
+        "ms": 31420
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1333
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "1 component · Brief: LLooM is a research prototype accompanying the CHI 2024 paper \"Concept Induction: Analyzing Unstructured Text with High- → docs/public/nb · python → start command pending",
+        "ms": 122874
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 179
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "Set up: Created .engelbart/venv, installed requirements.txt + PyPI text_lloom (the repo's local source has no pyproject.toml so isn't editable-installable) and pre-fetc",
+        "ms": 212741
+      },
+      {
+        "id": "health",
+        "state": "done",
+        "summary": "The check passed",
+        "ms": 14603
+      },
+      {
+        "id": "live",
+        "state": "done",
+        "summary": "Set up and ready to use: Created .engelbart/venv, installed requirements.txt + PyPI text_lloom (the repo's local source has no pyproject.toml so  · trail saved and shared",
+        "ms": 16750
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "shared",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": {
+      "files": [
+        ".engelbart/.gitignore",
+        ".engelbart/BRIEF.md",
+        ".engelbart/NEXT.md",
+        ".engelbart/brief.json",
+        ".engelbart/check.sh",
+        ".engelbart/setup.sh"
+      ],
+      "summary": "Created .engelbart/venv, installed requirements.txt + PyPI text_lloom (the repo's local source has no pyproject.toml so isn't editable-installable) and pre-fetched the small NLTK punkt_tab data; skipped the optional npm widget build since it would write artifacts into the repo root and isn't needed (PyPI package ships prebuilt widget assets)."
+    },
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": null,
+    "next": "# What this repository is\n\nLLooM is the research prototype for the CHI 2024 paper *\"Concept Induction: Analyzing Unstructured Text with High-Level Concepts Using LLooM\"* (Lam et al.). It is an LLM-driven (GPT-4o / GPT-4o mini) concept-induction algorithm, published as the Python library `text_lloom`, paired with an interactive \"Workbench\" visualization that renders as an anywidget inside a Jupyter notebook. There is no standalone server or CLI — the algorithm and the UI only run from Python/notebook code, e.g. `docs/public/nb/24_11_LLooM_GettingStartedTemplate_v1.ipynb`.\n\nSetup already ran `bash .engelbart/setup.sh`, which created `.engelbart/venv` and installed `requirements.txt` plus the published PyPI `text_lloom` package (the local `text_lloom/` source tree has no `pyproject.toml`/`setup.py`, so it isn't pip-installable in editable mode — this matches the README, which only documents `pip install text_lloom`). `bash .engelbart/check.sh` verifies the install by importing `text_lloom.workbench`, loading a bundled sample CSV, and constructing a `lloom` instance (no API calls).\n\n## Commands to run next\n\n1. **Verify the install** (already passing, ~15s, no data/credentials needed):\n   ```\n   bash .engelbart/check.sh\n   ```\n\n2. **Run the real Getting Started analysis** in Jupyter Lab — this is the notebook the README and paper point to (~1-2 min for JupyterLab to launch, then the analysis itself runs live in the browser):\n   ```\n   .engelbart/venv/bin/python -m pip install jupyterlab   # first time only, not in requirements.txt\n   .engelbart/venv/bin/jupyter lab docs/public/nb/24_11_LLooM_GettingStartedTemplate_v1.ipynb\n   ```\n   - **Needs `OPENAI_API_KEY`**: the notebook's `l.gen()` / `l.gen_auto()` / `l.score()` cells call GPT-4o and GPT-4o mini (and `text-embedding-3-large` for clustering) via the `openai` package. Without a key, only the import/load-data cells (through cell \"Create a LLooM instance\") will run.\n   - Data is already bundled — no download needed: the notebook loads `political_fb_posts_100.csv` (100 rows) from `docs/public/data/`, and `neurips_statements_150.csv`, `toxicity_feminism_200.csv`, `uist_abstracts_210.csv` are also available there for the other case studies linked from the README's Examples section.\n   - Cost/time with a key: `l.gen()` on the 100-row sample dataset (manual mode, per the paper) makes on the order of a few dozen GPT-4o/4o-mini calls — budget a few minutes and a small OpenAI bill (well under $1 at 2024/2025 pricing for this sample size). `l.score()` scores every doc against every generated concept, so cost scales with `num_docs * num_concepts`.\n   - No GPU required; everything (including clustering with `umap-learn`/`hdbscan`) runs on CPU.\n\n3. **Optional: rebuild the Workbench widget JS from repo source** (only needed if you edit the Svelte components under `src/`; the installed PyPI `text_lloom` package already ships prebuilt widget assets, so skip this otherwise). Takes a few seconds. This writes `node_mo",
+    "stages": [
+      "install: python -m venv /app/.venv"
+    ],
+    "failures": [],
+    "output": "",
+    "path": "setup",
+    "cost": 0.5809,
+    "brief": {
+      "purpose": "LLooM is a research prototype accompanying the CHI 2024 paper \"Concept Induction: Analyzing Unstructured Text with High-Level Concepts Using LLooM\" (Lam et al.). It is an LLM-driven (GPT-4o/4o-mini) concept-induction algorithm packaged as the Python library text_lloom, paired with an interactive \"Workbench\" visualization (a Svelte/anywidget) for exploring text datasets in terms of auto-generated or user-authored high-level concepts.",
+      "primaryApp": "docs/public/nb",
+      "confidence": "low",
+      "nothingToServe": true
+    },
+    "resolver": null,
+    "blocker": null
+  },
+  {
+    "url": "https://github.com/PAIR-code/farsight",
+    "owner": "PAIR-code",
+    "name": "farsight",
+    "kind": "system",
+    "constraints": "CHI 2024 systems paper. The artifact is: Responsible-AI prototyping widgets. Area: AI safety; HCI.",
+    "repoId": "ea101e9b-bb64-497a-b8a1-c5e62dd45474",
+    "runId": "c68d5eae-9f6e-4b8e-a7d4-9ebb63d2f785",
+    "status": "failed",
+    "template": "engelbart-runner",
+    "commit": "6d1b1214aa7307da90cb5142909c096ca0369fe0",
+    "startedAt": "2026-09-18T18:46:45.767481+00:00",
+    "totalMs": 1284717,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 6d1b121",
+        "ms": 31595
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1568
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "5 components · Brief: Farsight is a collection of in-situ interactive web-component widgets (Alert Symbol, Incident Panel, Use Case Panel, Har → . · Follow personHint: run root Farsight app with `npm install` then `npm run dev` (Vite dev server on port 3000). lite and signal are alternate pages within the same dev server, not separate apps; chrome-extension is a browser extension build, excluded per hint.",
+        "ms": 70856
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 148
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "npm install · npm run dev -- --host 127.0.0.1 --port 3000 (2 passes)",
+        "ms": 1171954
+      },
+      {
+        "id": "health",
+        "state": "failed",
+        "summary": "Checking… · 2: [unknown] terminated",
+        "ms": 8596
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 0,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "2: [unknown] terminated",
+    "next": null,
+    "stages": [
+      "install: npm install",
+      "web: npm run dev",
+      "install: npm install",
+      "web: npm run dev -- --host 127.0.0.1 --port 3000"
+    ],
+    "failures": [
+      {
+        "step": "worker",
+        "source": "worker",
+        "reason": "2: [unknown] terminated",
+        "stage": null,
+        "detail": {
+          "kind": "SandboxError"
+        }
+      }
+    ],
+    "output": "npm warn deprecated lodash.get@4.4.2: This package is deprecated. Use the optional chaining (?.) operator instead.\nnpm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.\nnpm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.\nnpm warn deprecated glob@8.1.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me\nnpm warn deprecated google-p12-pem@4.0.1: Package is no longer maintained\nnpm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported\nnpm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead\nnpm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead\nnpm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me\nnpm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.\nadded 513 packages, and audited 514 packages in 34s\n74 packages are looking for funding\n  run `npm fund` for details\n19 vulnerabilities (8 moderate, 10 high, 1 critical)\nTo address issues that do not require attention, run:\n  npm audit fix\nTo address all issues (including breaking changes), run:\n  npm audit fix --force\nRun `npm audit` for details.\nnpm notice\nnpm notice New major version of npm available! 10.9.8 -> 12.0.2\nnpm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2\nnpm notice To update run: npm install -g npm@12.0.2\nnpm notice\n> @xiaohk/farsight@0.1.6 dev\n> vite --port 3000\n  VITE v4.5.14  ready in 1145 ms\n  ➜  Local:   http://localhost:3000/\n  ➜  Network: use --host to expose\nadded 1 package, and audited 515 packages in 2s\n75 packages are looking for funding\n  run `npm fund` for details\n19 vulnerabilities (8 moderate, 10 high, 1 critical)\nTo address issues that do not require attention, run:\n  npm audit fix\nTo address all issues (including breaking changes), run:\n  npm audit fix --force\nRun `npm audit` for details.\n> @xiaohk/farsight@0.1.6 dev\n> vite --port 3000 --host 127.0.0.1 --port 3000\n  VITE v4.5.14  ready in 973 ms\n  ➜  Local:   http://127.0.0.1:3000/",
+    "path": "direct",
+    "cost": 0.1069,
+    "brief": {
+      "purpose": "Farsight is a collection of in-situ interactive web-component widgets (Alert Symbol, Incident Panel, Use Case Panel, Harm Envisioner) that help creators of LLM prompts/AI applications become aware of potential responsible-AI harms while prototyping, as described in the CHI 2024 paper 'Farsight: Fostering Responsible AI Awareness During AI Application Prototyping' (arXiv:2402.15350). It ships as a web demo, a Chrome extension for Google AI Studio, an npm library of Lit web components, and a Python/Jupyter notebook widget package.",
+      "primaryApp": ".",
+      "confidence": "high",
+      "nothingToServe": false
+    },
+    "resolver": null,
+    "blocker": null
+  },
+  {
+    "url": "https://github.com/behavioral-data/Data-Assistant-Interface",
+    "owner": "behavioral-data",
+    "name": "Data-Assistant-Interface",
+    "kind": "system",
+    "constraints": "CHI 2024 systems paper. The artifact is: Data analysis assistant study interface. Area: Human-AI interaction; HCI.",
+    "repoId": "16863683-6a28-4b98-b2c0-b0a9925a4d29",
+    "runId": "f19fad5a-9cb0-4e92-919e-72d9338a5af7",
+    "status": "failed",
+    "template": "engelbart-runner",
+    "commit": "8b279fbab2c64feb09959a6a4a5c867369ab8fb6",
+    "startedAt": "2026-09-18T18:46:46.314091+00:00",
+    "totalMs": 629745,
+    "steps": [
+      {
+        "id": "sandbox",
+        "state": "done",
+        "summary": "Standard runner · cloned 8b279fb",
+        "ms": 22512
+      },
+      {
+        "id": "trail",
+        "state": "done",
+        "summary": "Starting over without the saved trail, as asked",
+        "ms": 1682
+      },
+      {
+        "id": "plan",
+        "state": "done",
+        "summary": "3 components · Brief: A JupyterLab extension (adapted from jupyterlab-comments) implementing the wizard and analyst interfaces for the CHI 202 → . · Following personHint: build and run the jupyterlab-comments extension from the repo root via a venv-based pip install (no conda) that triggers the jlpm/npm build through hatch-jupyter-builder, then launch JupyterLab with the extension enabled. Fixed prior validation failure by removing version-range operators (<, >=) from pip argv, which the host flagged as shell expressions, replacing with an exact pinned version that satisfies the documented range.",
+        "ms": 134531
+      },
+      {
+        "id": "services",
+        "state": "skipped",
+        "summary": "Not needed",
+        "ms": null
+      },
+      {
+        "id": "environment",
+        "state": "done",
+        "summary": "Nothing read from the environment",
+        "ms": 164
+      },
+      {
+        "id": "start",
+        "state": "done",
+        "summary": "/usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared · /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m pip install --upgrade pip wheel · /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m pip install jupyterlab==3.5.3 numpy scipy matplotlib · /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m pip install -e . · /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/jupyter labextension develop . --overwrite · /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/jupyter server extension enable jupyterlab_comments",
+        "ms": 89407
+      },
+      {
+        "id": "health",
+        "state": "failed",
+        "summary": "Repair attempt 1: the agent is looking for a fix… · 2: [unknown] terminated",
+        "ms": 381449
+      },
+      {
+        "id": "live",
+        "state": "waiting",
+        "summary": "",
+        "ms": null
+      }
+    ],
+    "docker": false,
+    "localSupabase": "none",
+    "local": [],
+    "missing": [],
+    "trail": "none",
+    "replayHeld": null,
+    "repairAttempts": 1,
+    "patch": null,
+    "previewUrl": null,
+    "http": null,
+    "screenshot": null,
+    "liveAt": null,
+    "error": "2: [unknown] terminated",
+    "next": null,
+    "stages": [
+      "runtime-create-0: /usr/local/bin/python3.11 -m venv /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared",
+      "upgrade-pip: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m pip install --upgrade pip wheel",
+      "install-jupyterlab: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m pip install jupyterlab==3.5.3 numpy scipy matplotlib",
+      "install-extension: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/python -m pip install -e .",
+      "labextension-develop: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/jupyter labextension develop . --overwrite",
+      "enable-server-extension: /home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/jupyter server extension enable jupyterlab_comments"
+    ],
+    "failures": [
+      {
+        "step": "health",
+        "source": "app",
+        "reason": "failed: Setup recovery stopped after 5 repair attempts. Repair proposal rejected: Shell expressions are not allowed",
+        "stage": "validation",
+        "detail": {
+          "agent": {
+            "call": 1,
+            "name": "Setup Repair Agent",
+            "model": "sonnet",
+            "phase": "Model response received",
+            "status": "done",
+            "outcome": "plan",
+            "seconds": 109.34
+          },
+          "attempt": 6
+        }
+      },
+      {
+        "step": "worker",
+        "source": "worker",
+        "reason": "2: [unknown] terminated",
+        "stage": null,
+        "detail": {
+          "kind": "SandboxError"
+        }
+      }
+    ],
+    "output": "    module = importlib.import_module(package_name)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/importlib/__init__.py\", line 126, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1204, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1176, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1147, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 690, in _load_unlocked\n  File \"<frozen importlib._bootstrap_external>\", line 940, in exec_module\n  File \"<frozen importlib._bootstrap>\", line 241, in _call_with_frames_removed\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_server_terminals/__init__.py\", line 13, in <module>\n    raise RuntimeError(msg)\nRuntimeError: Jupyter Server Terminals requires Jupyter Server 2.0+\nDuring handling of the above exception, another exception occurred:\nTraceback (most recent call last):\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/bin/jupyter-server\", line 6, in <module>\n    sys.exit(main())\n             ^^^^^^\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_core/application.py\", line 284, in launch_instance\n    super().launch_instance(argv=argv, **kwargs)\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/traitlets/config/application.py\", line 1080, in launch_instance\n    app.start()\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_server/serverapp.py\", line 2774, in start\n    self.start_app()\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_server/serverapp.py\", line 2670, in start_app\n    super().start()\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_core/application.py\", line 271, in start\n    self.subapp.start()\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_server/extension/serverextension.py\", line 378, in start\n    super().start()\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_core/application.py\", line 271, in start\n    self.subapp.start()\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_server/extension/serverextension.py\", line 272, in start\n    self.toggle_server_extension(arg)\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_server/extension/serverextension.py\", line 241, in toggle_server_extension\n    config_dir, extension_manager = _get_extmanager_for_context(\n                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_server/extension/serverextension.py\", line 60, in _get_extmanager_for_context\n    extension_manager = ExtensionManager(\n                        ^^^^^^^^^^^^^^^^^\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/traitlets/config/configurable.py\", line 95, in __init__\n    super().__init__(**kwargs)\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/traitlets/traitlets.py\", line 1387, in __init__\n    self.notify_change(changes[key])\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/traitlets/traitlets.py\", line 1532, in notify_change\n    return self._notify_observers(change)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/traitlets/traitlets.py\", line 1575, in _notify_observers\n    c(event)\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_server/extension/manager.py\", line 253, in _config_manager_changed\n    self._load_config_manager(change.new)\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_server/extension/manager.py\", line 308, in _load_config_manager\n    self.from_jpserver_extensions(jpserver_extensions)\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_server/extension/manager.py\", line 313, in from_jpserver_extensions\n    self.add_extension(name, enabled=enabled)\n  File \"/home/user/.human-compact/project-environments/85b284b2ec6d136c008efdf5/3.11-shared/lib/python3.11/site-packages/jupyter_server/extension/manager.py\", line 325, in add_extension\n    if self.serverapp.reraise_server_extension_failures:\n       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'reraise_server_extension_failures'",
+    "path": "direct",
+    "cost": 0.1494,
+    "brief": {
+      "purpose": "A JupyterLab extension (adapted from jupyterlab-comments) implementing the wizard and analyst interfaces for the CHI 2024 paper 'How Do Data Analysts Respond to AI Assistance? A Wizard-of-Oz Study' — analysts see a notebook with a suggestion side-panel, while a hidden wizard writes/toggles markdown suggestions that sync via a polled comment file.",
+      "primaryApp": ".",
+      "confidence": "high",
+      "nothingToServe": false
+    },
+    "resolver": null,
+    "blocker": null
+  }
+]
