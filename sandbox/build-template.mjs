@@ -1,9 +1,11 @@
 // Builds the E2B templates the runner sandboxes start from: the base image
-// plus everything hc's project pipeline needs. Run from the repo root:
+// plus everything hc's project pipeline needs. Run from the repo root,
+// through the env file: the E2B SDK reads E2B_API_KEY from the process
+// environment, and nothing in this script loads .env.local for it.
 //
-//   node sandbox/build-template.mjs            # both templates
-//   node sandbox/build-template.mjs base       # just the small one
-//   node sandbox/build-template.mjs docker     # just the Docker one
+//   npm run template                           # both templates
+//   npm run template -- base                   # just the small one
+//   npm run template -- docker                 # just the Docker one
 //
 // Two templates come out of this, both at the largest size E2B allows. The
 // base one is what most repositories get. The Docker one adds Docker,

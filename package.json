@@ -6,6 +6,7 @@
     "start": "next start",
     "lint": "eslint .",
     "worker": "node --env-file-if-exists=.env.local --import tsx worker/index.ts",
+    "template": "node --env-file-if-exists=.env.local sandbox/build-template.mjs",
     "bench": "node --env-file-if-exists=.env.local --import tsx scripts/bench/run.mts",
     "bench:grade": "node --env-file-if-exists=.env.local --import tsx scripts/bench/grade.mts",
     "bench:report": "node --import tsx scripts/bench/report.mts",
