@@ -376,6 +376,50 @@ describe("surveying what a document offers", () => {
     assert.equal(api.survey().candidates.length, surveyed.candidates.length);
   });
 
+  // Most applications render their content as plain <div>s with utility
+  // classes. Before this, a tutor's whole conversation reached the survey
+  // as one flattened string inside <main>, with no element to attach it
+  // to — which is how a real reading of ROPE came back calling the page
+  // "Create Next App": the only nameable things on it were four buttons.
+  it("sees the content a page renders as plain divs", async () => {
+    const chat = `
+      <main>
+        <div class="flex flex-col gap-2 overflow-y-auto">
+          <div class="rounded-lg bg-muted p-3">Hi there! Can you try to enumerate the main steps for creating a board?</div>
+          <div class="rounded-lg bg-primary p-3">I think you start by making the grid and then place the pieces.</div>
+          <div class="rounded-lg bg-muted p-3">Good start! You have identified the grid. What comes next?</div>
+        </div>
+        <button>Send</button>
+      </main>`;
+    const { down, up } = await preview(chat);
+    down({ type: "survey" });
+    await sleep(0);
+    const said = up.find((m) => m.type === "surveyed").candidates.map((c) => c.target.text ?? "");
+    assert.ok(said.some((t) => t.startsWith("Hi there!")), "each message is a part of the interface");
+    assert.ok(said.some((t) => t.startsWith("I think you start")));
+    assert.ok(said.some((t) => t.startsWith("Good start!")));
+  });
+
+  it("does not offer the wrapper that merely holds a message", async () => {
+    // A container whose text is really its child's is not a text block.
+    // Without this, every nesting level of a conversation would be
+    // offered as another message saying the same thing. <main> is a
+    // landmark and is a candidate on its own account, as it always was.
+    const { down, up } = await preview(`<main><div class="flex flex-col"><div class="p-3">a lone message long enough to count</div></div></main>`);
+    down({ type: "survey" });
+    await sleep(0);
+    const said = up.find((m) => m.type === "surveyed").candidates.filter((c) => (c.target.text ?? "").startsWith("a lone message"));
+    assert.deepEqual([...said.map((c) => c.target.tag)], ["main", "div"], "the landmark, and the element whose text it actually is — not the wrapper between them");
+  });
+
+  it("does not count a scrap of text as a part of the interface", async () => {
+    const { down, up } = await preview(`<main><div>ok</div><div>3</div></main>`);
+    down({ type: "survey" });
+    await sleep(0);
+    const said = up.find((m) => m.type === "surveyed").candidates;
+    assert.ok(!said.some((c) => c.target.text === "ok" || c.target.text === "3"), "a word in a div is not a region");
+  });
+
   it("carries not one character anybody typed", async () => {
     const { doc, down, up } = await preview(PAGE);
     doc.querySelector("#answer").value = "my secret working notes about the rotation bug";

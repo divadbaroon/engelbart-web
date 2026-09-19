@@ -415,7 +415,19 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
   // page is up. It turns nothing on and records nothing: the answer goes
   // to the workspace, which reads an interface it has not read before and
   // otherwise uses what it already knows.
-  useSurvey(frame, service.embeddable ? service.previewUrl : null, traced && service.embeddable && controls.semantics.enabled, reloads + controls.semantics.round, controls.semantics.offer);
+  //
+  // Asked again when the run gains a document or goes somewhere new. A
+  // preview is not one interface: the frame holding an artifact's output
+  // often attaches only when somebody opens the tab it is on, minutes
+  // after the page settled, and a screen that replaces another is a
+  // different interface at the same frame. Asking only at load would
+  // leave both unread. The workspace reads each interface once, so an
+  // extra question about one it already knows costs nothing.
+  const documents = useMemo(
+    () => controls.trace.events.filter((e) => e.kind === "frame.attached" || e.kind === "ui.route").length,
+    [controls.trace.events],
+  );
+  useSurvey(frame, service.embeddable ? service.previewUrl : null, traced && service.embeddable && controls.semantics.enabled, reloads + controls.semantics.round + documents, controls.semantics.offer);
   const note = notes.list.find((a) => a.id === openNote) ?? null;
   // A note chosen somewhere else — the list, a reference in an answer —
   // is shown where it lives: the markers go up, the page is scrolled to

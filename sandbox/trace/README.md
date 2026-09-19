@@ -224,7 +224,13 @@ What comes back is the reduced page: every element `meaningfulElement`
 accepts, minus Engelbart's own and minus anything the document says is
 hidden, described by the same `describe()` as everything else and with
 `rect` and `route` dropped — where an element sat says nothing about what
-it is. Each carries an ordinal and the ordinal of the nearest candidate
+it is. `meaningfulElement` accepts a landmark, a role, a label, a good
+id, a class worth keeping — and an element that holds a fair amount of
+text of its own with few element children, none of which holds nearly
+all of it. That last rule is what makes a conversation visible: most
+applications render their content as plain `<div>`s with utility
+classes, and without it a tutor's whole transcript reaches the survey as
+one flattened string inside `<main>`, with no element to attach it to. Each carries an ordinal and the ordinal of the nearest candidate
 above it, which is the only handle that leaves the page. Three caps hold
 it: 120 candidates, 4000 elements looked at, 96 KB on the wire, and the
 answer says when it was cut.
@@ -234,8 +240,13 @@ one, and the survey adds nothing `describe()` did not produce.
 
 The workspace asks each time the preview loads, three times over five
 seconds, because a bridge in an embedded frame arrives after the one in
-the top document. A document that answers twice is no trouble: the
-workspace reads an interface once.
+the top document — and again whenever the run records a `frame.attached`
+or a `ui.route`. A preview is not one interface: the frame holding an
+artifact's output often attaches only when somebody opens the tab it is
+on, minutes after the page settled, and a screen that replaces another
+is a different interface at the same frame. A document that answers
+twice is no trouble: the workspace reads an interface once, keyed on its
+frame path and route.
 
 ## Environment
 
@@ -507,6 +518,14 @@ about one document, made once and then cached (`lib/semantics/`).
 
 Three rules hold it together, and everything else follows from them.
 
+The question it answers is a researcher's first one. They have opened
+somebody else's software, they did not write it and have not read its
+source, and they are looking at a screen they have never seen. So a
+reading carries a **purpose** as well as names: one or two sentences on
+what this interface lets a person do, and where. Of the interface, from
+the interface — never what the person using it wants, believes or found,
+which is the line the plan drew and this does not cross.
+
 *A label never replaces evidence.* Every named thing carries the
 `ElementTarget`s it was derived from, stored verbatim as the page
 described them. `describeTarget(d, match)` puts the name in front and the
@@ -550,6 +569,14 @@ heuristic, not an invariant:
 | `structure` | `true` | whether where a candidate sits counts. It is said as what the parent **is**, never as the ordinal the parent was given, or inserting one list item would change every part below it. |
 | `selectorValue` | `false` | whether the selector's value counts, not merely that there is one. |
 
+A document's `<title>` is a hint and is treated as one: the framework
+defaults (`Create Next App`, `React App`, `Vite + React`, `Document`, …)
+are never shown to the reader at all, and a `documentLabel` that comes
+back word-for-word as the title is demoted to low confidence, because
+naming a document after its own title is transcription rather than
+reading. ROPE's first reading came back as "Create Next App" with high
+confidence for exactly this reason.
+
 `diffSignature` / `sayDiff` say what moved, so a miss is explained rather
 than asserted, and `scripts/semantics/verify.mts` is how the defaults
 were arrived at: it runs this bridge in a jsdom document on its own
@@ -560,6 +587,11 @@ screen swapped) and reports whether the signature held or moved. Two of
 the defaults above are corrections it found.
 
 ### Finding a name again
+
+A reading may stand in for a placeholder and never for evidence. On a
+row's chip, "the page" says only that this is the top document, so a
+confident reading replaces it; a frame the DOM named "solution" keeps
+that name and the reading joins it — `Solution game (solution)`.
 
 `lookupTarget` climbs the same ladder `resolveAnchor` does, for the same
 reason: a test id, then an id, then the selector, then the shape of the

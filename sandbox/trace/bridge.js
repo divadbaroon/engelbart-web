@@ -883,6 +883,31 @@
   // under the pointer is the answer — an ancestor picked for being nearby
   // would be a guess, and a guess is worse than a plain <div>.
   var REGION_SELECTOR = "main,article,section,aside,nav,header,footer,figure,figcaption,blockquote,li,tr,td,th,table,form,fieldset,legend,h1,h2,h3,h4,h5,h6,p,pre,dl,dt,dd,[role],[aria-label],[aria-labelledby],[data-testid],[data-test-id],[data-test]";
+  // Text of its own is a part of the interface too. A page that renders
+  // its content as plain <div>s with utility classes — which is most of
+  // them — offers nothing above but its buttons: a tutor's whole
+  // conversation reached a survey of ROPE as one flattened string inside
+  // <main>, with no element to attach it to and nothing to call it.
+  //
+  // The rule is deliberately narrow. The element must hold a fair amount
+  // of text, have few element children, and no single child may hold
+  // nearly all of it — which is what tells a message in a conversation
+  // from the column that holds the messages.
+  var TEXT_OWN_MIN = 24;     // characters before a plain element counts
+  var TEXT_KIDS_MAX = 4;     // more children than this and it is a container
+  function textBlock(el) {
+    try {
+      var kids = el.children;
+      if (!kids || kids.length > TEXT_KIDS_MAX) return false;
+      var own = (el.textContent || "").trim();
+      if (own.length < TEXT_OWN_MIN || own.length > 4000) return false;
+      for (var i = 0; i < kids.length; i++) {
+        var kid = (kids[i].textContent || "").trim();
+        if (kid.length >= own.length * 0.8) return false;   // the text is the child's, not this element's
+      }
+      return true;
+    } catch { return false; }
+  }
   function meaningfulElement(el) {
     if (!el || el.nodeType !== 1) return false;
     var name = el.localName;
@@ -890,7 +915,8 @@
     try { if (el.matches(REGION_SELECTOR)) return true; } catch { /* not matchable */ }
     if (goodId(el)) return true;
     if (labelFor(el)) return true;
-    return usefulClasses(el, 1).length > 0;
+    if (usefulClasses(el, 1).length > 0) return true;
+    return textBlock(el);
   }
   function upFrom(node) {
     var parent = node.parentNode;
