@@ -186,6 +186,41 @@ describe("placing a note", () => {
     const recorded = await events();
     assert.equal(recorded.filter((e) => e.kind === "ui.click").length, 0);
   });
+  it("says which element it is, not only what it says, so nested ones can be told apart", async () => {
+    const { api, doc, down, win } = await preview("<section id=card><button id=go>Go</button></section>");
+    down({ type: "mode", on: true });
+    await sleep(0);
+    doc.querySelector("#go").dispatchEvent(new win.MouseEvent("pointermove", { bubbles: true, cancelable: true, composed: true }));
+    await sleep(20);
+    assert.equal(api.annotate().hovering, "#go");
+    assert.match(api.annotate().label, /^button \u00b7 Go/, "the tag comes first, then what the element says");
+    assert.match(api.annotate().label, /\d+\u00d7\d+$/, "and its size last, the way an inspector reads");
+  });
+  it("names an element with no visible text by its tag and whatever identifies it", async () => {
+    const { api, doc, down, win } = await preview("<div id=box></div>");
+    down({ type: "mode", on: true });
+    await sleep(0);
+    doc.querySelector("#box").dispatchEvent(new win.MouseEvent("pointermove", { bubbles: true, cancelable: true, composed: true }));
+    await sleep(20);
+    assert.match(api.annotate().label, /^div \u00b7 box  \d+\u00d7\d+$/, "a wrapper with nothing to say is still told apart by tag and id");
+  });
+  it("turns the pointer into a hand while it is on, and gives it back after", async () => {
+    const { doc, down } = await preview("<button id=go style='cursor:wait'>Go</button>");
+    const pointing = () => {
+      const sheets = [...(doc.adoptedStyleSheets ?? [])];
+      const rule = sheets.some((sheet) => [...sheet.cssRules].some((r) => /cursor:\s*pointer/i.test(r.cssText)));
+      return rule || doc.documentElement.style.getPropertyValue("cursor") === "pointer";
+    };
+    assert.equal(pointing(), false, "nothing is imposed on a page that is only being watched");
+    down({ type: "mode", on: true });
+    await sleep(0);
+    assert.equal(pointing(), true, "a page setting its own cursor does not get to keep it while the picker is on");
+    const sheets = [...(doc.adoptedStyleSheets ?? [])];
+    assert.ok(sheets.some((sheet) => [...sheet.cssRules].some((r) => /cursor:\s*pointer/i.test(r.cssText))), "through a rule over every element: the root's own cursor would lose to any the page sets");
+    down({ type: "mode", on: false });
+    await sleep(0);
+    assert.equal(pointing(), false, "and the page has it back");
+  });
   it("puts the outline away when the picker is turned off", async () => {
     const { api, doc, down } = await preview("<button id=go>Go</button>");
     down({ type: "mode", on: true });

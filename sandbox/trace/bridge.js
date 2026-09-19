@@ -922,6 +922,15 @@
     return cap(d.text || d.label || d.title || d.placeholder || d.testid || d.id || d.name || d.role || d.tag || "element", 48);
   }
 
+  // What the chip says while the pointer is over an element. The tag comes
+  // first and the size last, the way a browser's own inspector reads them:
+  // with nested elements whose edges nearly coincide, the text alone does
+  // not say which of them is about to be annotated, and the size does.
+  function hoverLabel(d, r) {
+    var said = cap(d.text || d.label || d.title || d.placeholder || d.testid || d.id || d.name || d.role || "", 40);
+    return (d.tag || "element") + (said ? " \u00b7 " + said : "") + (r ? "  " + Math.round(r.w) + "\u00d7" + Math.round(r.h) : "");
+  }
+
   // ---- Finding an annotated element again
   //
   // A note was written about an element in a document that has since been
@@ -1036,6 +1045,8 @@
   // style-src would block those, and the outline would silently not be
   // drawn. CSSOM is not subject to that directive.
   function setStyle(style, props) { for (var k in props) { try { style[k] = props[k]; } catch { /* ignore */ } } }
+  // One colour for the picker, nothing the page can be assumed to own.
+  var ACCENT = "rgba(37,99,235,.95)", ACCENT_WASH = "rgba(37,99,235,.20)", ACCENT_HALO = "rgba(37,99,235,.22)";
   function createOverlay(doc, onMarker) {
     var host = null, root = null, box = null, chip = null, pins = null;
     var marks = [];   // { id, el, dot, confidence }
@@ -1047,10 +1058,24 @@
       host.setAttribute("data-engelbart", "annotate");
       setStyle(host.style, { position: "fixed", top: "0", left: "0", width: "100%", height: "100%", margin: "0", padding: "0", border: "0", pointerEvents: "none", zIndex: "2147483647" });
       try { root = host.attachShadow({ mode: "closed" }); } catch { root = host; }
+      // The page underneath is any colour at all, so the outline is drawn
+      // in three bands: a white hairline that separates it from a dark
+      // background, the accent itself, and a soft halo that separates it
+      // from a light one. A wash over the element says which one is meant
+      // when several are nested and their edges nearly coincide.
       box = doc.createElement("div");
-      setStyle(box.style, { position: "fixed", display: "none", boxSizing: "border-box", pointerEvents: "none", border: "1px solid rgba(24,24,24,.8)", background: "rgba(24,24,24,.05)", borderRadius: "2px" });
+      setStyle(box.style, {
+        position: "fixed", display: "none", boxSizing: "border-box", pointerEvents: "none",
+        border: "2px solid " + ACCENT, background: ACCENT_WASH, borderRadius: "3px",
+        boxShadow: "0 0 0 1px rgba(255,255,255,.9), 0 0 0 6px " + ACCENT_HALO,
+      });
       chip = doc.createElement("div");
-      setStyle(chip.style, { position: "fixed", display: "none", pointerEvents: "none", maxWidth: "280px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", font: "11px/18px ui-monospace,SFMono-Regular,Menlo,monospace", color: "#fafafa", background: "rgba(24,24,24,.9)", padding: "0 6px", borderRadius: "2px" });
+      setStyle(chip.style, {
+        position: "fixed", display: "none", pointerEvents: "none", maxWidth: "280px", overflow: "hidden",
+        textOverflow: "ellipsis", whiteSpace: "nowrap", font: "600 11px/18px ui-monospace,SFMono-Regular,Menlo,monospace",
+        color: "#fff", background: ACCENT, padding: "1px 6px", borderRadius: "3px",
+        boxShadow: "0 1px 3px rgba(0,0,0,.35)",
+      });
       pins = doc.createElement("div");
       setStyle(pins.style, { position: "fixed", top: "0", left: "0", width: "100%", height: "100%", pointerEvents: "none" });
       root.appendChild(box); root.appendChild(chip); root.appendChild(pins);
@@ -1080,6 +1105,43 @@
       pins.appendChild(dot);
       return dot;
     }
+    // The pointer, for as long as the picker is on. A page sets cursors on
+    // its own elements, so the only thing that reliably wins over all of
+    // them is a rule about all of them. A constructed stylesheet is CSSOM
+    // like everything else drawn here and so is not style-src's business,
+    // and it is dropped again the moment the mode ends. Where constructed
+    // sheets are missing, the root's cursor is what can be done: it shows
+    // everywhere the page has not set one of its own.
+    var sheet = null, rooted = false;
+    var adopted = function () { try { return [].slice.call(doc.adoptedStyleSheets || []); } catch { return []; } };
+    function cursor(on) {
+      var view = doc.defaultView;
+      if (on && !sheet && view && typeof view.CSSStyleSheet === "function") {
+        try {
+          var made = new view.CSSStyleSheet();
+          made.replaceSync("*,*::before,*::after{cursor:pointer !important}");
+          sheet = made;
+        } catch { sheet = null; }
+      }
+      if (sheet) {
+        try {
+          var have = adopted(), at = have.indexOf(sheet);
+          if (on && at < 0) doc.adoptedStyleSheets = have.concat([sheet]);
+          else if (!on && at >= 0) { have.splice(at, 1); doc.adoptedStyleSheets = have; }
+          // A document may take the assignment without keeping it, so what
+          // is actually there decides whether the root is still needed.
+          if (adopted().indexOf(sheet) >= 0 === on) { if (!on) rootCursor(false); return; }
+        } catch { /* the root, then */ }
+      }
+      rootCursor(on);
+    }
+    function rootCursor(on) {
+      var el = doc.documentElement;
+      if (!el) return;
+      if (on) { try { el.style.setProperty("cursor", "pointer", "important"); rooted = true; } catch { /* ignore */ } }
+      else if (rooted) { try { el.style.removeProperty("cursor"); } catch { /* ignore */ } rooted = false; }
+    }
+
     function place() {
       for (var i = 0; i < marks.length; i++) {
         var m = marks[i];
@@ -1090,13 +1152,14 @@
     }
     return {
       ensure: ensure,
+      cursor: cursor,
       owns: function (e) { try { return !!host && (e.composedPath ? e.composedPath().indexOf(host) >= 0 : false); } catch { return false; } },
       show: function (rect, label) {
         if (!rect || !ensure()) return;
         setStyle(box.style, { display: "block", left: rect.x + "px", top: rect.y + "px", width: rect.w + "px", height: rect.h + "px" });
         chip.textContent = label || "";
-        var above = rect.y >= 20;
-        setStyle(chip.style, { display: label ? "block" : "none", left: Math.max(0, rect.x) + "px", top: (above ? rect.y - 19 : rect.y + rect.h + 1) + "px" });
+        var above = rect.y >= 30;
+        setStyle(chip.style, { display: label ? "block" : "none", left: Math.max(0, rect.x - 2) + "px", top: (above ? rect.y - 26 : rect.y + rect.h + 8) + "px" });
       },
       hide: function () { if (box) box.style.display = "none"; if (chip) chip.style.display = "none"; },
       mark: function (items) {
@@ -1119,7 +1182,7 @@
         }
         return false;
       },
-      remove: function () { try { if (host && host.parentNode) host.parentNode.removeChild(host); } catch { /* ignore */ } host = root = box = chip = pins = null; marks = []; },
+      remove: function () { cursor(false); try { if (host && host.parentNode) host.parentNode.removeChild(host); } catch { /* ignore */ } host = root = box = chip = pins = null; marks = []; },
     };
   }
 
@@ -1183,7 +1246,7 @@
       if (!active || !hovering || !hovering.isConnected) { overlay.hide(); return; }
       var r = rectOf(hovering);
       if (!r || (!r.w && !r.h)) { overlay.hide(); return; }
-      overlay.show(r, shortLabel(describe(hovering)));
+      overlay.show(r, hoverLabel(describe(hovering), r));
     }
     function schedule() {
       if (pending) return;
@@ -1287,6 +1350,7 @@
       active = next;
       hovering = null;
       if (active) { listen(); overlay.ensure(); } else unlisten();
+      overlay.cursor(active);
       overlay.hide();
       if (!active && !showing) overlay.remove();
     }
@@ -1324,7 +1388,7 @@
     return {
       receive: receive,
       detach: function () { setMode(false); clearMarks(); overlay.remove(); channel = null; },
-      state: function () { return { active: active, channel: !!channel, hovering: hovering ? selectorFor(hovering) : null, markers: overlay.marked() }; },
+      state: function () { return { active: active, channel: !!channel, hovering: hovering ? selectorFor(hovering) : null, label: hovering ? hoverLabel(describe(hovering), rectOf(hovering)) : null, markers: overlay.marked() }; },
       resolve: function (anchor) { var got = resolveAnchor(doc, anchor); return { confidence: got.confidence, matchedOn: got.matchedOn, changed: got.changed, selector: got.el ? selectorFor(got.el) : null }; },
       annotatableAt: annotatableAt,
     };

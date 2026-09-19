@@ -170,7 +170,21 @@ While it is on:
 - an overlay draws an outline around whatever the pointer is over, inside
   a **closed** shadow root on an element carrying `data-engelbart`, with
   every style set as a property rather than through a `<style>` element or
-  a style attribute, so a strict `style-src` cannot silently blank it;
+  a style attribute, so a strict `style-src` cannot silently blank it. The
+  page underneath is any colour at all, so the outline is three bands — a
+  white hairline, the accent, a soft halo — over a wash of the accent, and
+  a chip names the element the way a browser's own inspector does: tag
+  first, then what it says, then its size, because with nested elements
+  whose edges nearly coincide the text alone does not say which one is
+  about to be annotated;
+- the pointer becomes a hand, through a constructed stylesheet adopted for
+  as long as the mode lasts (`*{cursor:pointer !important}`) and dropped
+  when it ends. A rule over every element is what it takes: a page sets
+  cursors on its own elements, and the root's would lose to every one of
+  them. A constructed sheet is CSSOM like the rest of the overlay, so it
+  is not `style-src`'s business either; where constructed sheets are
+  missing the root's cursor is the fallback, and the code checks that the
+  sheet was actually kept rather than assuming;
 - the next click is taken by a non-passive capturing listener on the
   window, which runs before the bridge's own document listeners, so the
   application does not get the click and neither does the trace;
