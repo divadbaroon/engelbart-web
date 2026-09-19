@@ -168,3 +168,9 @@ export function toStoredSemantics(r: SemanticRow): StoredSemantics {
     map: map ?? null, candidates: tree, model: r.model, createdAt: r.created_at,
   };
 }
+
+// The readings, as the rest of the app wants them: the maps, not the
+// rows. A row whose reading could not be rebuilt still has its survey,
+// and is simply not part of the index.
+export const mapsOf = (stored: StoredSemantics[]): UISemanticMap[] =>
+  stored.flatMap((s) => (s.map ? [s.map] : []));
