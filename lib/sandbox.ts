@@ -4,6 +4,7 @@
 // Supabase so the desktop app can share it.
 
 import { toEnvReport, type EnvReport } from "@/lib/environment";
+import type { TraceCapture } from "@/lib/trace/types";
 
 // usable: nothing to serve, but installed, checked and open in a shell.
 // no_service: the pipeline concluded the repository has nothing to serve
@@ -61,6 +62,7 @@ export type SandboxRun = {
   template: string;
   commit: string | null;   // what the clone checked out
   fresh: boolean;          // asked to ignore any saved trail
+  trace: TraceCapture;     // whether the run is traced, and whether content is kept
   status: RunStatus;
   workdir: string | null;
   errorKind: string | null;
@@ -92,6 +94,7 @@ export type RunRow = {
   template: string;
   commit_sha: string | null;
   fresh?: boolean;
+  trace?: TraceCapture | null;
   status: RunStatus;
   workdir: string | null;
   error_kind: string | null;
@@ -116,11 +119,11 @@ export type EventRow = {
   data: Record<string, unknown> | null;
 };
 
-export const RUN_COLUMNS = "id, repo_id, sandbox_id, template, commit_sha, status, workdir, error_kind, error, port, preview_url, services, usage, brief, escalation, started_at, finished_at, fresh";
+export const RUN_COLUMNS = "id, repo_id, sandbox_id, template, commit_sha, status, workdir, error_kind, error, port, preview_url, services, usage, brief, escalation, started_at, finished_at, fresh, trace";
 export const EVENT_COLUMNS = "id, run_id, seq, at, kind, text, data";
 
 export const toRun = (r: RunRow): SandboxRun => ({
-  id: r.id, repoId: r.repo_id, sandboxId: r.sandbox_id, template: r.template, commit: r.commit_sha, fresh: r.fresh === true, status: r.status, workdir: r.workdir,
+  id: r.id, repoId: r.repo_id, sandboxId: r.sandbox_id, template: r.template, commit: r.commit_sha, fresh: r.fresh === true, trace: r.trace ?? "off", status: r.status, workdir: r.workdir,
   errorKind: r.error_kind, error: r.error, port: r.port, previewUrl: r.preview_url, services: r.services, usage: r.usage ?? null, brief: r.brief ?? null, escalation: r.escalation ?? null, startedAt: r.started_at, finishedAt: r.finished_at,
 });
 
