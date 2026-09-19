@@ -62,7 +62,11 @@ function buildTree(entries: TreeEntry[]): Node[] {
 
 type SaveState = { kind: "clean" } | { kind: "dirty" } | { kind: "saving" } | { kind: "saved" } | { kind: "error"; message: string };
 
-export function CodeBrowser({ repo, run, onSaved }: { repo: Repo; run: SandboxRun | undefined; onSaved?: () => void }) {
+// A file asked for from outside (a reference in one of Bart's answers): the
+// key changes each time, so the same path can be asked for again.
+export type CodeOpen = { path: string; line: number | null; key: number };
+
+export function CodeBrowser({ repo, run, onSaved, open }: { repo: Repo; run: SandboxRun | undefined; onSaved?: () => void; open?: CodeOpen | null }) {
   const source = sourceFor(repo, run);
   const [tree, setTree] = useState<FileTree | undefined>(trees.get(source.key));
   const view = views.get(source.key) ?? { selected: null, expanded: new Set<string>() };
@@ -100,6 +104,13 @@ export function CodeBrowser({ repo, run, onSaved }: { repo: Repo; run: SandboxRu
     load.then((f) => { files.set(key, f); if (!stale) show(f); });
     return () => { stale = true; };
   }, [source.key, source.kind, source.kind === "sandbox" ? source.runId : "", selected, expanded, repo.owner, repo.name, repo.defaultBranch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A path asked for from outside: select it and unfold the folders above it.
+  useEffect(() => {
+    if (!open) return;
+    setSelected(open.path);
+    setExpanded((prev) => { const next = new Set(prev); const parts = open.path.split("/"); for (let i = 1; i < parts.length; i++) next.add(parts.slice(0, i).join("/")); return next; });
+  }, [open]);
 
   const editable = source.kind === "sandbox";
 

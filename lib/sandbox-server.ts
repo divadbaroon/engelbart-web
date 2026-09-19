@@ -29,3 +29,11 @@ export async function loadRun(runId: string): Promise<{ run: SandboxRun; events:
   if (!runRes.data) return null;
   return { run: toRun(runRes.data as RunRow), events: (eventsRes.data as EventRow[]).map(toEvent) };
 }
+
+// One run without its events.
+export async function getRun(runId: string): Promise<SandboxRun | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("engelbart_sandbox_runs").select(RUN_COLUMNS).eq("id", runId).maybeSingle();
+  if (error) throw new Error(`Could not load sandbox run: ${error.message}`);
+  return data ? toRun(data as RunRow) : null;
+}

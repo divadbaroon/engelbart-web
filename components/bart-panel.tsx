@@ -1,141 +1,63 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import Image from "next/image";
-import { ChevronDown, CornerDownLeft, PanelRight, Plus, SlidersHorizontal } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import type { Repo } from "@/lib/repos";
+import type { SelectionText } from "@/lib/trace/selection";
+import type { MessageContext, Ref } from "@/lib/bart/protocol";
+import type { BartSession } from "@/hooks/use-bart-session";
+import { BartConversation } from "@/components/bart/conversation";
+import { BartComposer } from "@/components/bart/composer";
 
-type Message = { id: string; role: "user" | "assistant"; content: string };
-type BartPanelProps = { open: boolean; onToggle: () => void };
+// Bart in the right panel, where it shares a tab bar with whatever tab
+// was sent over from the middle: the conversation about the work, at
+// full size. It is
+// told which repository and run are open and which moment of the trace is
+// selected, so "this" in a question means that moment; the selection is a
+// referent, never a constraint. Answers cite the trace, the captured
+// calls and the source as chips that open them in the middle. The thread
+// lives in the workspace, so it survives a refresh, and the same thread
+// is what the small window over the trace canvas writes into. The panel
+// names itself through its tab, so only Clear sits above the messages.
+export type BartPanelProps = {
+  session: BartSession;
+  context: MessageContext;              // what a question asked here is about
+  repo: Repo | null;
+  selectionText: SelectionText | null;
+  recording: { id: string; name: string } | null;   // open in the Trace tab: Bart's trace questions read inside it
+  onClearSelection: () => void;
+  onOpenRef: (ref: Ref) => void;        // a reference in an answer, opened in the middle
+  labelRef: (ref: Ref) => string;       // what a reference chip says
+};
 
-const MODELS = ["Sonnet 4.5 · Medium", "Opus 4.1 · High", "Haiku 4.5 · Fast"];
-
-export function BartPanel({ open, onToggle }: BartPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [draft, setDraft] = useState("");
-  const [model, setModel] = useState(MODELS[0]);
-  const hasDraft = draft.trim().length > 0;
-
-  function send(e: FormEvent) {
-    e.preventDefault();
-    if (!hasDraft) return;
-    setMessages((m) => [...m, { id: crypto.randomUUID(), role: "user", content: draft.trim() }]);
-    setDraft("");
-  }
-
-  if (!open) {
-    return (
-      <aside className="flex h-full flex-col items-center bg-[#f6f6f6] pt-4">
-        <Button variant="ghost" size="icon" aria-label="Open Bart" onClick={onToggle} className="size-7 text-muted-foreground">
-          <PanelRight className="size-4" />
-        </Button>
-      </aside>
-    );
-  }
-
+export function BartPanel({ session, context, repo, selectionText, recording, onClearSelection, onOpenRef, labelRef }: BartPanelProps) {
+  const empty = session.messages.length === 0 && !session.pending;
+  const placeholder = selectionText
+    ? "Ask about this moment, or anything else..."
+    : repo
+      ? "Ask about the run, its model calls, or the code..."
+      : "Message Bart...";
   return (
-    <aside className="relative flex h-full min-w-0 flex-col bg-[#f6f6f6] px-5 pb-4">
-      <div className="absolute top-4 left-5 right-5 z-10 flex h-7 items-center justify-between">
-        <h2 className="text-[13px] font-semibold">Bart</h2>
-        <div className="flex items-center gap-1">
-          {messages.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setMessages([])}
-              className="h-7 px-1.5 text-xs font-normal text-muted-foreground/70 hover:text-muted-foreground"
-            >
-              Clear
-            </Button>
-          )}
-          <Button variant="ghost" size="icon" aria-label="Close Bart" title="Close Bart" onClick={onToggle} className="size-7 text-muted-foreground">
-            <PanelRight className="size-4" />
-          </Button>
-        </div>
+    <section aria-label="Bart" className="flex h-full min-w-0 flex-col bg-[#f6f6f6] px-5 pt-2 pb-3">
+      <div className="flex h-7 shrink-0 items-center justify-end">
+        {!empty && (
+          <Button variant="ghost" size="sm" onClick={() => void session.reset()} className="h-7 px-1.5 text-xs font-normal text-muted-foreground/70 hover:text-muted-foreground">Clear</Button>
+        )}
       </div>
 
-      <ScrollArea className="min-h-0 flex-1 [&>[data-slot=scroll-area-viewport]>div]:h-full">
-        {messages.length === 0 ? (
-          <div className="flex h-full min-h-full flex-col items-center justify-center px-3 pt-14 pb-4 text-center">
-            <Image src="/bart-empty-state.svg" alt="" width={132} height={112} priority className="mb-6" />
-            <p className="mb-2 text-[15px] font-semibold">What are you working through?</p>
-            <p className="max-w-[280px] text-[13px] leading-relaxed text-muted-foreground">
-              Ask about your papers, code, data,
-              <br />
-              results, or what to try next.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3 pt-[60px] pb-4">
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                className={cn(
-                  "max-w-[80%] whitespace-pre-wrap text-[15px] leading-relaxed",
-                  m.role === "user" ? "self-end rounded-xl bg-background px-3 py-2" : "self-start",
-                )}
-              >
-                {m.content}
-              </div>
-            ))}
-          </div>
-        )}
-      </ScrollArea>
+      <BartConversation session={session} repo={repo} labelRef={labelRef} onOpenRef={onOpenRef} />
 
-      <form onSubmit={send} className="flex shrink-0 flex-col gap-2.5 rounded-xl border bg-background px-3 pt-3 pb-2.5">
-        <Input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Message Bart..."
-          className="h-auto border-0 bg-transparent px-0.5 py-0 text-[15px] shadow-none focus-visible:ring-0 md:text-[15px]"
-        />
-        <div className="flex items-center justify-between gap-2">
-          <Button type="button" variant="outline" size="icon" aria-label="Add context" className="size-[26px] rounded-md text-muted-foreground">
-            <Plus className="size-3.5" />
-          </Button>
-          <div className="flex items-center gap-0.5">
-            <Button type="button" variant="ghost" size="icon" aria-label="Settings" className="size-[26px] rounded-md text-muted-foreground">
-              <SlidersHorizontal className="size-3.5" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" size="sm" className="h-[26px] gap-1 rounded-md px-1.5 text-[13px] font-normal text-muted-foreground">
-                  {model}
-                  <ChevronDown className="size-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" side="top" className="min-w-[200px]">
-                <DropdownMenuRadioGroup value={model} onValueChange={setModel}>
-                  {MODELS.map((m) => (
-                    <DropdownMenuRadioItem key={m} value={m} className="text-[13px]">
-                      {m}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              type="submit"
-              size="icon"
-              variant={hasDraft ? "default" : "ghost"}
-              aria-label="Send"
-              className={cn("size-[26px] rounded-md", !hasDraft && "text-muted-foreground/60")}
-            >
-              <CornerDownLeft className="size-3.5" />
-            </Button>
-          </div>
-        </div>
-      </form>
-    </aside>
+      <BartComposer
+        session={session}
+        context={context}
+        surface="tab"
+        placeholder={placeholder}
+        selectionText={selectionText}
+        recording={recording}
+        onClearSelection={onClearSelection}
+      />
+      <p className="mt-2 px-1 text-[11px] leading-snug text-muted-foreground/70">
+        Bart reads this run&apos;s trace, its captured model calls and the repository, and sends what it needs to Anthropic to answer.
+      </p>
+    </section>
   );
 }
