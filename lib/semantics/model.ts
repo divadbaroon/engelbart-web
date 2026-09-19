@@ -17,7 +17,7 @@
 import type { ElementTarget } from "@/lib/trace/types";
 import { readFrame, readTarget, type FrameRef } from "@/lib/annotations/target";
 import {
-  CONFIDENCES, MAX_CANDIDATES, MAX_DESCRIPTION, MAX_LABEL, SEMANTIC_KINDS,
+  CONFIDENCES, MAX_CANDIDATES, MAX_DESCRIPTION, MAX_LABEL, MAX_PURPOSE, SEMANTIC_KINDS,
   type Candidate, type CandidateTree, type Confidence, type SemanticKind, type SemanticNode, type UISemanticMap,
 } from "@/lib/semantics/types";
 
@@ -119,17 +119,27 @@ export function readSemanticMap({ answer, tree, signature }: ReadMapInput): UISe
   const regions = unique(arr(raw.regions).map((r) => readNode(r, byOrd, null)).filter((n): n is SemanticNode => n !== null));
   const regionIds = new Set(regions.map((r) => r.semanticId));
   const controls = unique(arr(raw.controls).map((c) => readNode(c, byOrd, regionIds)).filter((n): n is SemanticNode => n !== null));
+  const documentLabel = text(raw.documentLabel, MAX_LABEL);
   return {
     v: 1, signature,
     route: tree.route,
     documentTitle: tree.documentTitle,
     frame: tree.frame,
-    documentLabel: text(raw.documentLabel, MAX_LABEL),
-    documentConfidence: confidenceOf(raw.documentConfidence),
+    documentLabel,
+    purpose: text(raw.purpose, MAX_PURPOSE),
+    // A document named after its own <title> has not been read, it has
+    // been transcribed — and a title is very often the scaffold's rather
+    // than the application's ("Create Next App"). That is a guess, and a
+    // guess does not get to stand in front of what the trace already
+    // knew the document was.
+    documentConfidence: sameWords(documentLabel, tree.documentTitle) ? "low" : confidenceOf(raw.documentConfidence),
     regions, controls,
     truncated: tree.truncated,
   };
 }
+
+const sameWords = (a: string | null, b: string | null): boolean =>
+  !!a && !!b && a.trim().toLowerCase().replace(/\s+/g, " ") === b.trim().toLowerCase().replace(/\s+/g, " ");
 
 // ---- the row
 export type SemanticRow = {

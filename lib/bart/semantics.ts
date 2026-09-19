@@ -18,6 +18,7 @@ import type { SemanticNode } from "@/lib/semantics/types";
 import { slice } from "@/lib/bart/grounding";
 
 const HOW = "These are one model's names for the parts of a page, not a recording of anything that happened. Each name is followed by the elements it was read from, exactly as the page described them; where the two disagree, the elements are the evidence.";
+const WHY = "Use this to orient somebody who has never seen this application: what a screen is, what it is for, what its parts do.";
 
 export function semanticsList(readings: StoredSemantics[], error: string | null = null): string {
   if (error) return error;
@@ -29,9 +30,10 @@ export function semanticsList(readings: StoredSemantics[], error: string | null 
     const where = framePath(r.frame);
     const what = m?.documentLabel ? `${m.documentLabel}${m.documentConfidence === "low" ? " (a guess)" : m.documentConfidence === "medium" ? " (a fair reading)" : ""}` : "unnamed";
     const counts = m ? `${m.regions.length} region${m.regions.length === 1 ? "" : "s"}, ${m.controls.length} control${m.controls.length === 1 ? "" : "s"}` : "unreadable";
-    return `${where}${r.route ? `  at ${r.route}` : ""}  —  ${what}  (${counts}; signature ${r.signature.slice(0, 8)})`;
+    const head = `${where}${r.route ? `  at ${r.route}` : ""}  —  ${what}  (${counts}; signature ${r.signature.slice(0, 8)})`;
+    return m?.purpose ? `${head}\n      ${m.purpose}` : head;
   });
-  return slice(`${readings.length} interface${readings.length === 1 ? "" : "s"} of this application have been read. ${HOW}\nAsk for one by its document path with inspect_ui_semantics.\n\n${lines.join("\n")}`).text;
+  return slice(`${readings.length} interface${readings.length === 1 ? "" : "s"} of this application have been read. ${WHY} ${HOW}\nAsk for one by its document path with inspect_ui_semantics.\n\n${lines.join("\n")}`).text;
 }
 
 // One document's reading. `which` is a frame path as the list prints it
@@ -47,6 +49,7 @@ export function semanticsReport(readings: StoredSemantics[], which: string, offs
   const m = found.map;
   const lines: string[] = [];
   lines.push(`${m?.documentLabel ?? "An unnamed document"} — the document at ${framePath(found.frame)}${found.route ? `, route ${found.route}` : ""}.`);
+  if (m?.purpose) lines.push("", `What it is for: ${m.purpose}`, "");
   lines.push(`Read ${formatClock(found.createdAt)}${found.model ? ` by ${found.model}` : ""}, cached under signature ${found.signature.slice(0, 8)}${found.commitSha ? `; the run it was read in was on commit ${found.commitSha.slice(0, 7)}` : ""}.`);
   if (m?.documentConfidence && m.documentConfidence !== "high") lines.push(`The reader was ${m.documentConfidence === "medium" ? "fairly sure" : "unsure"} of what this document is.`);
   if (m?.truncated) lines.push("The document offered more parts than were shown to the reader, so this reading is of part of it.");

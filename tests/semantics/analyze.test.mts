@@ -49,7 +49,17 @@ describe("the page as the model sees it", () => {
     assert.match(text, /embedded document, 1 frame inside the page, named "solution"/);
     assert.ok(!text.includes("f_a1b2c3d4e5"), "a frame id is minted per load and means nothing to a reading");
     assert.match(text, /Route: \/play/);
-    assert.match(text, /Document: "ROPE"/);
+    assert.match(text, /Document title \(a hint, not a name\): "ROPE"/);
+  });
+
+  it("does not hand over a title the framework wrote", () => {
+    // A reading named after the scaffold is not a reading. ROPE's tutor
+    // calls itself "Create Next App", and the first one came back exactly
+    // that, with high confidence.
+    const scaffolded = renderCandidates(tree({ documentTitle: "Create Next App" }));
+    assert.ok(!scaffolded.includes("Create Next App"), "the scaffold's words are not the application's");
+    assert.match(scaffolded, /no title worth anything/);
+    assert.ok(!renderCandidates(tree({ documentTitle: null })).includes("Document title"));
   });
 
   it("says when the list was cut, so a thin reading is not read as a whole one", () => {

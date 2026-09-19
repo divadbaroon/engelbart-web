@@ -66,6 +66,7 @@ export type CandidateTree = {
 export const MAX_CANDIDATES = 120;
 export const MAX_LABEL = 48;
 export const MAX_DESCRIPTION = 200;
+export const MAX_PURPOSE = 280;
 
 // ---- what the reading says
 export type SemanticNode = {
@@ -86,6 +87,11 @@ export type UISemanticMap = {
   documentTitle: string | null;
   frame: FrameRef;
   documentLabel: string | null;   // what this document IS — "Solution game"
+  // What it is FOR, in a sentence or two: the thing a researcher opening
+  // this artifact for the first time needs before anything else makes
+  // sense. Of the interface, from the interface — never what the person
+  // using it wants, believes, or found.
+  purpose: string | null;
   documentConfidence: Confidence;
   regions: SemanticNode[];
   controls: SemanticNode[];

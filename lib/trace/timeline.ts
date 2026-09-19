@@ -216,11 +216,25 @@ export function frameRefOf(frames: Map<string, FrameInfo>, frameId: string | nul
   return { frameId: null, name: f.name, selectorInParent: f.selectorInParent, path, depth: f.depth ?? path.length, kind: "document" };
 }
 
+// What goes on the chip. "the page" is a placeholder — it says only
+// that this is not an embedded document — so a reading may stand in for
+// it. A name the DOM gave a frame is evidence, and a reading joins it
+// rather than replacing it: "Solution game (solution)" says both what
+// the thing is and which frame it was, and a person can check one
+// against the other.
+function chipName(frames: Map<string, FrameInfo>, frameId: string | null, semantic: RowSemantics | null): string {
+  const raw = frameName(frames, frameId);
+  if (!semantic?.document) return raw;
+  if (raw === "the page" || raw === semantic.document) return semantic.document;
+  return `${semantic.document} (${raw})`;
+}
+
 // What a reading says about one row: the element, the area it sits in,
 // and the document it is in. Nothing when no interface has been read, or
 // when nothing in the reading matches — a label that cannot be found is
 // absent rather than guessed at.
 function readingOf(index: SemanticIndex | null, frames: Map<string, FrameInfo>, target: ElementTarget | null, frameId: string | null): RowSemantics | null {
+
   if (!index) return null;
   const element = lookupTarget(index, target);
   const doc = lookupFrame(index, frameRefOf(frames, frameId) ?? { frameId: null, name: null, selectorInParent: null, path: [], depth: 0, kind: "document" });
@@ -424,7 +438,7 @@ export function traceRows(events: TraceEvent[], calls: ModelCall[], frames: Map<
     if (isInteraction(e)) {
       const semantic = readingOf(semantics, frames, descriptor(d.control) ?? descriptor(d.target), str(d.frameId));
       const { label, detail, key } = interactionLabel(e, frames, semantic);
-      const row: InteractionRow = { kind: "interaction", id: e.interactionId as string, at: e.at, event: e, frameId: str(d.frameId), frameLabel: frameLabel(frames, str(d.frameId)), frameName: semantic?.document ?? frameName(frames, str(d.frameId)), label, detail, links: [], changes: [], callIds: [], key, submit: isSubmitLike(e), semantic };
+      const row: InteractionRow = { kind: "interaction", id: e.interactionId as string, at: e.at, event: e, frameId: str(d.frameId), frameLabel: frameLabel(frames, str(d.frameId)), frameName: chipName(frames, str(d.frameId), semantic), label, detail, links: [], changes: [], callIds: [], key, submit: isSubmitLike(e), semantic };
       interactions.set(row.id, row);
     } else if (e.kind === "ui.change") changes.push(e);
     else if (e.kind === "network.request") requests.push(e);

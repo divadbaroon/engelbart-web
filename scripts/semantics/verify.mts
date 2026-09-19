@@ -174,6 +174,7 @@ async function verify(source: string, useModel: boolean) {
   if (!read.ok) { console.log(`  could not read it: ${read.error}`); return; }
   const m = read.map;
   console.log(`  Document: ${m.documentLabel ?? "(unnamed)"} [${m.documentConfidence}]`);
+  console.log(`  For:      ${m.purpose ?? "(not said)"}`);
   for (const n of m.regions) console.log(`  region   ${n.label} (${n.kind}) [${n.confidence}] ← ${n.targets.length} element${n.targets.length === 1 ? "" : "s"}`);
   const names = new Map(m.regions.map((r) => [r.semanticId, r.label]));
   for (const n of m.controls) console.log(`  control  ${n.label} (${n.kind}) [${n.confidence}]${n.regionId ? ` in ${names.get(n.regionId) ?? n.regionId}` : ""} ← ${n.targets.map((t) => t.text ?? t.label ?? t.tag ?? "?").slice(0, 3).join(", ")}`);

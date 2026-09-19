@@ -43,7 +43,7 @@ export function InterfaceReadings({ semantics, traced }: { semantics: Semantics;
       {error && <p role="alert" className="mb-3 text-[12px] text-destructive">{error}</p>}
       <div className="mb-3 flex items-center gap-2">
         <p className="text-[12px] text-muted-foreground">
-          {readings.length} interface{readings.length === 1 ? "" : "s"} read. A label never replaces what the page said; it is shown beside it.
+          {readings.length} interface{readings.length === 1 ? "" : "s"} read — what each screen is for, so somebody meeting this application for the first time can get their bearings. A label never replaces what the page said; it is shown beside it.
         </p>
         <Button
           variant="ghost" size="sm" disabled={busy || !traced} onClick={() => semantics.again()}
@@ -106,6 +106,7 @@ function ReadingRow({ reading, onAgain, canAgain }: { reading: StoredSemantics; 
         {reading.model && <span className="text-muted-foreground/70"> · {reading.model}</span>}
         <span className="text-muted-foreground/70"> · {formatWhen(reading.createdAt)}</span>
       </p>
+      {map?.purpose && <p className="text-[12px] leading-relaxed text-muted-foreground">{map.purpose}</p>}
       {!map && <p className="text-[11px] text-amber-700">The reading could not be read back; the survey below is still here.</p>}
       {open && (
         <div className="mt-1 flex flex-col gap-2">

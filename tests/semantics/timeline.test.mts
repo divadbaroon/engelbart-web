@@ -6,6 +6,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { describeTarget, frameIndex, frameRefOf, traceRows, type InteractionRow } from "../../lib/trace/timeline";
 import { buildIndex, EMPTY_INDEX, framePath } from "../../lib/semantics/lookup";
+import { readSemanticMap } from "../../lib/semantics/model";
 import type { SemanticNode, UISemanticMap } from "../../lib/semantics/types";
 import type { FrameRef } from "../../lib/annotations/target";
 import type { TraceEvent } from "../../lib/trace/types";
@@ -87,7 +88,7 @@ describe("rows carrying a reading", () => {
     assert.equal(row.semantic?.document, "Solution game");
     assert.equal(row.label, "Clicked Generate game (“Submit” button) in Solution game");
     assert.match(row.detail ?? "", /in Play area/);
-    assert.equal(row.frameName, "Solution game", "the chip says what the document is, not which selector holds it");
+    assert.equal(row.frameName, "Solution game (solution)", "the chip says what the document is and keeps the name the DOM gave it");
   });
 
   it("is the trace as it was when nothing has been read", () => {
@@ -101,6 +102,32 @@ describe("rows carrying a reading", () => {
   it("keeps the raw descriptor on the event whatever the reading says", () => {
     const row = traceRows(events, [], frameIndex(events), index).find((r) => r.kind === "interaction") as InteractionRow;
     assert.deepEqual(row.event.data?.target, { tag: "button", testid: "gen", text: "Submit" }, "evidence is never rewritten");
+  });
+
+  it("does not let a reading stand in front of a name the DOM gave", () => {
+    // A reading is allowed to replace "the page", which says nothing but
+    // that this is the top document. It is not allowed to replace
+    // "solution", which is what the frame is actually called.
+    const top = [ev(1, "frame.loaded", { frameId: "f_top", url: "http://x/", depth: 0 }), ev(2, "ui.click", { frameId: "f_top", target: { tag: "button", testid: "gen", text: "Submit" } })];
+    const named = buildIndex([map({ documentLabel: "Tutor workspace", documentConfidence: "high" })]);
+    const row = traceRows(top, [], frameIndex(top), named).find((r) => r.kind === "interaction") as InteractionRow;
+    assert.equal(row.frameName, "Tutor workspace", "a placeholder may be stood in for");
+  });
+
+  it("keeps a reading the model took from the document's own title out of the way", () => {
+    // readSemanticMap demotes such a reading to low, and a low one never
+    // leads. This is the ROPE case: the tutor's <title> is the Next.js
+    // scaffold's "Create Next App", and the first reading was exactly
+    // that, with high confidence.
+    const copied = readSemanticMap({
+      answer: { documentLabel: "Create Next App", documentConfidence: "high" },
+      tree: { route: "/", documentTitle: "Create Next App", frame: frame(), candidates: [{ ord: 1, parent: null, target: { tag: "button", text: "Reset" } }], truncated: false },
+      signature: "sig",
+    })!;
+    assert.equal(copied.documentConfidence, "low", "naming a document after its own title is transcription, not reading");
+    const row = traceRows(events, [], frameIndex(events), buildIndex([copied])).find((r) => r.kind === "interaction") as InteractionRow;
+    assert.equal(row.semantic?.document ?? null, null, "a demoted reading names nothing");
+    assert.equal(row.frameName, "solution", "so the frame keeps the name the DOM gave it");
   });
 
   it("says nothing about an element the reading does not cover", () => {
