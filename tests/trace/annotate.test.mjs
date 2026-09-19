@@ -26,10 +26,13 @@ afterEach(() => { while (open.length) open.pop().window.close(); });
 // question here, and jsdom gives a blank frame an opaque one. jsdom gives
 // a posted message no source and no origin, so the shell's messages are
 // dispatched with both set: those two fields are all the channel reads.
-async function preview(body, { parentOrigin = WORKSPACE, head = "" } = {}) {
+async function preview(body, { parentOrigin = WORKSPACE, head = "", inner = null, config = {} } = {}) {
   const page = `<!doctype html><html><head>${head}</head><body>${body}</body></html>`;
+  const innerPage = `<!doctype html><html><body>${inner ?? ""}</body></html>`;
   const serve = requestInterceptor((request) =>
-    request.url === "http://app.test/page" ? new Response(page, { headers: { "Content-Type": "text/html" } }) : new Response("", { status: 404 }));
+    request.url === "http://app.test/page" ? new Response(page, { headers: { "Content-Type": "text/html" } })
+    : request.url === "http://app.test/inner" ? new Response(innerPage, { headers: { "Content-Type": "text/html" } })
+    : new Response("", { status: 404 }));
   const dom = new JSDOM(`<!doctype html><html><body><iframe src="http://app.test/page"></iframe></body></html>`, {
     runScripts: "dangerously", url: `${WORKSPACE}/`, resources: { interceptors: [serve] }, virtualConsole: new VirtualConsole(),
   });
@@ -46,7 +49,7 @@ async function preview(body, { parentOrigin = WORKSPACE, head = "" } = {}) {
   win.fetch = (input, init = {}) => { calls.push({ url: typeof input === "string" ? input : input.href ?? input.url, body: init.body }); return Promise.resolve({ ok: true, status: 204 }); };
   const script = doc.createElement("script");
   script.dataset.frame = "f_preview01";
-  script.dataset.config = JSON.stringify({ flushMs: 5, parentOrigin });
+  script.dataset.config = JSON.stringify({ flushMs: 5, parentOrigin, ...config });
   script.textContent = BRIDGE;
   doc.head.appendChild(script);
   const api = win.__engelbart;
@@ -325,5 +328,180 @@ describe("markers", () => {
     await sleep(0);
     assert.equal(api.annotate().markers, 0);
     assert.equal(doc.querySelector("[data-engelbart]"), null, "and with neither markers nor picker the overlay leaves the page");
+  });
+});
+
+// A survey is a question, not an act. It must tell the workspace what the
+// document offers without arming anything, recording anything, altering
+// anything, or letting through a single character anybody typed.
+describe("surveying what a document offers", () => {
+  const PAGE = `
+    <main>
+      <section aria-label="Tutor">
+        <div role="log" aria-label="Conversation">Welcome back.</div>
+        <textarea id="answer" placeholder="Type your response"></textarea>
+        <button id="send" type="submit">Submit</button>
+      </section>
+      <section aria-label="Solution">
+        <button id="gen">Generate Game</button>
+      </section>
+    </main>`;
+
+  it("offers the parts of the interface, as a tree, described the one way", async () => {
+    const { api, down, up } = await preview(PAGE);
+    down({ type: "survey" });
+    await sleep(0);
+    const surveyed = up.find((m) => m.type === "surveyed");
+    assert.ok(surveyed, "the page answered");
+    const byTag = (tag) => surveyed.candidates.filter((c) => c.target.tag === tag);
+    assert.ok(byTag("main").length, "a landmark is a part of the interface");
+    assert.equal(byTag("section").length, 2);
+    assert.equal(byTag("textarea").length, 1);
+    assert.equal(byTag("button").length, 2);
+
+    const answer = byTag("textarea")[0];
+    assert.equal(answer.target.placeholder, "Type your response", "what a field is for is authored and is kept");
+    assert.equal(answer.target.editable, "text", "a textarea is a text-entry surface; which kind is the bridge's word, not ours");
+    const send = surveyed.candidates.find((c) => c.target.id === "send");
+    assert.equal(send.target.text, "Submit");
+
+    // The tree: every candidate but the first names one above it, and
+    // never one below it.
+    const ords = new Set(surveyed.candidates.map((c) => c.ord));
+    for (const c of surveyed.candidates) {
+      if (c.parent === null) continue;
+      assert.ok(ords.has(c.parent), `${c.ord} names a parent that is in the survey`);
+      assert.ok(c.parent < c.ord, "a parent comes before its child");
+    }
+    assert.equal(api.survey().candidates.length, surveyed.candidates.length);
+  });
+
+  it("carries not one character anybody typed", async () => {
+    const { doc, down, up } = await preview(PAGE);
+    doc.querySelector("#answer").value = "my secret working notes about the rotation bug";
+    down({ type: "survey" });
+    await sleep(0);
+    const surveyed = up.find((m) => m.type === "surveyed");
+    const said = JSON.stringify(surveyed);
+    assert.ok(!said.includes("secret"), "a survey is of the interface, not of what was entered into it");
+    assert.ok(!said.includes("rotation"));
+    assert.ok(said.includes("Type your response"), "the placeholder is the author's and stays");
+  });
+
+  it("leaves what is drawn out of it too, and names the surface instead", async () => {
+    const { down, up } = await preview(`<canvas id=board width=800 height=600 aria-label="Game board"></canvas>`);
+    down({ type: "survey" });
+    await sleep(0);
+    const board = up.find((m) => m.type === "surveyed").candidates.find((c) => c.target.tag === "canvas");
+    assert.equal(board.target.label, "Game board");
+    assert.equal(board.target.size, "800x600", "its size is a fact about the element; what is drawn in it is not read at all");
+  });
+
+  it("is not a trace event, and does not become one", async () => {
+    const { down, events } = await preview(PAGE);
+    down({ type: "survey" });
+    await sleep(0);
+    const recorded = await events();
+    assert.equal(recorded.filter((e) => /survey|candidate/i.test(e.kind)).length, 0, "nothing new is recorded");
+    const said = JSON.stringify(recorded);
+    assert.ok(!said.includes("Generate Game"), "the survey did not leak into the stream a sandbox posts unauthenticated");
+  });
+
+  it("does not arm the picker, draw anything, or change the page", async () => {
+    const { api, doc, down, up, point } = await preview(PAGE);
+    const before = doc.documentElement.outerHTML;
+    down({ type: "survey" });
+    await sleep(0);
+    assert.ok(up.find((m) => m.type === "surveyed"), "it answered");
+    assert.equal(api.annotate().active, false, "asking a question does not arm the picker");
+    assert.equal(doc.querySelector("[data-engelbart]"), null, "and draws nothing");
+    assert.equal(doc.documentElement.outerHTML, before, "and leaves the document exactly as it was");
+
+    // The application still gets its own clicks: a survey installs no
+    // listener and swallows nothing.
+    let clicked = 0;
+    doc.querySelector("#send").addEventListener("click", () => clicked++);
+    point("click", doc.querySelector("#send"));
+    assert.equal(clicked, 1);
+  });
+
+  it("caps what one document may offer, and says that it did", async () => {
+    const many = Array.from({ length: 300 }, (_, i) => `<section aria-label="Panel ${i}"><p>row ${i}</p></section>`).join("");
+    const { down, up } = await preview(`<main>${many}</main>`);
+    down({ type: "survey" });
+    await sleep(0);
+    const surveyed = up.find((m) => m.type === "surveyed");
+    assert.ok(surveyed.candidates.length <= 120, `capped, got ${surveyed.candidates.length}`);
+    assert.equal(surveyed.truncated, true, "a page read from a prefix of itself says so");
+    assert.ok(JSON.stringify(surveyed.candidates).length <= 96000, "and the payload is bounded in bytes as well as in count");
+  });
+
+  it("leaves out what is not on the screen", async () => {
+    const { down, up } = await preview(`<main><section aria-label="Shown">a</section><section aria-label="Gone" hidden>b</section><section aria-label="Quiet" aria-hidden="true">c</section></main>`);
+    down({ type: "survey" });
+    await sleep(0);
+    const labels = up.find((m) => m.type === "surveyed").candidates.map((c) => c.target.label);
+    assert.ok(!labels.includes("Gone"), "a hidden region is not part of the interface");
+    assert.ok(!labels.includes("Quiet"));
+  });
+
+  // jsdom delivers a postMessage with no source and no origin, and the
+  // child's gate reads exactly those two fields, so the round trip cannot
+  // run here. What is ours to get right is tested instead: that the
+  // question is put to each frame, and that an answer coming up from one
+  // arrives naming where it came from rather than what it is called this
+  // reload.
+  it("puts the question to each frame it has instrumented", async () => {
+    const { doc, down } = await preview(`<main><iframe name="solution" src="http://app.test/inner"></iframe></main>`, {
+      inner: `<main><button id=restart>Restart</button></main>`,
+      config: { attachGraceMs: 10 },
+    });
+    await sleep(80);
+    const child = doc.querySelector("iframe").contentWindow;
+    const sent = [];
+    child.postMessage = (msg) => sent.push(msg);
+    down({ type: "survey" });
+    await sleep(0);
+    assert.deepEqual(sent.map((m) => m.type), ["survey"], "the frame was asked, once");
+    assert.equal(sent[0].dir, "down");
+  });
+
+  it("lifts a frame's answer into where that frame sits", async () => {
+    const { doc, win, down, up } = await preview(`<main><iframe name="solution" src="http://app.test/inner"></iframe></main>`, {
+      inner: `<main><button id=restart>Restart</button></main>`,
+      config: { attachGraceMs: 10 },
+    });
+    await sleep(80);
+    down({ type: "survey" });                 // opens the channel back to the shell
+    await sleep(0);
+    const frameEl = doc.querySelector("iframe");
+    // The child's own answer, as the child would send it: depth 0, no path.
+    win.dispatchEvent(new win.MessageEvent("message", {
+      data: {
+        engelbart: "annotate", v: 1, dir: "up", type: "surveyed",
+        frame: { frameId: "f_child00001", name: null, selectorInParent: null, path: [], depth: 0, kind: "document" },
+        route: "/inner", title: "Solution", truncated: false, unavailable: [],
+        candidates: [{ ord: 1, parent: null, target: { tag: "button", id: "restart", text: "Restart", selector: "main > button" } }],
+      },
+      origin: "http://app.test",
+      source: frameEl.contentWindow,
+    }));
+    await sleep(0);
+    const lifted = up.filter((m) => m.type === "surveyed").find((m) => m.frame.depth === 1);
+    assert.ok(lifted, "it reached the shell");
+    assert.equal(lifted.frame.name, "solution", "named by the frame it came through");
+    assert.deepEqual([...lifted.frame.path], ["main > iframe"], "and by where that frame sits, which survives a reload");
+    assert.equal(lifted.candidates[0].target.id, "restart", "its own parts came with it");
+  });
+
+  it("answers nobody but the origin the gateway named", async () => {
+    const { down, up } = await preview(PAGE, { parentOrigin: WORKSPACE });
+    down({ type: "survey" }, { origin: "https://evil.test" });
+    await sleep(0);
+    assert.equal(up.filter((m) => m.type === "surveyed").length, 0);
+    const closed = await preview(PAGE, { parentOrigin: "" });
+    closed.down({ type: "survey" });
+    await sleep(0);
+    assert.equal(closed.up.filter((m) => m.type === "surveyed").length, 0, "with no parentOrigin the channel never opens");
   });
 });

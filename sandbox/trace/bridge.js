@@ -845,6 +845,7 @@
       frames: function () { var out = []; frames.forEach(function (entry, el) { out.push({ frameId: entry.frameId, state: entry.state, reason: entry.reason, selector: selectorFor(el) }); }); return out; },
       parent: function () { return { parentFrameId: parentFrameId, depth: depth }; },
       annotate: function () { return annotator.state(); },
+      survey: function () { return annotator.survey(); },
       resolveAnnotation: function (anchor) { return annotator.resolve(anchor); },
     };
     return { api: api, loaded: loaded, hello: hello, attached: attached, flushAll: flushAll, detach: detach };
@@ -929,6 +930,94 @@
   function hoverLabel(d, r) {
     var said = cap(d.text || d.label || d.title || d.placeholder || d.testid || d.id || d.name || d.role || "", 40);
     return (d.tag || "element") + (said ? " \u00b7 " + said : "") + (r ? "  " + Math.round(r.w) + "\u00d7" + Math.round(r.h) : "");
+  }
+
+  // ---- A survey of what this document offers
+  //
+  // One pass over the document keeping the elements that already count as
+  // worth pointing at — the same `meaningfulElement` the picker uses, so
+  // there is one idea of "a part of the interface" in this file and not
+  // two. Each candidate is described by the same `describe()` as
+  // everything else: nothing new is read off the page, and in particular
+  // nothing a person typed. `describe()` already refuses the content of
+  // every text-entry surface and every hidden subtree, and this adds no
+  // way around that.
+  //
+  // What comes out is for the workspace to read once. It is NOT a trace
+  // event: nothing here touches the transport, nothing is emitted, no
+  // listener is installed and no node is altered. A document that is
+  // never surveyed behaves exactly as it does today, and a document that
+  // is surveyed behaves exactly as it did a moment before.
+  //
+  // `rect` and `route` are dropped from each candidate for the reason
+  // `ancestorsOf` drops them: where something sat in a viewport that no
+  // longer exists says nothing about which thing it is, and the route
+  // belongs to the document, not to each element in it.
+  var SURVEY_MAX = 120;         // candidates one document may offer
+  var SURVEY_SCAN = 4000;       // elements looked at before giving up
+  var SURVEY_BYTES = 96000;     // what one document may send up
+
+  function engelbartOwn(el) {
+    try { return !!(el && el.closest && el.closest("[data-engelbart]")); } catch { return false; }
+  }
+
+  // Not in the interface: a page may hold any amount of markup that is
+  // not on screen, and naming it would be naming something nobody can see.
+  //
+  // Geometry answers that only where something lays out. A document whose
+  // own root has no size is being read somewhere that does not lay out at
+  // all, and there every element would look off screen; there the only
+  // honest test is the authored one.
+  function laysOut(doc) {
+    try {
+      var r = doc.documentElement.getBoundingClientRect();
+      return !!r && (r.width > 0 || r.height > 0);
+    } catch { return false; }
+  }
+  function offScreen(el, geometry) {
+    try {
+      if (el.hasAttribute("hidden") || el.getAttribute("aria-hidden") === "true") return true;
+      if (!geometry) return false;
+      var r = el.getBoundingClientRect();
+      return !r || (!r.width && !r.height);
+    } catch { return true; }
+  }
+
+  function surveyCandidates(doc) {
+    var all;
+    try { all = doc.querySelectorAll("*"); } catch { return { candidates: [], truncated: false }; }
+    var limit = all.length > SURVEY_SCAN ? SURVEY_SCAN : all.length;
+    var truncated = all.length > SURVEY_SCAN;
+    var out = [], ords = new Map(), ord = 0, geometry = laysOut(doc);
+    for (var i = 0; i < limit; i++) {
+      if (out.length >= SURVEY_MAX) { truncated = true; break; }
+      var el = all[i];
+      if (!meaningfulElement(el) || engelbartOwn(el) || offScreen(el, geometry)) continue;
+      var d = describe(el);
+      if (!d || (!d.tag && !d.selector)) continue;
+      delete d.rect;
+      delete d.route;
+      // The nearest candidate above this one, which is what makes the
+      // list a tree. The walk is the picker's own, so a shadow host is
+      // crossed the same way here as everywhere else.
+      var parent = null;
+      for (var up = upFrom(el), depth = 0; up && depth < 12; depth++, up = upFrom(up)) {
+        if (ords.has(up)) { parent = ords.get(up); break; }
+      }
+      ord++;
+      ords.set(el, ord);
+      out.push({ ord: ord, parent: parent, target: d });
+    }
+    // The last cap is on bytes, because a page of long labels can be
+    // within every other cap and still be too much to send.
+    while (out.length) {
+      var size = 0;
+      try { size = JSON.stringify(out).length; } catch { break; }
+      if (size <= SURVEY_BYTES) break;
+      out.pop();
+      truncated = true;
+    }
+    return { candidates: out, truncated: truncated };
   }
 
   // ---- Finding an annotated element again
@@ -1358,6 +1447,17 @@
     function announce() {
       report({ type: "ready", frame: ctx.frameRef(), route: route(loc), title: cap(doc.title, 120), unavailable: ctx.unavailable() });
     }
+    // What this document offers, answered without becoming anything. The
+    // picker is not turned on, no listener is added, no overlay appears
+    // and no event is recorded: a survey is a question, and the page is
+    // the same after it as before.
+    function survey() {
+      var got = surveyCandidates(doc);
+      report({
+        type: "surveyed", frame: ctx.frameRef(), route: route(loc), title: cap(doc.title, 120),
+        candidates: got.candidates, truncated: got.truncated, unavailable: ctx.unavailable(),
+      });
+    }
     function receive(e) {
       var msg = e.data;
       if (!msg || msg.engelbart !== ANNOTATE || typeof msg.type !== "string") return;
@@ -1374,6 +1474,9 @@
           tellChildren({ type: "show", items: items });
         } else if (msg.type === "flash") {
           if (!overlay.flash(msg.id)) tellChildren({ type: "flash", id: msg.id });
+        } else if (msg.type === "survey") {
+          survey();
+          tellChildren({ type: "survey" });
         }
         return;
       }
@@ -1391,6 +1494,7 @@
       state: function () { return { active: active, channel: !!channel, hovering: hovering ? selectorFor(hovering) : null, label: hovering ? hoverLabel(describe(hovering), rectOf(hovering)) : null, markers: overlay.marked() }; },
       resolve: function (anchor) { var got = resolveAnchor(doc, anchor); return { confidence: got.confidence, matchedOn: got.matchedOn, changed: got.changed, selector: got.el ? selectorFor(got.el) : null }; },
       annotatableAt: annotatableAt,
+      survey: function () { return surveyCandidates(doc); },
     };
   }
 

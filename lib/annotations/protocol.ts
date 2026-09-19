@@ -27,7 +27,8 @@ export type Resolution = { confidence: Confidence; matchedOn: string | null; cha
 export type DownMessage =
   | { type: "mode"; on: boolean }
   | { type: "show"; items: { id: string; anchor: unknown }[] }
-  | { type: "flash"; id: string };
+  | { type: "flash"; id: string }
+  | { type: "survey" };
 export const envelope = (msg: DownMessage) => ({ engelbart: ANNOTATE, v: ANNOTATE_V, dir: "down" as const, ...msg });
 
 // Page → workspace.
@@ -36,7 +37,11 @@ export type UpMessage =
   | { type: "picked"; anchor: unknown; rect: Rect | null; label: string; frameLabel: string | null }
   | { type: "resolved"; items: { id: string; resolution: Resolution }[] }
   | { type: "marker"; id: string }
-  | { type: "exited" };
+  | { type: "exited" }
+  // What a document holds, asked for once so a model can read it once.
+  // The candidates stay `unknown` here: they are the page's own words
+  // about itself, and lib/semantics/model.ts is where they are rebuilt.
+  | { type: "surveyed"; frame: unknown; route: string | null; title: string | null; candidates: unknown[]; truncated: boolean; unavailable: UnavailableFrame[] };
 
 const obj = (v: unknown) => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
 const text = (v: unknown, max: number): string | null => {
@@ -62,17 +67,37 @@ function frameLabel(frame: Record<string, unknown> | null): string | null {
   return text(frame.name, 64) ?? text(frame.selectorInParent, 64) ?? `${depth} frame${depth === 1 ? "" : "s"} in`;
 }
 
+// The most candidates this window will take from one document, whatever
+// it claims to have. The bridge caps itself at 120; this is the same
+// bound said again on the side that does not trust the page.
+export const MAX_SURVEY = 120;
+
+const readUnavailable = (v: unknown): UnavailableFrame[] =>
+  (Array.isArray(v) ? v : []).slice(0, 20).map((item) => {
+    const f = obj(item);
+    return { selectorInParent: text(f?.selectorInParent, 200), name: text(f?.name, 64), reason: text(f?.reason, 40) ?? "unavailable" };
+  });
+
 export function readUp(data: unknown): UpMessage | null {
   const msg = obj(data);
   if (!msg || msg.engelbart !== ANNOTATE || msg.dir !== "up") return null;
   switch (msg.type) {
     case "ready": {
       const frame = obj(msg.frame);
-      const unavailable = (Array.isArray(msg.unavailable) ? msg.unavailable : []).slice(0, 20).map((v) => {
-        const f = obj(v);
-        return { selectorInParent: text(f?.selectorInParent, 200), name: text(f?.name, 64), reason: text(f?.reason, 40) ?? "unavailable" };
-      });
-      return { type: "ready", frameId: text(frame?.frameId, 40), route: text(msg.route, 2048), title: text(msg.title, 200), unavailable };
+      return { type: "ready", frameId: text(frame?.frameId, 40), route: text(msg.route, 2048), title: text(msg.title, 200), unavailable: readUnavailable(msg.unavailable) };
+    }
+    case "surveyed": {
+      const frame = obj(msg.frame);
+      if (!frame) return null;
+      // Capped here as well as in the page: the cap in the bridge is what
+      // a document we shipped will send, and this is what this window
+      // will accept from whatever is actually in the frame.
+      const candidates = (Array.isArray(msg.candidates) ? msg.candidates : []).slice(0, MAX_SURVEY);
+      return {
+        type: "surveyed", frame, route: text(msg.route, 2048), title: text(msg.title, 300),
+        candidates, truncated: msg.truncated === true || (Array.isArray(msg.candidates) ? msg.candidates.length : 0) > MAX_SURVEY,
+        unavailable: readUnavailable(msg.unavailable),
+      };
     }
     case "picked": {
       const anchor = obj(msg.anchor);
