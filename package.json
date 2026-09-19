@@ -8,9 +8,11 @@
     "worker": "node --env-file-if-exists=.env.local --import tsx worker/index.ts",
     "bench": "node --env-file-if-exists=.env.local --import tsx scripts/bench/run.mts",
     "bench:grade": "node --env-file-if-exists=.env.local --import tsx scripts/bench/grade.mts",
-    "bench:report": "node --import tsx scripts/bench/report.mts"
+    "bench:report": "node --import tsx scripts/bench/report.mts",
+    "test": "node --import tsx --test 'tests/**/*.test.*'"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.127.0",
     "@codemirror/language": "^6.12.4",
     "@codemirror/language-data": "^6.5.2",
     "@codemirror/state": "^6.7.5",
@@ -25,6 +27,7 @@
     "@uiw/react-codemirror": "^4.25.11",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
+    "@xyflow/react": "^12.11.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cn": "^0.3.0",
@@ -49,6 +52,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
+    "jsdom": "^30.1.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
