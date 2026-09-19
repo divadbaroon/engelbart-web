@@ -29,6 +29,58 @@ export type TraceEvent = {
   data: Record<string, unknown> | null;
 };
 
+// ---- the element an event is about
+//
+// One description of a DOM element: the canonical target representation
+// for everything in Engelbart that points at the running application. The
+// behavior trace and interface annotations share this and add no second
+// one. It is exactly what the bridge's `describe()` writes into an
+// event's data (sandbox/trace/bridge.js) — nothing here is derived or
+// reshaped, only named — so a stored trace target and a stored annotation
+// target are the same thing. Every field is optional: the bridge omits
+// what is not there, and a truncated event carries a partial one.
+export type ElementTarget = {
+  tag?: string;         // localName, or "#document"
+  selector?: string;    // from the bridge's selectorFor; a shadow boundary reads "host >>> rest", which querySelector does not accept
+  id?: string;          // only when it looks stable: a framework's generated id is left out
+  name?: string;
+  type?: string;        // input and button only
+  role?: string;
+  text?: string;        // visible text, never what was typed into a text-entry surface
+  label?: string;       // aria-label, aria-labelledby, or the element's <label>
+  placeholder?: string;
+  title?: string;
+  testid?: string;      // data-testid, data-test-id or data-test
+  classes?: string[];   // hashed and utility classes stripped
+  href?: string;        // through safeUrl already: no credentials, no query values
+  action?: string;      // forms
+  method?: string;
+  size?: string;        // "WxH" for canvas, video, img, svg, iframe
+  disabled?: boolean;
+  editable?: string;    // which kind of text-entry surface, when it is one
+  rect?: { x: number; y: number; w: number; h: number };  // viewport-relative when recorded: context for a reader, never identity
+  route?: string;       // the document's path at the time
+};
+
+export const elementTarget = (v: unknown): ElementTarget | null =>
+  v && typeof v === "object" && !Array.isArray(v) ? (v as ElementTarget) : null;
+
+// The element an event is about. Which key holds it depends on the kind,
+// and the acts with two — a click on something inside a control, a submit
+// with a submitter — give the one the event is named for. A navigation is
+// about a route, not an element.
+export function targetOf(event: TraceEvent): ElementTarget | null {
+  const d = event.data;
+  if (!d) return null;
+  switch (event.kind) {
+    case "ui.click": return elementTarget(d.control) ?? elementTarget(d.target);
+    case "ui.submit": return elementTarget(d.submitter) ?? elementTarget(d.form);
+    case "ui.change": return elementTarget(d.container);
+    case "ui.route": return null;
+    default: return elementTarget(d.target);
+  }
+}
+
 export type ModelUpstream = { scheme: string; host: string; path: string; has_query: boolean };
 
 // The call as the model saw it, as the gateway's provider module

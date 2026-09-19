@@ -20,7 +20,7 @@
 // Labels are built from what the events carry (tag, visible text, frame,
 // key name), never from knowledge of a particular application. A link by
 // timing is called that; nothing here claims a cause.
-import type { Correlation, ModelCall, TraceEvent } from "@/lib/trace/types";
+import { elementTarget, type Correlation, type ElementTarget, type ModelCall, type TraceEvent } from "@/lib/trace/types";
 
 export type RequestLink = { request: TraceEvent; result: TraceEvent | null; correlation: Correlation; sinceMs: number | null };
 
@@ -189,10 +189,14 @@ export function frameDetail(f: FrameInfo): string {
 }
 
 // ---- describing an element from the bridge's descriptor
-type Descriptor = { tag?: string; id?: string; text?: string; label?: string; title?: string; placeholder?: string; role?: string; type?: string; name?: string; testid?: string; selector?: string; href?: string; action?: string; method?: string; size?: string; editable?: string };
-const descriptor = (v: unknown): Descriptor | null => obj(v) as Descriptor | null;
+//
+// The descriptor is `ElementTarget`, the one shape everything that points
+// at the running application uses; this turns it into the prose the trace
+// and anything grounded in it read. The precedence below is a contract:
+// what a person would have seen first, then the handles, then what it is.
+const descriptor = elementTarget;
 
-export function describeTarget(d: Descriptor | null): string {
+export function describeTarget(d: ElementTarget | null): string {
   if (!d) return "something";
   const tag = d.tag ?? "element";
   const what = d.role ?? (tag === "a" ? "link" : tag === "input" && d.type ? `${d.type} input` : tag);
@@ -267,7 +271,7 @@ function changeLabel(d: Record<string, unknown>): string {
 }
 // A container is named by its handle, not by the text inside it: the
 // text is what changed, and it is quoted separately.
-const describeContainer = (d: Descriptor | null) => describeTarget(d ? { ...d, text: undefined } : null);
+const describeContainer = (d: ElementTarget | null) => describeTarget(d ? { ...d, text: undefined } : null);
 
 function changeDetail(d: Record<string, unknown>): string {
   const container = descriptor(d.container);

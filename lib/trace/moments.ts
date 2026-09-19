@@ -4,7 +4,7 @@
 // call when the trace itself says so. Nothing here reads the application
 // and nothing here infers a cause. Pure: no DOM, no React.
 import { changeHasText, describeTarget, formatClock, formatMs, netText, summarizeCall, type CallRow, type CallSummary, type InteractionRow, type Stage, type TraceRow } from "@/lib/trace/timeline";
-import type { Correlation } from "@/lib/trace/types";
+import { elementTarget, type Correlation } from "@/lib/trace/types";
 
 export type MomentKind = "human" | "model" | "observed";
 export const momentKind = (stage: Stage): MomentKind => (stage.stage === "call" ? "model" : stage.stage === "response" ? "observed" : "human");
@@ -161,7 +161,7 @@ function actionLines(rows: TraceRow[]): string[] {
   for (const r of rows) {
     if (r.kind === "keys") { for (const c of r.counts) lines.push(`${keyName(c.key)} ×${c.count}`); continue; }
     if (r.kind !== "interaction") continue;
-    const target = (r.event.data?.target ?? null) as Parameters<typeof describeTarget>[0];
+    const target = elementTarget(r.event.data?.target);
     switch (r.event.kind) {
       case "ui.click": lines.push(clip(`Clicked ${describeTarget(target)}`, 80)); break;
       case "ui.input": lines.push(clip(`Changed ${describeTarget(target)}`, 80)); break;
