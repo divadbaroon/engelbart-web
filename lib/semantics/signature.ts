@@ -31,19 +31,41 @@ import type { Candidate, CandidateTree } from "@/lib/semantics/types";
 // holds text holds content.
 const CONTROL_TAGS = new Set(["button", "a", "summary", "label", "option", "th", "legend"]);
 const CONTROL_ROLES = new Set(["button", "link", "tab", "menuitem", "menuitemcheckbox", "menuitemradio", "option", "checkbox", "radio", "switch", "treeitem"]);
+// A heading is not something a person acts on, but its words are a name
+// all the same: it is what the area under it is called, and a page whose
+// heading changed is usually a different screen. Found by watching a real
+// page — renaming a heading left the signature where it was, and a
+// reading of the old screen would have been offered for the new one.
+const NAMING_TAGS = new Set([...CONTROL_TAGS, "h1", "h2", "h3", "h4", "h5", "h6", "caption", "figcaption", "dt"]);
+const NAMING_ROLES = new Set([...CONTROL_ROLES, "heading"]);
+const namesItself = (t: ElementTarget): boolean =>
+  isControl(t) || (!!t.tag && NAMING_TAGS.has(t.tag)) || (!!t.role && NAMING_ROLES.has(t.role));
 
 export type SignaturePolicy = {
   namingText: "controls" | "all" | "none";  // whose visible text counts
   selectorValue: boolean;                   // include the selector itself, not just that there is one
   structure: boolean;                       // include where each candidate sits
+  repeats: "fold" | "count";                // whether how MANY alike parts there are is part of the interface
   textChars: number;
 };
 
-// The default, and the thing to turn. "controls" is the line described
-// above; "all" makes the signature notice every word on the page, which a
-// conversation or a model's output will invalidate constantly; "none"
-// notices only shape, which will miss a renamed button.
-export const DEFAULT_POLICY: SignaturePolicy = { namingText: "controls", selectorValue: false, structure: true, textChars: 60 };
+// The default, and the thing to turn.
+//
+// "controls" is the line described above — elements whose words ARE
+// their name: a control, and a heading, which names the area under it;
+// "all" makes the signature
+// notice every word on the page, which a conversation or a model's output
+// will invalidate constantly; "none" notices only shape, which will miss
+// a renamed button.
+//
+// "fold" is the other half of that, and it was put here after watching
+// real pages rather than reasoned out: a list of three alike things and a
+// list of four alike things are the same interface, and an application
+// that appends to a list — every chat, every log, every table of results
+// — would otherwise be read again on every message. "count" keeps the
+// number, for a page where three of something and four of something are
+// genuinely different screens.
+export const DEFAULT_POLICY: SignaturePolicy = { namingText: "controls", selectorValue: false, structure: true, repeats: "fold", textChars: 60 };
 
 export const isControl = (t: ElementTarget): boolean =>
   (!!t.tag && CONTROL_TAGS.has(t.tag)) || (!!t.role && CONTROL_ROLES.has(t.role)) || !!t.type || !!t.editable;
@@ -65,7 +87,7 @@ function identity(t: ElementTarget, policy: SignaturePolicy): string {
 // where the element's content is its name.
 function naming(t: ElementTarget, policy: SignaturePolicy): string {
   const authored = t.label ?? t.title ?? t.placeholder ?? t.name ?? "";
-  const content = policy.namingText === "all" || (policy.namingText === "controls" && isControl(t)) ? (t.text ?? "") : "";
+  const content = policy.namingText === "all" || (policy.namingText === "controls" && namesItself(t)) ? (t.text ?? "") : "";
   // Both, where both count: an element may be named by its author and
   // say something of its own, and a policy asked to hear content should
   // not be silenced by the presence of an aria-label.
@@ -79,21 +101,37 @@ function naming(t: ElementTarget, policy: SignaturePolicy): string {
 export type SignaturePart = { key: string; part: string };
 
 export function signatureParts(tree: CandidateTree, policy: SignaturePolicy = DEFAULT_POLICY): SignaturePart[] {
+  // Where a candidate sits is said as what its parent IS, never as which
+  // number its parent was given. The ordinals are positions in one
+  // survey: inserting a list item renumbers everything after it, and a
+  // structure term built on them would call a page that gained a message
+  // a different page in every part below the message.
+  const own = new Map<number, string>();
+  for (const c of tree.candidates) own.set(c.ord, [identity(c.target, policy), c.target.tag ?? "?", c.target.role ?? ""].join("|"));
   return tree.candidates.map((c: Candidate) => {
     const t = c.target;
-    const id = identity(t, policy);
-    const where = policy.structure ? `in=${c.parent ?? "-"}` : "";
-    const key = [id, t.tag ?? "?", t.role ?? "", where].filter(Boolean).join("|");
+    const where = policy.structure ? `in=${c.parent === null ? "-" : own.get(c.parent) ?? "-"}` : "";
+    const key = [own.get(c.ord) ?? "", where].filter(Boolean).join("|");
     const part = [key, t.type ?? "", t.editable ?? "", t.disabled ? "disabled" : "", naming(t, policy)].filter(Boolean).join("|");
     return { key, part };
   });
 }
 
+// What the hash actually sees. Folding is here rather than in
+// signatureParts so a diff explains the hash: two lists that differ only
+// in length have the same folded parts, and the diff says nothing changed
+// because, for this purpose, nothing did.
+export const foldParts = (parts: SignaturePart[], policy: SignaturePolicy = DEFAULT_POLICY): SignaturePart[] => {
+  if (policy.repeats === "count") return parts;
+  const seen = new Set<string>();
+  return parts.filter((p) => (seen.has(p.part) ? false : (seen.add(p.part), true)));
+};
+
 // The route is part of the signature because the same document served at
 // two paths is two interfaces. Its query string is already reduced to
 // "?…" by the bridge, so a token or a session id cannot reach this.
 export function signatureOf(tree: CandidateTree, policy: SignaturePolicy = DEFAULT_POLICY): { signature: string; parts: SignaturePart[] } {
-  const parts = signatureParts(tree, policy);
+  const parts = foldParts(signatureParts(tree, policy), policy);
   const body = [`route=${tree.route ?? ""}`, `depth=${tree.frame.depth}`, ...parts.map((p) => p.part)].join("\n");
   return { signature: createHash("sha256").update(body).digest("hex").slice(0, 32), parts };
 }

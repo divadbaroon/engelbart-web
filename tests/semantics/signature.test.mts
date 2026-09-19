@@ -132,6 +132,51 @@ describe("the policy is a knob, not a law", () => {
   });
 });
 
+// Both of these were found by running the real bridge over real pages
+// (scripts/semantics/verify.mts) rather than by reasoning about the code,
+// and both were cache-defeating: a page that gained one list item got a
+// new signature in every part below the item, and a renamed heading got
+// none at all.
+describe("what a page does to itself while it is being used", () => {
+  const list = (n: number, said = "a line") => tree([
+    c(1, { tag: "main", role: "main", selector: "main" }),
+    c(2, { tag: "ul", role: "log", selector: "main > ul" }, 1),
+    ...Array.from({ length: n }, (_, i) => c(3 + i, { tag: "li", text: `${said} ${i}`, selector: "li" }, 2)),
+    c(3 + n, { tag: "button", text: "Send", selector: "main > button" }, 1),
+  ]);
+
+  it("is the same interface with one more message in it", () => {
+    assert.equal(signatureOf(list(4)).signature, signatureOf(list(3)).signature, "a conversation that invalidates on every message is a cache that never hits");
+    assert.equal(signatureOf(list(9)).signature, signatureOf(list(3)).signature);
+  });
+
+  it("keeps the count when a policy asks it to", () => {
+    const counting = { ...DEFAULT_POLICY, repeats: "count" as const };
+    assert.notEqual(signatureOf(list(4), counting).signature, signatureOf(list(3), counting).signature);
+  });
+
+  it("does not renumber the rest of the page around an inserted item", () => {
+    // The structure term says what a candidate's parent IS, not which
+    // ordinal it was given, so the button after the list is the same part
+    // whether three things or nine things come before it.
+    const button = (n: number) => signatureParts(list(n)).at(-1)!;
+    assert.equal(button(9).part, button(3).part);
+  });
+
+  it("notices a heading changing, because a heading names what is under it", () => {
+    const screen = (title: string) => tree([
+      c(1, { tag: "main", role: "main", selector: "main" }),
+      c(2, { tag: "h1", text: title, selector: "main > h1" }, 1),
+    ]);
+    assert.notEqual(signatureOf(screen("Settings")).signature, signatureOf(screen("Play")).signature);
+  });
+
+  it("does not notice a paragraph changing, because a paragraph holds content", () => {
+    const para = (text: string) => tree([c(1, { tag: "p", text, selector: "main > p" })]);
+    assert.equal(signatureOf(para("Waiting for the model…")).signature, signatureOf(para("Here is a long answer the model wrote.")).signature);
+  });
+});
+
 describe("telling two surveys apart", () => {
   it("compares repeated shapes one to one instead of collapsing them", () => {
     const rows = (n: number) => tree(Array.from({ length: n }, (_, i) => c(i + 1, { tag: "li", selector: "li" })));

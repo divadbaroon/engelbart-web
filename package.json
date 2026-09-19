@@ -10,7 +10,8 @@
     "bench": "node --env-file-if-exists=.env.local --import tsx scripts/bench/run.mts",
     "bench:grade": "node --env-file-if-exists=.env.local --import tsx scripts/bench/grade.mts",
     "bench:report": "node --import tsx scripts/bench/report.mts",
-    "test": "node --import tsx --test 'tests/**/*.test.*'"
+    "test": "node --import tsx --test 'tests/**/*.test.*'",
+    "semantics:verify": "node --env-file-if-exists=.env.local --import tsx scripts/semantics/verify.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
