@@ -12,6 +12,7 @@ import { isRunActive, isRunCloned, isRunRunning, type SandboxRun } from "@/lib/s
 import { useSandboxRuns } from "@/hooks/use-sandbox-run";
 import { useScopedTraceView, useTraceView } from "@/hooks/use-trace-view";
 import { useRecordings } from "@/hooks/use-recordings";
+import { useAnnotations } from "@/hooks/use-annotations";
 import { recordingStats, windowOf, type Recording, type TraceNav } from "@/lib/trace/recording";
 import type { TraceRecordings } from "@/components/trace/behavior-trace";
 import { useTraceSelection } from "@/hooks/use-trace-selection";
@@ -266,6 +267,9 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   // list, or one recording, which the tab shows on the same canvas from a
   // view cut to its window. Bart is told which recording is open.
   const recordings = useRecordings(run);
+  // The notes written on this repository's interface. They belong to the
+  // repository, so they are loaded with it and outlive any one run.
+  const annotations = useAnnotations(repo, run);
   const [traceNav, setTraceNav] = useState<TraceNav>({ kind: "full" });
   useEffect(() => { setTraceNav({ kind: "full" }); }, [run?.id]);
   const openRecording = traceNav.kind === "recording" ? recordings.list.find((r) => r.id === traceNav.id) ?? null : null;
@@ -290,6 +294,12 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   const [traceBartOpen, setTraceBartOpen] = useState(false);
   const selectionText = repo ? describeSelection(scopedTrace.stages, scopedTrace.callRows, picked.selection) : null;
   const bartRecording = openRecording ? { id: openRecording.id, name: openRecording.name } : null;
+  // A note the person asked about. A referent like the selected moment:
+  // it says what "this" means, and constrains nothing else. It is dropped
+  // when the note itself goes.
+  const [askedAnnotation, setAskedAnnotation] = useState<string | null>(null);
+  useEffect(() => { setAskedAnnotation(null); }, [repo?.id]);
+  const askedNote = askedAnnotation && annotations.list.some((a) => a.id === askedAnnotation) ? askedAnnotation : null;
   // What a question is about: identities only. Nothing on the screen
   // travels with it; the route reads the trace itself.
   const bartContext: MessageContext = {
@@ -297,6 +307,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
     repoId: repo?.id ?? null,
     selection: toSelectionRef(picked.selection),
     recordingId: bartRecording?.id ?? null,
+    annotationId: askedNote,
   };
   // "Ask Bart about this" from the trace: open the window over the canvas
   // and put the cursor in it. The moment is already the selection.
@@ -335,12 +346,23 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
         setCodeOpen((o) => ({ path: ref.path, line: ref.from, key: (o?.key ?? 0) + 1 }));
         show(repo.id, "code");
         break;
+      case "annotation":
+        annotations.focusOn(ref.id);
+        show(repo.id, "preview");
+        break;
       case "readme":
         show(repo.id, "readme");
         break;
     }
   };
-  const labelBartRef = (ref: Ref) => refLabel(ref, trace.stages, trace.callRows);
+  // A chip for a reference in an answer. An annotation is named by what
+  // it says, so the chip reads as the note rather than as an id.
+  const labelBartRef = (ref: Ref) => {
+    if (ref.kind !== "annotation") return refLabel(ref, trace.stages, trace.callRows);
+    const note = annotations.list.find((a) => a.id === ref.id);
+    if (!note) return "annotation (not in this repository)";
+    return note.body.length > 40 ? `${note.body.slice(0, 39)}…` : note.body;
+  };
   const bartPanel = (
     <BartPanel
       session={bart}
@@ -383,6 +405,8 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
       traceAside={sideTab === "trace"}
       scopedTrace={scopedTrace}
       recording={traceRecordings}
+      annotations={annotations}
+      onAskAboutAnnotation={(id) => { setAskedAnnotation(id); bart.ask("tab"); }}
       traceBart={traceBart}
       repo={repo}
       tab={t}

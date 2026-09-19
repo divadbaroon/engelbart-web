@@ -22,6 +22,12 @@ import { PatchView } from "@/components/patch-view";
 import { patchFromEvents, type RepoPatch } from "@/lib/patch";
 import { BehaviorTrace, type TraceRecordings } from "@/components/trace/behavior-trace";
 import { RecordButton, RecordingSaved } from "@/components/trace/record-control";
+import { AnnotateControl } from "@/components/annotate/control";
+import { AnnotationComposer } from "@/components/annotate/composer";
+import { AnnotationNote } from "@/components/annotate/note";
+import { usePicker } from "@/hooks/use-picker";
+import { sayWhy } from "@/lib/annotations/probe";
+import type { Annotations } from "@/hooks/use-annotations";
 import { LiveStrip } from "@/components/trace/live-strip";
 import type { TraceView } from "@/hooks/use-trace-view";
 import { selectedStage, type Selection } from "@/lib/trace/selection";
@@ -72,13 +78,15 @@ type RepoContentProps = RunControls & {
   traceAside: boolean;                   // the trace is on the side: no "Open trace", no way back
   scopedTrace: TraceView;                // what the Trace tab shows: the run, or the open recording's slice of it
   recording: TraceRecordings;            // the run's recordings, the Record button's state, where the Trace tab is
+  annotations: Annotations;              // the notes written on this repository's interface
+  onAskAboutAnnotation: (id: string) => void;   // ask Bart about one of them
   traceBart: ReactNode;                  // Bart's small window, floating over the trace canvas
 };
 
 // The trace's selection callbacks, shared by the preview's strip and the Trace tab.
-export type TraceControls = { trace: TraceView; selection: Selection | null; onSelect: RepoContentProps["onSelect"]; onOpenTrace: () => void; traceAside: boolean; recording: TraceRecordings };
+export type TraceControls = { trace: TraceView; selection: Selection | null; onSelect: RepoContentProps["onSelect"]; onOpenTrace: () => void; traceAside: boolean; recording: TraceRecordings; annotations: Annotations; onAskAboutAnnotation: (id: string) => void };
 
-export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, trace, selection, detail, onSelect, onDetail, onAskBart, onOpenTrace, onOpenPreview, codeOpen, slot, traceAside, scopedTrace, recording, traceBart, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
+export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, trace, selection, detail, onSelect, onDetail, onAskBart, onOpenTrace, onOpenPreview, codeOpen, slot, traceAside, scopedTrace, recording, annotations, onAskAboutAnnotation, traceBart, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
   // The environment scan and any repair edits from this run's log if it
   // has them, else the last ones saved on the repository.
   const envReport = (run && environmentFromEvents(events, run.id)) ?? repo.envReport;
@@ -102,12 +110,12 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   // application is never reloaded; only the wrapper's class changes.
   // On the side the trace stands alone: the preview is in the middle.
   if (tab === "preview" || tab === "trace") {
-    const canvas = tab === "trace" ? <BehaviorTrace repo={repo} run={run} runTrace={trace} trace={scopedTrace} selection={selection} detail={detail} onSelect={onSelect} onDetail={onDetail} onAskBart={onAskBart} slot={slot} onBack={slot === "middle" ? onOpenPreview : null} recordings={recording} bart={traceBart} /> : null;
+    const canvas = tab === "trace" ? <BehaviorTrace repo={repo} run={run} runTrace={trace} trace={scopedTrace} selection={selection} detail={detail} onSelect={onSelect} onDetail={onDetail} onAskBart={onAskBart} slot={slot} onBack={slot === "middle" ? onOpenPreview : null} recordings={recording} notes={{ annotations, onOpen: (id) => { annotations.focusOn(id); onOpenPreview(); }, onAskBart: onAskAboutAnnotation }} bart={traceBart} /> : null;
     if (tab === "trace" && slot === "side") return canvas;
     return (
       <>
         <div className={tab === "trace" ? "hidden h-full" : "h-full"}>
-          <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, traceAside, recording }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onOpenTerminal={onOpenTerminal} onRunWithoutPatch={onRunWithoutPatch} onSaveHint={onSaveHint} />
+          <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, traceAside, recording, annotations, onAskAboutAnnotation }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onOpenTerminal={onOpenTerminal} onRunWithoutPatch={onRunWithoutPatch} onSaveHint={onSaveHint} />
         </div>
         {canvas}
       </>
@@ -390,6 +398,34 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
   }, [version]);
   const reload = () => { setReloads((n) => n + 1); setLoading("update"); };
   const pick = (id: string) => { if (id !== service.id) { setServiceId(id); setLoading("first"); } };
+  // Annotate mode talks to the document in this frame. The ref is the
+  // only new thing on the iframe: it must keep its key and its place in
+  // the tree, or React remounts it and the running application reloads.
+  const frame = useRef<HTMLIFrameElement>(null);
+  const traced = run.trace !== "off";
+  const notes = controls.annotations;
+  const [openNote, setOpenNote] = useState<string | null>(null);
+  const marks = useMemo(() => notes.list.map((a) => ({ id: a.id, anchor: a.anchor })), [notes.list]);
+  const picker = usePicker(frame, service.embeddable ? service.previewUrl : null, traced && service.embeddable, marks, setOpenNote);
+  const note = notes.list.find((a) => a.id === openNote) ?? null;
+  // A note chosen somewhere else — the list, a reference in an answer —
+  // is shown where it lives: the markers go up, the page is scrolled to
+  // it, and the note opens. If the page cannot find its element the note
+  // opens anyway, saying so, rather than the click doing nothing.
+  const focus = notes.focus;
+  useEffect(() => {
+    if (!focus) return;
+    picker.start();
+    setOpenNote(focus.id);
+    const t = setTimeout(() => picker.flash(focus.id), 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.key, focus?.id]);
+  const save = async (body: string) => {
+    if (!picker.picked) return;
+    const made = await notes.add({ body, anchor: picker.picked.anchor, recordingId: rec.active?.id ?? null, stageId: controls.selection?.kind === "stage" ? controls.selection.stageId : null, callId: controls.selection?.kind === "call" ? controls.selection.callId : null });
+    if (made) picker.dismiss();
+  };
   // A moment chosen in the strip is selected, and the trace opens on it.
   const pickMoment = (stage: Stage) => {
     controls.recording.reveal(stage.stage === "call" && stage.callId ? { callId: stage.callId } : { stageId: stage.id });
@@ -431,15 +467,30 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
         {events.some((e) => e.data?.phase === "trail" && (e.data?.status === "own" || e.data?.status === "shared")) && (
           <Button variant="ghost" size="sm" onClick={async () => { await onStop(run.id); onStartOver(); }} title="Stop, then analyze from scratch ignoring the saved trail" className="h-6 px-2 font-normal text-muted-foreground">Start over</Button>
         )}
-        {run.trace !== "off" && <RecordButton active={rec.active} busy={rec.busy} onStart={() => void rec.start()} onStop={() => void rec.stop()} />}
-        {run.trace !== "off" && !controls.traceAside && <Button variant="ghost" size="sm" onClick={controls.onOpenTrace} className="h-6 px-2 font-normal text-muted-foreground">Open trace</Button>}
+        {traced && <RecordButton active={rec.active} busy={rec.busy} onStart={() => void rec.start()} onStop={() => void rec.stop()} />}
+        {traced && service.embeddable && <AnnotateControl active={picker.active} count={notes.list.length} onStart={picker.start} onStop={picker.stop} />}
+        {traced && !controls.traceAside && <Button variant="ghost" size="sm" onClick={controls.onOpenTrace} className="h-6 px-2 font-normal text-muted-foreground">Open trace</Button>}
         <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="h-6 px-2 font-normal text-muted-foreground">Stop</Button>
       </div>
       {rec.lastStopped && <RecordingSaved recording={rec.lastStopped} stats={controls.recording.stats(rec.lastStopped)} onOpen={() => { controls.recording.open(rec.lastStopped!.id); rec.dismissStopped(); }} onDismiss={rec.dismissStopped} />}
       {rec.error && <p role="alert" className="shrink-0 border-b px-3 py-1.5 text-xs text-destructive">{rec.error}</p>}
+      {notes.error && <p role="alert" className="shrink-0 border-b px-3 py-1.5 text-xs text-destructive">{notes.error}</p>}
+      {/* A document with no bridge in it, and frames inside it that could
+          not be reached, are said plainly rather than left to look like a
+          picker that does nothing. */}
+      {picker.active && picker.silent && !picker.answered && (
+        <p role="status" className="shrink-0 border-b px-3 py-1.5 text-xs text-muted-foreground">
+          {picker.why ? sayWhy(picker.why) : "This preview did not answer; asking its gateway why…"}
+        </p>
+      )}
+      {picker.active && picker.unavailable.length > 0 && (
+        <p role="status" className="shrink-0 border-b px-3 py-1.5 text-xs text-muted-foreground">
+          {picker.unavailable.length} embedded frame{picker.unavailable.length === 1 ? "" : "s"} cannot be annotated ({picker.unavailable.map((f) => `${f.selectorInParent ?? f.name ?? "frame"}: ${f.reason}`).join(", ")}). The frame itself can be, from the page around it.
+        </p>
+      )}
       <RunTimeline run={run} events={events} open={false} className="max-h-[60%] shrink-0 overflow-y-auto border-b" />
       {service.embeddable ? (
-        <iframe key={`${service.id}:${reloads}`} src={service.previewUrl} title={`${repo.fullName} ${service.id} preview`} onLoad={() => setLoading(null)} className="min-h-0 w-full flex-1 bg-white" />
+        <iframe ref={frame} key={`${service.id}:${reloads}`} src={service.previewUrl} title={`${repo.fullName} ${service.id} preview`} onLoad={() => setLoading(null)} className="min-h-0 w-full flex-1 bg-white" />
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-1.5 p-6 text-center">
           <span className="text-[13px] text-muted-foreground">{service.id} does not allow being shown in a frame.</span>
@@ -448,7 +499,17 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
           </Button>
         </div>
       )}
-      {run.trace !== "off" && <LiveStrip trace={controls.trace} live selectedId={selectedStage(controls.trace.stages, controls.selection)?.id ?? null} onPick={pickMoment} onOpenTrace={controls.traceAside ? null : controls.onOpenTrace} />}
+      {picker.picked && <AnnotationComposer frame={frame} picked={picker.picked} busy={notes.busy} error={notes.error} onSave={(body) => void save(body)} onCancel={picker.dismiss} />}
+      {note && !picker.picked && (
+        <AnnotationNote
+          frame={frame} note={note} resolution={picker.resolutions[note.id] ?? null} viewerId={notes.viewerId}
+          onEdit={(body) => void notes.edit(note.id, body)}
+          onDelete={() => { setOpenNote(null); void notes.remove(note.id); }}
+          onAskBart={() => controls.onAskAboutAnnotation(note.id)}
+          onClose={() => setOpenNote(null)}
+        />
+      )}
+      {traced && <LiveStrip trace={controls.trace} live selectedId={selectedStage(controls.trace.stages, controls.selection)?.id ?? null} onPick={pickMoment} onOpenTrace={controls.traceAside ? null : controls.onOpenTrace} />}
     </section>
   );
 }

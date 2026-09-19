@@ -9,6 +9,7 @@ export type Ref =
   | { kind: "moment"; stageId: string }
   | { kind: "call"; callId: string; pane: Pane | null }
   | { kind: "file"; path: string; from: number | null; to: number | null }
+  | { kind: "annotation"; id: string }
   | { kind: "readme" };
 
 // Where a claim comes from. Kept on tool results and references; the
@@ -16,7 +17,10 @@ export type Ref =
 export type Provenance = "trace" | "model_request" | "source_code" | "inferred";
 
 export type SelectionRef = { stageId: string | null; callId: string | null };
-export type MessageContext = { runId: string | null; repoId: string | null; selection: SelectionRef | null; recordingId?: string | null };
+// What a question is about: identities only, never prose. `annotationId`
+// is a note the person opened and asked about; it is a referent like the
+// selected moment, not a constraint on what may be answered.
+export type MessageContext = { runId: string | null; repoId: string | null; selection: SelectionRef | null; recordingId?: string | null; annotationId?: string | null };
 
 export type BartMessage = { id: string; role: "user" | "assistant"; content: string; refs: Ref[]; context: MessageContext | null; model: string | null; createdAt: string };
 
@@ -26,6 +30,7 @@ export type BartRequest = {
   repoId: string | null;
   runId: string | null;
   recordingId: string | null;  // the recording open in the Trace tab: trace tools read inside it
+  annotationId: string | null; // a note the person asked about, if the question came from one
   selection: SelectionRef | null;
   model: string;
   message: string;
@@ -47,13 +52,15 @@ const PANE_ALIAS: Record<string, Pane> = { system: "context", summary: "overview
 // ---- reference tokens in an answer
 // [[moment:<stageId>]]  [[call:<callId>]]  [[call:<callId>:<pane>]]
 // [[file:<path>]]  [[file:<path>#L12-L40]]  [[readme]]
-const TOKEN = /\[\[(moment|call|file|readme)(?::([^\[\]\n]+))?\]\]/g;
+// [[annotation:<id>]]
+const TOKEN = /\[\[(moment|call|file|annotation|readme)(?::([^\[\]\n]+))?\]\]/g;
 const FILE = /^(.*?)(?:#L(\d+)(?:-L?(\d+))?)?$/;
 
 export function parseRef(kind: string, rest: string | undefined): Ref | null {
   switch (kind) {
     case "readme": return { kind: "readme" };
     case "moment": return rest ? { kind: "moment", stageId: rest.trim() } : null;
+    case "annotation": return rest ? { kind: "annotation", id: rest.trim() } : null;
     case "call": {
       if (!rest) return null;
       const parts = rest.trim().split(":");
@@ -76,6 +83,7 @@ export function refToken(ref: Ref): string {
   switch (ref.kind) {
     case "readme": return "[[readme]]";
     case "moment": return `[[moment:${ref.stageId}]]`;
+    case "annotation": return `[[annotation:${ref.id}]]`;
     case "call": return `[[call:${ref.callId}${ref.pane ? `:${ref.pane}` : ""}]]`;
     case "file": return `[[file:${ref.path}${ref.from ? `#L${ref.from}${ref.to ? `-L${ref.to}` : ""}` : ""}]]`;
   }
@@ -105,7 +113,7 @@ export function linkRefs(text: string, label: (ref: Ref) => string): string {
 export const isRefHref = (href: string | undefined): href is string => !!href && href.startsWith("ref:");
 export function refFromHref(href: string): Ref | null {
   const token = decodeURIComponent(href.slice(4));
-  const m = /^\[\[(moment|call|file|readme)(?::([^\[\]\n]+))?\]\]$/.exec(token);
+  const m = /^\[\[(moment|call|file|annotation|readme)(?::([^\[\]\n]+))?\]\]$/.exec(token);
   return m ? parseRef(m[1], m[2]) : null;
 }
 
@@ -114,6 +122,7 @@ export function plainRefLabel(ref: Ref): string {
   switch (ref.kind) {
     case "readme": return "README";
     case "moment": return "moment";
+    case "annotation": return "annotation";
     case "call": return ref.pane ? `model call · ${ref.pane}` : "model call";
     case "file": return ref.from ? `${ref.path}:${ref.from}${ref.to ? `–${ref.to}` : ""}` : ref.path;
   }

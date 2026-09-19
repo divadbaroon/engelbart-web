@@ -17,6 +17,13 @@ describe("bart protocol", () => {
       { kind: "readme" },
     ]);
   });
+  it("carries a researcher's note as a reference of its own", () => {
+    const ref: Ref = { kind: "annotation", id: "7f3a1c2e-0000-4000-8000-000000000001" };
+    assert.deepEqual(refsIn("The note you left [[annotation:7f3a1c2e-0000-4000-8000-000000000001]] asks about that."), [ref]);
+    assert.equal(refToken(ref), "[[annotation:7f3a1c2e-0000-4000-8000-000000000001]]");
+    assert.deepEqual(refFromHref(`ref:${encodeURIComponent(refToken(ref))}`), ref, "both the finder and the single-token reader know it, or a chip parses and opens nothing");
+    assert.equal(plainRefLabel(ref), "annotation");
+  });
   it("prints a reference back to the token it came from", () => {
     for (const ref of refsIn(text)) assert.deepEqual(parseRef(...tokenParts(refToken(ref))), ref);
     assert.equal(refToken({ kind: "call", callId: "mc_1", pane: null }), "[[call:mc_1]]");

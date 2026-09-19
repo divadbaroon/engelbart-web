@@ -13,9 +13,10 @@ export const RECORDING_COLUMNS = "id, run_id, project_id, name, status, started_
 export const toRecording = (r: RecordingRow): Recording => ({ id: r.id, runId: r.run_id, projectId: r.project_id, name: r.name, status: r.status, startedAt: r.started_at, stoppedAt: r.stopped_at, createdAt: r.created_at });
 export const defaultName = (n: number) => `Recording ${n}`;
 
-// Where the Trace tab is: the whole run, the list of recordings, or one
-// recording open on the same canvas.
-export type TraceNav = { kind: "full" } | { kind: "list" } | { kind: "recording"; id: string };
+// Where the Trace tab is: the whole run, the list of recordings, one
+// recording open on the same canvas, or the notes written on this
+// repository's interface.
+export type TraceNav = { kind: "full" } | { kind: "list" } | { kind: "recording"; id: string } | { kind: "annotations" };
 
 // ---- the window
 export type Window = { start: string; end: string | null };   // end null: still recording

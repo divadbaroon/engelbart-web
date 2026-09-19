@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import type { Recordings } from "@/hooks/use-recordings";
 import { statsLine, type Recording, type RecordingStats, type TraceNav } from "@/lib/trace/recording";
 import { RecordingsList } from "@/components/trace/recordings-list";
+import { AnnotationsList } from "@/components/trace/annotations-list";
+import type { Annotations } from "@/hooks/use-annotations";
 import type { Repo } from "@/lib/repos";
 import type { SandboxRun } from "@/lib/sandbox";
 import type { TraceView } from "@/hooks/use-trace-view";
@@ -29,7 +31,17 @@ type Props = {
   slot: "middle" | "side";                // in the middle the details stand beside the canvas; on the side, under it
   onBack: (() => void) | null;            // to the Live preview; none when the trace is beside it
   recordings: TraceRecordings;
+  notes: TraceAnnotations;                // the repository's interface annotations, as a third view
   bart: React.ReactNode;                  // the small Bart, floating over the canvas
+};
+
+// The notes written on this repository's interface, listed beside the
+// trace they were written alongside. Opening one is the Live preview's
+// business: the element lives there.
+export type TraceAnnotations = {
+  annotations: Annotations;
+  onOpen: (id: string) => void;
+  onAskBart: (id: string) => void;
 };
 
 // The run's recordings as the Trace tab and the Live preview share them:
@@ -59,11 +71,14 @@ export type TraceRecordings = {
 // choice between the whole run and its recordings: a recording opens on
 // this same canvas, cut to its window by the parent (`trace` is then the
 // scoped view); the list is the other view.
-export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, onSelect, onDetail, onAskBart, slot, onBack, recordings, bart }: Props) {
+export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, onSelect, onDetail, onAskBart, slot, onBack, recordings, notes, bart }: Props) {
   const { stages, diagnostics, callRows, error, loading } = trace;
   const { nav, onNav } = recordings;
   const rec = recordings.recordings;
   const openRecording = nav.kind === "recording" ? recordings.recordings.list.find((r) => r.id === nav.id) ?? null : null;
+  const notesList = notes.annotations;
+  // Two of the views are lists, and a list has no canvas under it.
+  const listing = nav.kind === "list" || nav.kind === "annotations";
   const selected = selectedStage(stages, selection) ?? [...stages].reverse().find((s) => s.stage === "call") ?? stages[stages.length - 1] ?? null;
   const relation = selected ? relationFor(selected, stages, callRows) : null;
   // Beside the canvas, the details cost it width it can spare, so a card
@@ -145,11 +160,25 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
           <div role="tablist" aria-label="Trace view" className="flex items-center gap-0.5 rounded-md bg-muted/60 p-0.5">
             <NavTab active={nav.kind === "full"} onClick={() => onNav({ kind: "full" })}>Full trace</NavTab>
             <NavTab active={nav.kind === "list"} onClick={() => onNav({ kind: "list" })}>Recordings{count ? ` · ${count}` : ""}</NavTab>
+            <NavTab active={nav.kind === "annotations"} onClick={() => onNav({ kind: "annotations" })}>Annotations{notesList.list.length ? ` · ${notesList.list.length}` : ""}</NavTab>
           </div>
         )}
       </header>
       {error && <p role="alert" className="shrink-0 border-b px-[22px] py-2 text-xs text-destructive">{error}</p>}
-      {nav.kind === "list" ? (
+      {nav.kind === "annotations" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <AnnotationsList
+            annotations={notesList.list}
+            viewerId={notesList.viewerId}
+            loaded={notesList.loaded}
+            error={notesList.error}
+            onOpen={notes.onOpen}
+            onAskBart={notes.onAskBart}
+            onRemove={(id) => void notesList.remove(id)}
+            onDismissError={notesList.dismissError}
+          />
+        </div>
+      ) : nav.kind === "list" ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <RecordingsList
             recordings={rec.list}
@@ -182,8 +211,8 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
         )}
       </ResizablePanelGroup>
       )}
-      {nav.kind !== "list" && !open && <DrawerBar trace={trace} selection={selection} onSelect={onSelect} onAskBart={onAskBart} onOpen={() => onDetail(true)} beside={beside} />}
-      {nav.kind !== "list" && <Diagnostics rows={diagnostics} select={select} summary={summary} />}
+      {!listing && !open && <DrawerBar trace={trace} selection={selection} onSelect={onSelect} onAskBart={onAskBart} onOpen={() => onDetail(true)} beside={beside} />}
+      {!listing && <Diagnostics rows={diagnostics} select={select} summary={summary} />}
     </section>
   );
 }
