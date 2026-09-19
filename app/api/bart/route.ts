@@ -14,6 +14,7 @@ import { TOOLS, runTool, toolLabel, type ToolContext } from "@/lib/bart/tools";
 import { redactor } from "@/lib/bart/repo";
 import { appendMessage, createThread, threadInProject, threadMessages } from "@/lib/bart/store";
 import { RECORDING_COLUMNS, scopeTrace, toRecording, windowOf, type Recording, type RecordingRow } from "@/lib/trace/recording";
+import { ANNOTATION_COLUMNS, toAnnotation, type Annotation, type AnnotationRow } from "@/lib/annotations/model";
 
 // One turn with Bart. The browser sends the question and what is in the
 // middle of the workspace by id; the server assembles the situation,
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
   const runId = typeof body.runId === "string" && isUuid(body.runId) ? body.runId : null;
   const selection = selectionRef(body.selection);
   const recordingId = typeof body.recordingId === "string" && isUuid(body.recordingId) ? body.recordingId : null;
+  const annotationId = typeof body.annotationId === "string" && isUuid(body.annotationId) ? body.annotationId : null;
 
   const supabase = await createClient();
   const { data: claims } = await supabase.auth.getClaims();
@@ -80,7 +82,18 @@ export async function POST(req: NextRequest) {
     const rec = data ? toRecording(data as RecordingRow) : null;
     recording = rec && rec.runId === runOk.id ? rec : null;
   }
-  const context: MessageContext = { runId: runOk?.id ?? null, repoId: repo?.id ?? null, selection, recordingId: recording?.id ?? null };
+  // The note the person asked about, if it is this repository's. A note
+  // belongs to a repository, not to a run, so it is checked against the
+  // repository and nothing else; one that does not belong is dropped from
+  // the context, so what is saved with the message is what was actually
+  // authorised rather than what was claimed.
+  let annotation: Annotation | null = null;
+  if (annotationId && repo) {
+    const { data } = await supabase.from("engelbart_annotations").select(ANNOTATION_COLUMNS).eq("id", annotationId).maybeSingle();
+    const note = data ? toAnnotation(data as AnnotationRow) : null;
+    annotation = note && note.repoId === repo.id ? note : null;
+  }
+  const context: MessageContext = { runId: runOk?.id ?? null, repoId: repo?.id ?? null, selection, recordingId: recording?.id ?? null, annotationId: annotation?.id ?? null };
 
   // The trace is read once per turn, when the situation is written; the
   // same model serves every tool call of the turn.
@@ -99,9 +112,19 @@ export async function POST(req: NextRequest) {
   })());
   const ctx: ToolContext = {
     repo, run: runOk, access: repo ? { repo, run: runOk, redact: await redactor(repo.id) } : null, trace, fullTrace,
+    // A note is read under row-level security and then checked against
+    // the repository that is open, the same belt-and-braces the run and
+    // the recording get: a note of another repository is not this
+    // conversation's to read.
+    annotation: async (id) => {
+      if (!repo || !isUuid(id)) return null;
+      const { data } = await supabase.from("engelbart_annotations").select(ANNOTATION_COLUMNS).eq("id", id).maybeSingle();
+      const note = data ? toAnnotation(data as AnnotationRow) : null;
+      return note && note.repoId === repo.id ? note : null;
+    },
     rawCall: async (call) => { const got = await getModelCall(call.id, true); return got.ok ? got.call : call; },
   };
-  const situation = situationBlock({ repo, run: runOk, selection, trace: await trace(), source: isSandboxLive(runOk ?? undefined) ? "sandbox" : repo ? "github" : "none", recording });
+  const situation = situationBlock({ repo, run: runOk, selection, trace: await trace(), source: isSandboxLive(runOk ?? undefined) ? "sandbox" : repo ? "github" : "none", recording, annotation });
 
   const history = (await threadMessages(threadId, HISTORY).catch(() => [])).map((m) => ({ role: m.role, content: m.content }));
   const userMessage = await appendMessage(threadId, { role: "user", content: message, context, refs: [], model: null }).catch(() => null);

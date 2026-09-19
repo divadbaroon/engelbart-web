@@ -49,7 +49,7 @@ export function useBart(projectId: string) {
     try {
       const res = await fetch("/api/bart", {
         method: "POST", headers: { "content-type": "application/json" }, signal: ac.signal,
-        body: JSON.stringify({ threadId, projectId, repoId: context.repoId, runId: context.runId, recordingId: context.recordingId ?? null, selection: context.selection, model, message: text }),
+        body: JSON.stringify({ threadId, projectId, repoId: context.repoId, runId: context.runId, recordingId: context.recordingId ?? null, annotationId: context.annotationId ?? null, selection: context.selection, model, message: text }),
       });
       if (!res.ok || !res.body) {
         const body = await res.json().catch(() => ({}));
