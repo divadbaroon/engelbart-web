@@ -13,8 +13,8 @@ import { useSandboxRuns } from "@/hooks/use-sandbox-run";
 import { useScopedTraceView, useTraceView } from "@/hooks/use-trace-view";
 import { useRecordings } from "@/hooks/use-recordings";
 import { useAnnotations } from "@/hooks/use-annotations";
-import { recordingStats, windowOf, type Recording, type TraceNav } from "@/lib/trace/recording";
-import type { TraceRecordings } from "@/components/trace/behavior-trace";
+import { clearMark, recordingStats, windowOf, type Recording, type TraceNav } from "@/lib/trace/recording";
+import type { CanvasMark, TraceRecordings } from "@/components/trace/behavior-trace";
 import { useTraceSelection } from "@/hooks/use-trace-selection";
 import { describeSelection, selectedStage } from "@/lib/trace/selection";
 import type { MessageContext, Ref } from "@/lib/bart/protocol";
@@ -271,10 +271,26 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   // repository, so they are loaded with it and outlive any one run.
   const annotations = useAnnotations(repo, run);
   const [traceNav, setTraceNav] = useState<TraceNav>({ kind: "full" });
-  useEffect(() => { setTraceNav({ kind: "full" }); }, [run?.id]);
+  // Where the canvas starts from, when the person has asked for a clean
+  // one. It is a mark on the clock and nothing else: no row is touched,
+  // collection carries on, and the recordings and the notes still hold
+  // everything. It belongs to the run, so it survives moving between
+  // tabs and goes when the run does.
+  const [clearedAt, setClearedAt] = useState<string | null>(null);
+  useEffect(() => { setTraceNav({ kind: "full" }); setClearedAt(null); }, [run?.id]);
   const openRecording = traceNav.kind === "recording" ? recordings.list.find((r) => r.id === traceNav.id) ?? null : null;
   useEffect(() => { if (traceNav.kind === "recording" && recordings.loaded && !openRecording) setTraceNav({ kind: "list" }); }, [traceNav.kind, recordings.loaded, openRecording]);
-  const scopedTrace = useScopedTraceView(trace, openRecording ? windowOf(openRecording) : null);
+  const scopedTrace = useScopedTraceView(trace, openRecording ? windowOf(openRecording) : clearedAt ? { start: clearedAt, end: null } : null);
+  // The mark comes from the trace's own clock (clearMark). The selection
+  // goes with it: a moment no longer on the canvas should not still be
+  // what "this" refers to in the conversation.
+  const clearCanvas = () => {
+    const mark = clearMark(trace.events);
+    if (!mark) return;
+    setClearedAt(mark);
+    picked.clear();
+  };
+  const showEverything = () => setClearedAt(null);
   const stats = (rec: Recording) => recordingStats(trace.events, Object.values(trace.calls), rec, trace.frames);
   // A moment chosen from outside the open recording (the preview's strip, a
   // reference in an answer) is shown in the full trace rather than ringed
@@ -397,6 +413,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
     recordings, nav: traceNav, onNav: setTraceNav, stats, reveal,
     open: (id) => { setTraceNav({ kind: "recording", id }); show(repo.id, "trace"); },
   } : null;
+  const traceCanvasMark: CanvasMark = { clearedAt, canClear: trace.events.length > 0, onClear: clearCanvas, onShowEverything: showEverything };
   // The repository's content for a slot: the same everything, only the tab
   // and the place differ.
   const content = (slot: "middle" | "side", t: RepoTab) => repo && traceRecordings && (
@@ -405,6 +422,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
       traceAside={sideTab === "trace"}
       scopedTrace={scopedTrace}
       recording={traceRecordings}
+      canvasMark={traceCanvasMark}
       annotations={annotations}
       onAskAboutAnnotation={(id) => { setAskedAnnotation(id); bart.ask("tab"); }}
       traceBart={traceBart}

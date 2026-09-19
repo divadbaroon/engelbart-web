@@ -406,9 +406,9 @@ a recording must never be left with no way to close it. The write
 policies bind a recording to its run's own project, so the one-at-a-time
 slot on a run cannot be taken from another project.
 
-Inside the Trace tab, a header chooses between "Full trace" and
-"Recordings"; the list names each recording, what it holds and when it
-was made, and renames or deletes it. Deleting removes the boundaries
+Inside the Trace tab, a header chooses between "Full trace",
+"Recordings" and "Annotations"; the list names each recording, what it
+holds and when it was made, and renames or deletes it. Deleting removes the boundaries
 only. Opening one shows the same canvas, the same drawer, the same
 inspector and the same selection, with only the data scope changed:
 `lib/trace/recording.ts` cuts the run's events and calls to the window
@@ -427,6 +427,26 @@ Diagnostics keep describing the run whatever the canvas is cut to, and
 name the open recording on a line of their own: the gateways and the
 instrumentation are facts about the run, and a recording that starts
 after they came up has not stopped them happening.
+
+Over the full trace the header also carries "Clear canvas"
+(`components/trace/behavior-trace.tsx`). It hides what came before and
+deletes nothing: the mark it takes is a reading of the trace's own clock
+(`clearMark` in `lib/trace/recording.ts` — the latest `at` of the rows,
+a millisecond on, because events carry the sandbox's clock and the
+browser's is a different one, and because a window includes its start)
+and it is shown through the same `scopeTrace` window a recording is,
+rather than a second way of cutting the canvas down. Collection carries
+on, the rows stay, every saved recording still holds what it held, and
+the notes are untouched; the header says "Showing from …" with "Show all"
+beside it, and the canvas gets a new key so it frames what it now holds
+instead of keeping a camera pointed at moments that are no longer drawn.
+The selection is dropped with the clear, so "this" in the conversation
+is never a moment that has left the canvas. The mark belongs to the run:
+it survives moving between tabs and goes when the run does. A recording
+started after a clear begins at its own Record and so appears on the
+same clean canvas. Bart is not told about a clear at all — it is a way
+of looking, not a fact about the session, and the run is what was
+recorded.
 
 Bart is told the recording's id, never its contents. While one is open,
 its trace tools read the same slice by default and the situation block

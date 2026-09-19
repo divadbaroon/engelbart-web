@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Circle } from "lucide-react";
+import { ArrowLeft, Circle, Eraser } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Recordings } from "@/hooks/use-recordings";
 import { statsLine, type Recording, type RecordingStats, type TraceNav } from "@/lib/trace/recording";
@@ -10,7 +10,8 @@ import type { Annotations } from "@/hooks/use-annotations";
 import type { Repo } from "@/lib/repos";
 import type { SandboxRun } from "@/lib/sandbox";
 import type { TraceView } from "@/hooks/use-trace-view";
-import { relationFor } from "@/lib/trace/moments";
+import { relationFor, shortClock } from "@/lib/trace/moments";
+import { formatClock } from "@/lib/trace/timeline";
 import { selectedStage, type Jump, type Selection } from "@/lib/trace/selection";
 import { Button } from "@/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
@@ -32,7 +33,20 @@ type Props = {
   onBack: (() => void) | null;            // to the Live preview; none when the trace is beside it
   recordings: TraceRecordings;
   notes: TraceAnnotations;                // the repository's interface annotations, as a third view
+  canvas: CanvasMark;                     // where the canvas starts from, when a clean one was asked for
   bart: React.ReactNode;                  // the small Bart, floating over the canvas
+};
+
+// A clean canvas, asked for and taken back. Clearing hides what came
+// before rather than deleting it: the rows stay, collection carries on,
+// the recordings and the notes are untouched, and "Show everything"
+// brings the run back whole. It is the same window a recording is shown
+// through, so there is no second way of cutting the canvas down.
+export type CanvasMark = {
+  clearedAt: string | null;               // the sandbox clock reading the canvas starts from, or nothing
+  canClear: boolean;                      // nothing recorded yet is nothing to hide
+  onClear: () => void;
+  onShowEverything: () => void;
 };
 
 // The notes written on this repository's interface, listed beside the
@@ -71,7 +85,7 @@ export type TraceRecordings = {
 // choice between the whole run and its recordings: a recording opens on
 // this same canvas, cut to its window by the parent (`trace` is then the
 // scoped view); the list is the other view.
-export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, onSelect, onDetail, onAskBart, slot, onBack, recordings, notes, bart }: Props) {
+export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, onSelect, onDetail, onAskBart, slot, onBack, recordings, notes, canvas, bart }: Props) {
   const { stages, diagnostics, callRows, error, loading } = trace;
   const { nav, onNav } = recordings;
   const rec = recordings.recordings;
@@ -130,7 +144,16 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
   // latest call is the canvas's own, not a selection.
   const open = detail && !!selection && !!selectedStage(stages, selection);
   const count = rec.list.length;
-  const empty = openRecording && !stages.length && !loading ? `Nothing of the run falls inside “${openRecording.name}”${openRecording.status === "recording" ? " yet; what happens in the Live preview appears here as it is recorded" : ""}.` : emptyText(repo.name, run, trace);
+  // A cleared canvas says nothing of its own: the header already says it
+  // is showing from a time and offers the way back, so the empty canvas
+  // reads the way an untouched one does.
+  const empty = openRecording && !stages.length && !loading
+    ? `Nothing of the run falls inside “${openRecording.name}”${openRecording.status === "recording" ? " yet; what happens in the Live preview appears here as it is recorded" : ""}.`
+    : emptyText(repo.name, run, trace);
+  // The canvas fits its view once and keeps that camera, so a view it did
+  // not lay out would open on empty space: a new key gives the clear and
+  // the open recording a canvas that frames what it holds.
+  const canvasKey = openRecording ? `recording:${openRecording.id}` : canvas.clearedAt ? `cleared:${canvas.clearedAt}` : "full";
   return (
     <section aria-label="Behavior trace" className="flex h-full min-h-0 flex-col">
       <header className="flex h-9 shrink-0 items-center gap-1 border-b px-2 text-[13px]">
@@ -157,11 +180,32 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
             <Button variant="ghost" size="sm" onClick={() => onNav({ kind: "full" })} className="h-7 px-2 font-normal text-muted-foreground">Full trace</Button>
           </>
         ) : (
-          <div role="tablist" aria-label="Trace view" className="flex items-center gap-0.5 rounded-md bg-muted/60 p-0.5">
-            <NavTab active={nav.kind === "full"} onClick={() => onNav({ kind: "full" })}>Full trace</NavTab>
-            <NavTab active={nav.kind === "list"} onClick={() => onNav({ kind: "list" })}>Recordings{count ? ` · ${count}` : ""}</NavTab>
-            <NavTab active={nav.kind === "annotations"} onClick={() => onNav({ kind: "annotations" })}>Annotations{notesList.list.length ? ` · ${notesList.list.length}` : ""}</NavTab>
-          </div>
+          <>
+            <div role="tablist" aria-label="Trace view" className="flex items-center gap-0.5 rounded-md bg-muted/60 p-0.5">
+              <NavTab active={nav.kind === "full"} onClick={() => onNav({ kind: "full" })}>Full trace</NavTab>
+              <NavTab active={nav.kind === "list"} onClick={() => onNav({ kind: "list" })}>Recordings{count ? ` · ${count}` : ""}</NavTab>
+              <NavTab active={nav.kind === "annotations"} onClick={() => onNav({ kind: "annotations" })}>Annotations{notesList.list.length ? ` · ${notesList.list.length}` : ""}</NavTab>
+            </div>
+            {/* Only over the canvas: on a list there is nothing to clear.
+                Cleared, the header says so and offers the way back, so the
+                canvas is never quietly short of the run. */}
+            {nav.kind === "full" && (
+              <div className="ml-auto flex min-w-0 items-center gap-0.5">
+                {canvas.clearedAt ? (
+                  <>
+                    <span className="hidden min-w-0 truncate text-muted-foreground sm:inline" title={`Moments before ${formatClock(canvas.clearedAt)} are hidden; nothing was deleted`}>
+                      Showing from {shortClock(canvas.clearedAt)}
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={canvas.onShowEverything} title="Show the whole run again" className="h-7 px-2 font-normal text-muted-foreground">Show all</Button>
+                  </>
+                ) : (
+                  <Button variant="ghost" size="sm" disabled={!canvas.canClear} onClick={canvas.onClear} title="Start the canvas fresh from here. Nothing is deleted: the run keeps recording, and recordings and notes are untouched." className="h-7 gap-1 px-2 font-normal text-muted-foreground">
+                    <Eraser className="size-3.5" /> Clear canvas
+                  </Button>
+                )}
+              </div>
+            )}
+          </>
         )}
       </header>
       {error && <p role="alert" className="shrink-0 border-b px-[22px] py-2 text-xs text-destructive">{error}</p>}
@@ -197,7 +241,7 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
       <ResizablePanelGroup orientation={beside ? "horizontal" : "vertical"} id={`trace-${repo.id}-${beside ? "beside" : "under"}`} className="min-h-0 flex-1">
         <ResizablePanel id="trace-canvas" defaultSize={beside ? "58" : "62"} minSize={beside ? 300 : "30"}>
           <div className="relative h-full">
-            <TraceCanvas stages={stages} calls={callRows} selectedId={selected?.id ?? null} relation={relation} onPick={onPick} empty={empty} />
+            <TraceCanvas key={canvasKey} stages={stages} calls={callRows} selectedId={selected?.id ?? null} relation={relation} onPick={onPick} empty={empty} />
             {bart}
           </div>
         </ResizablePanel>

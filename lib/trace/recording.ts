@@ -28,6 +28,31 @@ export function inWindow(at: string, w: Window): boolean {
   return t >= Date.parse(w.start) && (w.end === null || t <= Date.parse(w.end));
 }
 
+// Where a cleared canvas starts. Clearing hides what came before and
+// deletes nothing, so a clear is a window like a recording's, open at
+// the end — the same machinery, not a second way of cutting the canvas
+// down.
+//
+// The mark is taken from the trace's own clock. Events carry the
+// sandbox's clock (TraceEvent.at) and the browser's is a different one,
+// so a reading taken here cuts where the person is actually looking. It
+// is the latest reading rather than the last row's, because rows are
+// ordered by the sequence they were collected in and a clock is not
+// obliged to agree. A window includes its start, so the mark is a
+// millisecond on: the last moment stays behind the clear instead of
+// being left alone on a canvas asked to be fresh.
+//
+// Nothing recorded is nothing to hide, and the answer is null: a clear
+// with no trace behind it would hide the run that follows.
+export function clearMark(events: TraceEvent[]): string | null {
+  let latest = Number.NEGATIVE_INFINITY;
+  for (const e of events) {
+    const t = Date.parse(e.at);
+    if (!Number.isNaN(t) && t > latest) latest = t;
+  }
+  return latest === Number.NEGATIVE_INFINITY ? null : new Date(latest + 1).toISOString();
+}
+
 export type Scoped = { events: TraceEvent[]; calls: ModelCall[] };
 
 // The run's rows that belong to the window. A call is in by when it

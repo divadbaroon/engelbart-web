@@ -4,7 +4,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { traceRows, traceStages } from "../../lib/trace/timeline";
-import { defaultName, formatDuration, formatElapsed, formatWhen, inWindow, recordingStats, scopeTrace, statsLine, toRecording, windowOf, type Recording } from "../../lib/trace/recording";
+import { clearMark, defaultName, formatDuration, formatElapsed, formatWhen, inWindow, recordingStats, scopeTrace, statsLine, toRecording, windowOf, type Recording } from "../../lib/trace/recording";
 import { events, t } from "./fixtures/session";
 import { call1 } from "../bart/fixtures/call";
 
@@ -55,5 +55,55 @@ describe("recording scope", () => {
     assert.match(formatWhen("2026-09-19T01:24:00"), /^Sep 19, 1:24 AM$/);
     assert.equal(defaultName(3), "Recording 3");
     assert.equal(toRecording({ id: "a", run_id: "r", project_id: "p", name: "n", status: "complete", started_at: "s", stopped_at: "e", created_at: "c" }).stoppedAt, "e");
+  });
+});
+
+// Clearing the canvas is a window like a recording's, open at the end.
+// Nothing is deleted, so every one of these reads the same rows.
+describe("clearing the canvas", () => {
+  it("marks just past the latest reading, so the last moment stays behind the clear", () => {
+    const mark = clearMark(events);
+    assert.ok(mark, "a trace with events has something to clear");
+    const latest = Math.max(...events.map((e) => Date.parse(e.at)));
+    assert.equal(Date.parse(mark!), latest + 1);
+    assert.ok(!inWindow(new Date(latest).toISOString(), { start: mark!, end: null }), "the last moment is hidden, not left alone on a fresh canvas");
+  });
+
+  it("has nothing to clear when nothing has been recorded", () => {
+    assert.equal(clearMark([]), null);
+  });
+
+  it("reads the clock, not the order rows arrived in", () => {
+    const outOfOrder = [...events].reverse();
+    assert.equal(clearMark(outOfOrder), clearMark(events), "rows are sequenced by collection; a clock need not agree");
+  });
+
+  it("ignores a reading it cannot parse rather than clearing to nowhere", () => {
+    const broken = [{ ...events[0], at: "not a time" }, ...events.slice(1)];
+    assert.equal(clearMark(broken), clearMark(events));
+    assert.equal(clearMark([{ ...events[0], at: "not a time" }]), null);
+  });
+
+  it("empties the canvas and lets what follows back onto it", () => {
+    const mark = clearMark(events)!;
+    const after = scopeTrace(events, [call1], { start: mark, end: null });
+    assert.deepEqual(stageIds(after), [], "the canvas starts clean");
+    const later = { ...events[0], id: 9001, seq: 9001, at: t(600) };
+    const live = scopeTrace([...events, later], [call1], { start: mark, end: null });
+    assert.ok(live.events.some((e) => e.seq === 9001), "collection carries on and new moments appear");
+  });
+
+  it("leaves the run whole: the rows are still there for a recording and for Show all", () => {
+    const mark = clearMark(events)!;
+    scopeTrace(events, [call1], { start: mark, end: null });
+    assert.deepEqual(stageIds(scopeTrace(events, [call1], { start: t(0), end: null })), stageIds(scopeTrace(events, [call1], { start: t(0), end: null })));
+    const saved = rec(t(9, 500), t(22));
+    assert.deepEqual(stageIds(scopeTrace(events, [call1], windowOf(saved))), ["stage:i_game000001_1", "stage:i_page000001_8", "stage:call:mc_1"], "a recording taken before the clear still holds what it held");
+  });
+
+  it("a recording started after a clear opens on the same clean canvas", () => {
+    const mark = clearMark(events)!;
+    const started = rec(mark, null);
+    assert.deepEqual(stageIds(scopeTrace(events, [call1], windowOf(started))), stageIds(scopeTrace(events, [call1], { start: mark, end: null })));
   });
 });
