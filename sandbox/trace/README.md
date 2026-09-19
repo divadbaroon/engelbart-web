@@ -145,6 +145,57 @@ id and the helpers the tests use. The application's own traffic and
 behaviour are otherwise unchanged. Tuning rides on the script tag as
 `data-config` (JSON of known keys).
 
+One more, and only while the workspace asks for it: see **Annotate mode**.
+
+### Annotate mode
+
+A researcher can point at an element of the running interface and write a
+note about it. The picker lives in the bridge; the note does not.
+
+The bridge only observes until it is told otherwise. The workspace turns
+the picker on by posting into the preview's frame, and the bridge accepts
+that message only from the window that embeds the document and only when
+that window's origin is `config.parentOrigin`, which the gateway sets per
+run from `ENGELBART_BRIDGE_CONFIG`. With no `parentOrigin` the channel
+never opens. Whoever turned it on is who results go back to, so an
+embedded document is told by its parent and answers its parent: a pick
+made three frames down arrives at the workspace with each frame's offset
+added to the rect and each frame's selector added to the path. A frame
+that cannot be reached — another origin, or sandboxed without
+`allow-same-origin` — is reported as unavailable rather than skipped; the
+`<iframe>` element itself is still annotatable from the page around it.
+
+While it is on:
+
+- an overlay draws an outline around whatever the pointer is over, inside
+  a **closed** shadow root on an element carrying `data-engelbart`, with
+  every style set as a property rather than through a `<style>` element or
+  a style attribute, so a strict `style-src` cannot silently blank it;
+- the next click is taken by a non-passive capturing listener on the
+  window, which runs before the bridge's own document listeners, so the
+  application does not get the click and neither does the trace;
+- the element is described by the same `describe()` every trace event
+  uses, plus up to three ancestors and the frame it is in. There is one
+  description of a DOM element in Engelbart (`ElementTarget`) and this is
+  it;
+- `ui.click`, `ui.change` and `ui.keydown` ignore anything inside
+  `[data-engelbart]`. `composedPath()` reaches into a shadow root, so
+  being in one is no cover; the marked host is.
+
+Nothing here posts to the events endpoint. That endpoint is open to
+anyone holding the preview URL; a researcher's words go from the
+workspace's own form to a server action over the signed-in session, and
+nowhere else. What crosses the picker's channel is a description of an
+element — never a note, a user, a project or a run.
+
+Saved notes are found again with `resolveAnchor`: a test id, then a stable
+id, then the stored selector (whose `host >>> rest` hops are resolved one
+root at a time, because that is not a `querySelector` string), and only
+then a search by tag, role, text and ancestors. Screen position is never
+identity. The answer is `resolved`, `approximate` — one clear best match,
+but something about it has changed — or `unresolved`, which draws no
+marker: a marker on a guess would be a lie about where the note belongs.
+
 ## Environment
 
 | variable | process | meaning |
@@ -156,6 +207,7 @@ behaviour are otherwise unchanged. Tuning rides on the script tag as
 | `ENGELBART_REDACT_FILE` | both gateways | JSON of values to redact; deleted once read |
 | `ENGELBART_PREVIEW_BIND` | preview gateway | default 0.0.0.0 (the public port) |
 | `ENGELBART_BRIDGE_FILE`, `ENGELBART_BRIDGE_CONFIG` | preview gateway | the bridge to serve; tuning for it |
+| `ENGELBART_WORKSPACE_ORIGIN` | the app | the origin allowed to turn annotate mode on in a preview; defaults to `https://$VERCEL_URL` or `http://localhost:3000`, and is passed to the preview gateway as `ENGELBART_BRIDGE_CONFIG`'s `parentOrigin` |
 
 ## The Trace tab
 
@@ -458,7 +510,10 @@ line under the input says what is sent to Anthropic.
 ## Tests
 
 `npm test` runs everything under `tests/trace/`: the gateways against
-fixture upstreams, the bridge in jsdom, the collector against a fake
-database, the timeline model. The events endpoint is as public as the
+fixture upstreams, the bridge in jsdom, annotate mode in a framed jsdom
+document served on its own origin (the origin is the whole question, and
+jsdom gives a blank frame an opaque one), the collector against a fake
+database, the timeline model. Annotations themselves are under
+`tests/annotations/` and `tests/bart/annotations.test.mts`. The events endpoint is as public as the
 preview itself; it can only add events to the run whose gateway received
 them, never read anything.

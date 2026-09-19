@@ -338,7 +338,11 @@ export function createPreviewGateway({ listenPort, targetPort, targetAddress = "
     const pathname = (req.url ?? "/").split("?")[0];
     if (pathname === BRIDGE_PATH) return serveBridge(req, res);
     if (pathname === EVENTS_PATH) return serveEvents(req, res);
-    if (pathname === HEALTH_PATH) { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: true, gateway: "preview", target: targetHost, ...stats })); }
+    // Counters only, and readable from the workspace: when the picker gets
+    // no answer from a document, these say whether the bridge was injected
+    // at all. Nothing here is not already public to whoever holds the
+    // preview URL, which is how the events endpoint is reachable too.
+    if (pathname === HEALTH_PATH) { res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*" }); return res.end(JSON.stringify({ ok: true, gateway: "preview", target: targetHost, ...stats })); }
     relay(req, res);
   });
   server.on("upgrade", (req, socket, head) => {

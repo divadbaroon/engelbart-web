@@ -18,6 +18,14 @@
 // interaction header to same-origin requests, patched history.pushState/
 // replaceState that also emit a route event, one MutationObserver, and a
 // non-enumerable window.__engelbart for the frame protocol and tests.
+//
+// One more, and only while the workspace asks for it: annotate mode adds
+// a picker — listeners that take the pointer and an outline drawn in a
+// closed shadow root — so a researcher can point at an element and write
+// a note about it. It observes nothing, records nothing and posts nothing
+// to the gateway; it is off until an embedding window whose origin is
+// config.parentOrigin turns it on, and it leaves no listener behind when
+// it is turned off.
 (function () {
   "use strict";
   if (typeof window === "undefined" || typeof document === "undefined") return;
@@ -37,6 +45,11 @@
     textChars: 80, sampleChars: 200, sampleNodes: 40,
     helloRetryMs: [0, 250, 1000, 3000],
     attachGraceMs: 400,   // how long the parent waits for an embedded frame to say hello after it loads
+    // The one origin allowed to turn annotate mode on in this document.
+    // Empty — the default — means the control channel never opens and the
+    // bridge only observes, as it always has. The gateway sets it per run
+    // from ENGELBART_BRIDGE_CONFIG.
+    parentOrigin: "",
   };
 
   function debug() {
@@ -314,6 +327,7 @@
     var burst = null;
     var pendingRequests = 0, lastSettledAt = 0;
     var frames = new Map();         // iframe element -> { frameId, state, load, bridge, src }
+    var frameInfo = { name: null, selectorInParent: null, frameKind: null };   // what the parent said this frame is
     var timers = [];
     var loadedEmitted = false;
 
@@ -368,11 +382,19 @@
     // -- interactions
     function modifiers(e) { var m = []; if (e.shiftKey) m.push("Shift"); if (e.ctrlKey) m.push("Ctrl"); if (e.altKey) m.push("Alt"); if (e.metaKey) m.push("Meta"); return m.length ? m : undefined; }
     function targetOf(e) { var path = e.composedPath ? e.composedPath() : null; return (path && path[0]) || e.target; }
+    // Engelbart's own DOM in the page — the annotate overlay — is not
+    // something the person did. composedPath() reaches into a shadow
+    // root, so being in one is no cover; the marked host is.
+    function ours(node) {
+      var el = node && node.nodeType === 1 ? node : node && node.parentElement;
+      try { return !!(el && el.closest && el.closest("[data-engelbart]")); } catch { return false; }
+    }
 
     on(doc, "click", function (e) {
       flushKey();
       var target = targetOf(e);
       if (!target || target.nodeType !== 1) target = target && target.parentElement ? target.parentElement : doc.body;
+      if (ours(target)) return;
       var control = controlOf(target);
       var data = { button: e.button, detail: e.detail, trusted: e.isTrusted === true, target: describe(target) };
       var mods = modifiers(e); if (mods) data.modifiers = mods;
@@ -402,7 +424,7 @@
     // stopped. Text-entry surfaces report only that they changed.
     on(doc, "change", function (e) {
       var el = targetOf(e);
-      if (!el || el.nodeType !== 1) return;
+      if (!el || el.nodeType !== 1 || ours(el)) return;
       var tag = el.localName; var type = (el.getAttribute("type") || "").toLowerCase();
       var data = { target: describe(el), trusted: e.isTrusted === true };
       if (tag === "select") {
@@ -436,6 +458,7 @@
     on(doc, "keydown", function (e) {
       var target = targetOf(e);
       if (!target || target.nodeType !== 1) target = doc.activeElement || doc.body;
+      if (ours(target)) return;
       var result = classifyKey(e, target);
       if (!result) return;
       var now = Date.now();
@@ -733,6 +756,7 @@
     // "hello" to its parent; the parent answers with where it sits.
     on(win, "message", function (e) {
       var msg = e.data;
+      if (msg && msg.engelbart === ANNOTATE) { if (annotator) annotator.receive(e); return; }
       if (!msg || msg.engelbart !== "bridge" || typeof msg.type !== "string") return;
       if (e.origin !== loc.origin && e.origin !== "null" && loc.origin !== "null") return;
       if (msg.type === "hello" && e.source && e.source !== win) {
@@ -754,6 +778,7 @@
       if (parentFrameId) return;
       parentFrameId = typeof info.parentFrameId === "string" ? info.parentFrameId : null;
       depth = typeof info.depth === "number" ? info.depth : depth;
+      frameInfo = { name: info.name || null, selectorInParent: info.selectorInParent || null, frameKind: info.frameKind || null };
       emit("frame.attached", { parentFrameId: parentFrameId, selectorInParent: info.selectorInParent, name: info.name, frameKind: info.frameKind, depth: depth, instrumented: opts.own ? "self" : "parent-attached", minted: opts.minted, url: safeUrl(loc.href, doc.baseURI, loc), title: cap(doc.title, 120) });
     }
     function hello() {
@@ -787,7 +812,24 @@
       if (unloading) closeBurst("unload");
       frames.forEach(function (entry) { if (entry.bridge) entry.bridge.flushAll(unloading); });
     }
+    // Annotate mode over this document. It observes nothing on its own:
+    // it installs listeners only while the workspace has turned it on.
+    var annotator = createAnnotator({
+      win: win, doc: doc, frameId: frameId,
+      frameRef: function () {
+        return { frameId: frameId, name: frameInfo.name, selectorInParent: frameInfo.selectorInParent, depth: 0, kind: frameInfo.frameKind || "document", path: [] };
+      },
+      children: function () { var out = []; frames.forEach(function (entry, el) { out.push(el); }); return out; },
+      unavailable: function () {
+        var out = [];
+        frames.forEach(function (entry, el) { if (entry.state === "unavailable") out.push({ selectorInParent: selectorFor(el), name: iframeName(el) || null, reason: entry.reason || "unavailable" }); });
+        return out;
+      },
+      findFrame: findFrame,
+    });
+
     function detach() {
+      annotator.detach();
       try { if (observer) observer.disconnect(); } catch { /* ignore */ }
       timers.forEach(clearTimeout);
       frames.forEach(function (entry) { clearTimeout(entry.timer); if (entry.bridge) entry.bridge.detach(); });
@@ -796,14 +838,496 @@
     }
 
     var api = {
-      version: VERSION, frameId: frameId, describe: describe, selectorFor: selectorFor, classifyKey: classifyKey, editableKind: editableKind, safeUrl: safeUrl,
+      version: VERSION, frameId: frameId, describe: describe, selectorFor: selectorFor, annotatableAt: annotatableAt, classifyKey: classifyKey, editableKind: editableKind, safeUrl: safeUrl,
       configure: function (patch) { for (var k in patch) if (k in config) config[k] = patch[k]; },
       flush: function () { flushKey(); frames.forEach(function (entry) { if (entry.bridge) entry.bridge.flushAll(false); }); return transport.flush(false); },
       stats: function () { return { interactions: interactions, latest: latest, pendingRequests: pendingRequests, frames: frames.size, transport: transport.stats() }; },
       frames: function () { var out = []; frames.forEach(function (entry, el) { out.push({ frameId: entry.frameId, state: entry.state, reason: entry.reason, selector: selectorFor(el) }); }); return out; },
       parent: function () { return { parentFrameId: parentFrameId, depth: depth }; },
+      annotate: function () { return annotator.state(); },
+      resolveAnnotation: function (anchor) { return annotator.resolve(anchor); },
     };
     return { api: api, loaded: loaded, hello: hello, attached: attached, flushAll: flushAll, detach: detach };
+  }
+
+  // ---- Annotate mode: choosing an element of the running interface to
+  // write a note about.
+  //
+  // All this adds to the page is a picker. While it is on, an overlay
+  // outlines whatever the pointer is over, the next click is taken by the
+  // overlay instead of by the application, and the element it names is
+  // described with the same describe() every trace event uses — an
+  // annotation's element and a trace event's element are one shape, and
+  // there is no second way of naming an element anywhere in Engelbart.
+  //
+  // Nothing is written from here. The note is composed in the workspace,
+  // on an authenticated origin, and stored from there; what crosses this
+  // channel is a description of an element and never a note, a user or a
+  // run. Nor does any of it reach the events endpoint: that one is open
+  // on the sandbox's host, and a researcher's words do not belong on it.
+  //
+  // Who may turn it on: the window that embeds this document, and only
+  // when its origin is the one the gateway was configured with. With no
+  // config.parentOrigin the channel never opens. Whoever turned it on is
+  // who results go back to, so an embedded document is told by its parent
+  // and answers its parent, and a pick made three frames down arrives at
+  // the workspace with each frame's offset and selector added on the way.
+  var ANNOTATE = "annotate";
+  var ANNOTATE_V = 1;
+
+  // What is worth attaching a note to: a control, or the nearest thing
+  // above the pointer that says what it is. A <div> with no role, no
+  // label, no stable id and no class of its own says nothing, so the walk
+  // goes past it. If nothing above it says anything either, the element
+  // under the pointer is the answer — an ancestor picked for being nearby
+  // would be a guess, and a guess is worse than a plain <div>.
+  var REGION_SELECTOR = "main,article,section,aside,nav,header,footer,figure,figcaption,blockquote,li,tr,td,th,table,form,fieldset,legend,h1,h2,h3,h4,h5,h6,p,pre,dl,dt,dd,[role],[aria-label],[aria-labelledby],[data-testid],[data-test-id],[data-test]";
+  function meaningfulElement(el) {
+    if (!el || el.nodeType !== 1) return false;
+    var name = el.localName;
+    if (name === "html" || name === "body") return false;
+    try { if (el.matches(REGION_SELECTOR)) return true; } catch { /* not matchable */ }
+    if (goodId(el)) return true;
+    if (labelFor(el)) return true;
+    return usefulClasses(el, 1).length > 0;
+  }
+  function upFrom(node) {
+    var parent = node.parentNode;
+    if (parent && parent.nodeType === 11 && parent.host) return parent.host;
+    return parent && parent.nodeType === 1 ? parent : null;
+  }
+  function annotatableAt(node) {
+    var el = node && node.nodeType === 1 ? node : node && node.parentElement ? node.parentElement : null;
+    if (!el) return null;
+    var control = controlOf(el);
+    if (control) return control;                    // canvas, button, link, field: already the unit that is acted on
+    for (var up = el, i = 0; up && i < 8; i++, up = upFrom(up)) if (meaningfulElement(up)) return up;
+    return el;
+  }
+  // The ancestors a person would recognise it by. Not a path: three
+  // things that say where in the interface this was, so it can be found
+  // again when the selector no longer matches.
+  function ancestorsOf(el) {
+    var out = [];
+    for (var up = upFrom(el), i = 0; up && out.length < 3 && i < 12; i++, up = upFrom(up)) {
+      if (!meaningfulElement(up)) continue;
+      var d = describe(up);
+      delete d.rect;      // where an ancestor was on screen says nothing about which one it is
+      delete d.route;
+      out.push(d);
+    }
+    return out;
+  }
+  function shortLabel(d) {
+    return cap(d.text || d.label || d.title || d.placeholder || d.testid || d.id || d.name || d.role || d.tag || "element", 48);
+  }
+
+  // ---- Finding an annotated element again
+  //
+  // A note was written about an element in a document that has since been
+  // reloaded, rebuilt or changed. The ladder below tries the handles that
+  // mean something first — a test id, a stable id, the selector — and only
+  // then looks for the element by what it is and what it says. Screen
+  // position is never identity: a stored rect is where the element was in
+  // a viewport that no longer exists, and it decides nothing here.
+  //
+  // What it will not do is attach a note to whatever happens to be nearby.
+  // Three answers only: "resolved", when a handle found exactly one
+  // element and it still says what it said; "approximate", when one
+  // element is clearly the best match but something about it has changed;
+  // and "unresolved", which is left where it is, without a marker, and
+  // said out loud.
+  function textOf(t) { return collapse(t && (t.text || t.label || t.title || t.placeholder) || "").toLowerCase(); }
+  function uniqueIn(root, selector) {
+    var found;
+    try { found = root.querySelectorAll(selector); } catch { return null; }
+    return found.length === 1 ? found[0] : null;
+  }
+  // The stored selector crosses an open shadow root as "host >>> rest",
+  // which querySelector does not accept. Each hop is resolved in the root
+  // the one before it opened.
+  function bySelector(doc, selector) {
+    if (!selector) return null;
+    var hops = selector.split(" >>> ");
+    var root = doc, el = null;
+    for (var i = 0; i < hops.length; i++) {
+      el = uniqueIn(root, hops[i]);
+      if (!el) return null;
+      if (i + 1 < hops.length) { root = el.shadowRoot; if (!root) return null; }
+    }
+    return el;
+  }
+  function sharedClasses(el, classes) {
+    if (!classes || !classes.length) return 0;
+    var mine = usefulClasses(el, 6), n = 0;
+    for (var i = 0; i < classes.length; i++) if (mine.indexOf(classes[i]) >= 0) n++;
+    return n;
+  }
+  // How much of what was stored about the element is still true of this
+  // one. A tag that disagrees is not the element at all.
+  function scoreCandidate(el, want) {
+    if (!want.tag || el.localName !== want.tag) return -1;
+    var d = describe(el);
+    var score = 1;
+    if (want.testid && d.testid === want.testid) score += 5;
+    if (want.id && d.id === want.id) score += 5;
+    if (want.name && d.name === want.name) score += 2;
+    if (want.role && d.role === want.role) score += 1;
+    if (want.type && d.type === want.type) score += 1;
+    var wanted = textOf(want);
+    if (wanted && textOf(d) === wanted) score += 4;
+    score += Math.min(2, sharedClasses(el, want.classes));
+    return score;
+  }
+  // The ancestors are recognition, not a path: each stored one that is
+  // still somewhere above this element is a point in its favour.
+  function ancestorScore(el, ancestors) {
+    if (!ancestors || !ancestors.length) return 0;
+    var chain = [];
+    for (var up = upFrom(el), i = 0; up && i < 12; i++, up = upFrom(up)) chain.push(describe(up));
+    var n = 0;
+    for (var a = 0; a < ancestors.length && n < 3; a++) {
+      var want = ancestors[a];
+      for (var c = 0; c < chain.length; c++) {
+        var has = chain[c];
+        if (has.tag !== want.tag) continue;
+        if ((want.testid && has.testid === want.testid) || (want.id && has.id === want.id) || (textOf(want) && textOf(has) === textOf(want)) || (!want.testid && !want.id && !textOf(want))) { n++; break; }
+      }
+    }
+    return n;
+  }
+  function byCandidates(doc, want, ancestors) {
+    var list;
+    try { list = doc.querySelectorAll(want.role ? want.tag + "[role=" + cssEscape(want.role) + "]" : want.tag); } catch { return null; }
+    var best = null, bestScore = 0, runnerUp = 0;
+    for (var i = 0; i < list.length && i < 500; i++) {
+      var s = scoreCandidate(list[i], want);
+      if (s < 0) continue;
+      s += ancestorScore(list[i], ancestors);
+      if (s > bestScore) { runnerUp = bestScore; bestScore = s; best = list[i]; }
+      else if (s > runnerUp) runnerUp = s;
+    }
+    // Clearly the best, and good enough to be worth claiming. A tie is
+    // two elements that look the same, which is not an answer.
+    return best && bestScore >= 5 && bestScore > runnerUp ? { el: best, score: bestScore } : null;
+  }
+  function resolveAnchor(doc, anchor) {
+    var want = anchor && anchor.element;
+    if (!want || (!want.tag && !want.selector)) return { confidence: "unresolved", matchedOn: null, el: null, changed: null };
+    var el = null, on = null;
+    if (want.testid) { el = uniqueIn(doc, "[data-testid=\"" + cssEscape(want.testid) + "\"]") || uniqueIn(doc, "[data-test-id=\"" + cssEscape(want.testid) + "\"]") || uniqueIn(doc, "[data-test=\"" + cssEscape(want.testid) + "\"]"); if (el) on = "testid"; }
+    if (!el && want.id) { el = uniqueIn(doc, "#" + cssEscape(want.id)); if (el) on = "id"; }
+    if (el && want.tag && el.localName !== want.tag) { el = null; on = null; }   // the handle survived on something else
+    if (!el && want.selector) { el = bySelector(doc, want.selector); if (el && want.tag && el.localName !== want.tag) el = null; if (el) on = "selector"; }
+    if (el) {
+      var wanted = textOf(want);
+      var still = !wanted || textOf(describe(el)) === wanted;
+      return { confidence: still ? "resolved" : "approximate", matchedOn: on, el: el, changed: still ? null : "text" };
+    }
+    var guess = byCandidates(doc, want, anchor.ancestors);
+    if (guess) return { confidence: "approximate", matchedOn: "candidate", el: guess.el, changed: want.selector ? "selector" : null };
+    return { confidence: "unresolved", matchedOn: null, el: null, changed: null };
+  }
+
+  // The outline, drawn inside a closed shadow root on an element the
+  // bridge already ignores, so annotating never becomes something the
+  // trace recorded. Every style is set as a property rather than through
+  // a <style> element or a style attribute: a page with a strict
+  // style-src would block those, and the outline would silently not be
+  // drawn. CSSOM is not subject to that directive.
+  function setStyle(style, props) { for (var k in props) { try { style[k] = props[k]; } catch { /* ignore */ } } }
+  function createOverlay(doc, onMarker) {
+    var host = null, root = null, box = null, chip = null, pins = null;
+    var marks = [];   // { id, el, dot, confidence }
+    function ensure() {
+      if (host && host.isConnected) return true;
+      var parent = doc.body || doc.documentElement;
+      if (!parent) return false;
+      host = doc.createElement("div");
+      host.setAttribute("data-engelbart", "annotate");
+      setStyle(host.style, { position: "fixed", top: "0", left: "0", width: "100%", height: "100%", margin: "0", padding: "0", border: "0", pointerEvents: "none", zIndex: "2147483647" });
+      try { root = host.attachShadow({ mode: "closed" }); } catch { root = host; }
+      box = doc.createElement("div");
+      setStyle(box.style, { position: "fixed", display: "none", boxSizing: "border-box", pointerEvents: "none", border: "1px solid rgba(24,24,24,.8)", background: "rgba(24,24,24,.05)", borderRadius: "2px" });
+      chip = doc.createElement("div");
+      setStyle(chip.style, { position: "fixed", display: "none", pointerEvents: "none", maxWidth: "280px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", font: "11px/18px ui-monospace,SFMono-Regular,Menlo,monospace", color: "#fafafa", background: "rgba(24,24,24,.9)", padding: "0 6px", borderRadius: "2px" });
+      pins = doc.createElement("div");
+      setStyle(pins.style, { position: "fixed", top: "0", left: "0", width: "100%", height: "100%", pointerEvents: "none" });
+      root.appendChild(box); root.appendChild(chip); root.appendChild(pins);
+      parent.appendChild(host);
+      return true;
+    }
+    // A marker is a small dot at the element's corner: a filled one where
+    // the element was found for certain, a hollow one where it is the best
+    // match but something about it has changed. Nothing is drawn for an
+    // element that was not found — a marker on a guess would be a lie
+    // about where the note belongs.
+    function pin(item) {
+      var dot = doc.createElement("button");
+      dot.setAttribute("type", "button");
+      dot.setAttribute("data-engelbart", "marker");
+      dot.setAttribute("title", item.confidence === "approximate" ? "An annotation, on the closest match to what it was written about" : "An annotation");
+      dot.setAttribute("aria-label", "Open annotation");
+      var filled = item.confidence !== "approximate";
+      setStyle(dot.style, {
+        position: "fixed", display: "none", pointerEvents: "auto", cursor: "pointer",
+        width: "10px", height: "10px", padding: "0", borderRadius: "50%",
+        border: "1px solid " + (filled ? "rgba(250,250,250,.9)" : "rgba(24,24,24,.85)"),
+        background: filled ? "rgba(24,24,24,.85)" : "rgba(250,250,250,.9)",
+        boxShadow: "0 0 0 1px rgba(24,24,24,.25)",
+      });
+      dot.addEventListener("click", function (e) { e.preventDefault(); e.stopPropagation(); if (onMarker) onMarker(item.id); }, { capture: true });
+      pins.appendChild(dot);
+      return dot;
+    }
+    function place() {
+      for (var i = 0; i < marks.length; i++) {
+        var m = marks[i];
+        var r = m.el && m.el.isConnected ? rectOf(m.el) : null;
+        if (!r || (!r.w && !r.h)) { m.dot.style.display = "none"; continue; }
+        setStyle(m.dot.style, { display: "block", left: Math.max(0, r.x - 5) + "px", top: Math.max(0, r.y - 5) + "px" });
+      }
+    }
+    return {
+      ensure: ensure,
+      owns: function (e) { try { return !!host && (e.composedPath ? e.composedPath().indexOf(host) >= 0 : false); } catch { return false; } },
+      show: function (rect, label) {
+        if (!rect || !ensure()) return;
+        setStyle(box.style, { display: "block", left: rect.x + "px", top: rect.y + "px", width: rect.w + "px", height: rect.h + "px" });
+        chip.textContent = label || "";
+        var above = rect.y >= 20;
+        setStyle(chip.style, { display: label ? "block" : "none", left: Math.max(0, rect.x) + "px", top: (above ? rect.y - 19 : rect.y + rect.h + 1) + "px" });
+      },
+      hide: function () { if (box) box.style.display = "none"; if (chip) chip.style.display = "none"; },
+      mark: function (items) {
+        if (!ensure()) return;
+        while (pins.firstChild) pins.removeChild(pins.firstChild);
+        marks = [];
+        for (var i = 0; i < items.length; i++) marks.push({ id: items[i].id, el: items[i].el, confidence: items[i].confidence, dot: pin(items[i]) });
+        place();
+      },
+      place: place,
+      marked: function () { return marks.length; },
+      flash: function (id) {
+        for (var i = 0; i < marks.length; i++) {
+          if (marks[i].id !== id || !marks[i].el) continue;
+          try { marks[i].el.scrollIntoView({ block: "center", inline: "nearest" }); } catch { /* ignore */ }
+          var r = rectOf(marks[i].el);
+          if (r) { ensure(); setStyle(box.style, { display: "block", left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" }); chip.style.display = "none"; }
+          place();
+          return true;
+        }
+        return false;
+      },
+      remove: function () { try { if (host && host.parentNode) host.parentNode.removeChild(host); } catch { /* ignore */ } host = root = box = chip = pins = null; marks = []; },
+    };
+  }
+
+  // ctx: { win, doc, frameId, frameRef(), children(), unavailable(), findFrame(source) }
+  function createAnnotator(ctx) {
+    var win = ctx.win, doc = ctx.doc;
+    var loc = doc.location || win.location;
+    var overlay = createOverlay(doc, function (id) { report({ type: "marker", id: id }); });
+    var active = false;
+    var channel = null;         // who turned it on, and who results go back to
+    var hovering = null;
+    var pending = 0;
+    var bound = [];
+    var watching = [];          // the listeners that keep markers on their elements
+    var showing = false;        // markers are up in this document
+
+    function sameOrigin(origin) { return origin === loc.origin || origin === "null" || loc.origin === "null"; }
+    function downOk(origin) { return sameOrigin(origin) || (!!config.parentOrigin && origin === config.parentOrigin); }
+    function targetOriginFor(origin) { return origin === "null" ? "*" : origin; }
+    function post(target, origin, msg) {
+      try { target.postMessage(msg, origin); } catch (err) { debug("annotate: could not post:", err && err.message); }
+    }
+    function report(msg) {
+      if (!channel) return;
+      post(channel.win, channel.origin, Object.assign({ engelbart: ANNOTATE, v: ANNOTATE_V, dir: "up" }, msg));
+    }
+    function tellChildren(msg) {
+      var out = Object.assign({ engelbart: ANNOTATE, v: ANNOTATE_V, dir: "down" }, msg);
+      ctx.children().forEach(function (el) {
+        var w = null;
+        try { w = el.contentWindow; } catch { w = null; }   // another origin: it is reported unavailable, not driven
+        if (w && w !== win) post(w, targetOriginFor(loc.origin), out);
+      });
+    }
+
+    // A child's report, coming up through this frame: the rect moves into
+    // this document's coordinates and this frame's selector joins the
+    // path, so what reaches the workspace is where it is on screen and
+    // which frames it sits inside.
+    function liftThrough(msg, el) {
+      var out = Object.assign({}, msg);
+      var r = null;
+      try { r = el.getBoundingClientRect(); } catch { r = null; }
+      if (out.rect && r) out.rect = { x: Math.round(out.rect.x + r.left), y: Math.round(out.rect.y + r.top), w: out.rect.w, h: out.rect.h };
+      var f = out.anchor && out.anchor.frame ? out.anchor.frame : out.frame;
+      if (f) {
+        f.path = [selectorFor(el)].concat(f.path || []);
+        if (!f.selectorInParent) f.selectorInParent = selectorFor(el);
+        if (!f.name) f.name = iframeNameOf(el);
+        if (typeof f.depth === "number") f.depth = f.depth + 1;
+      }
+      return out;
+    }
+    function iframeNameOf(el) {
+      try { var n = el.getAttribute("name") || el.getAttribute("id") || el.getAttribute("title"); return n ? cap(n, 64) : null; } catch { return null; }
+    }
+
+    function pathTarget(e) { var path = e.composedPath ? e.composedPath() : null; return (path && path[0]) || e.target; }
+    function draw() {
+      pending = 0;
+      if (!active || !hovering || !hovering.isConnected) { overlay.hide(); return; }
+      var r = rectOf(hovering);
+      if (!r || (!r.w && !r.h)) { overlay.hide(); return; }
+      overlay.show(r, shortLabel(describe(hovering)));
+    }
+    function schedule() {
+      if (pending) return;
+      try { pending = win.requestAnimationFrame(draw); } catch { draw(); }
+    }
+    function onMove(e) {
+      if (!active) return;
+      var el = annotatableAt(pathTarget(e));
+      if (el === hovering) return;
+      hovering = el;
+      schedule();
+    }
+    function onLeave() { hovering = null; schedule(); }
+    function onViewport() { if (active) schedule(); if (showing) overlay.place(); }
+    function watch() {
+      if (watching.length) return;
+      var place = safely(function () { overlay.place(); });
+      [["scroll", { capture: true, passive: true }], ["resize", { capture: false, passive: true }]].forEach(function (pair) {
+        try { win.addEventListener(pair[0], place, pair[1]); watching.push([pair[0], place, pair[1]]); } catch { /* ignore */ }
+      });
+    }
+    function unwatch() {
+      watching.forEach(function (w) { try { win.removeEventListener(w[0], w[1], w[2]); } catch { /* ignore */ } });
+      watching = [];
+    }
+    // Where each saved note belongs in this document now. Only what was
+    // found is reported: a frame that does not hold an element says
+    // nothing about it, and the workspace treats what nobody claimed as
+    // unresolved rather than guessing which frame lost it.
+    function show(items) {
+      var found = [], report_ = [];
+      for (var i = 0; i < items.length && i < 200; i++) {
+        var item = items[i];
+        if (!item || typeof item.id !== "string") continue;
+        var got = resolveAnchor(doc, item.anchor);
+        if (!got.el) continue;
+        found.push({ id: item.id, el: got.el, confidence: got.confidence });
+        report_.push({ id: item.id, confidence: got.confidence, matchedOn: got.matchedOn, changed: got.changed, rect: rectOf(got.el) || null });
+      }
+      showing = found.length > 0;
+      overlay.mark(found);
+      if (showing) watch(); else unwatch();
+      if (report_.length) report({ type: "resolved", items: report_, frame: ctx.frameRef() });
+    }
+    // With neither markers nor picker there is nothing for the overlay to
+    // draw, so it leaves the page rather than sitting there empty.
+    function clearMarks() {
+      showing = false; unwatch();
+      if (active) overlay.mark([]); else overlay.remove();
+    }
+    // The application does not get this click, this keypress or this
+    // drag: while a note is being placed, the pointer belongs to the
+    // picker. The bridge's own listeners are on the document, so stopping
+    // here — on the window, in the capture phase — also keeps the pick
+    // out of the trace.
+    function swallow(e) { if (!active || overlay.owns(e)) return; e.preventDefault(); e.stopPropagation(); }
+    function onClick(e) {
+      if (!active) return;
+      if (overlay.owns(e)) return;     // a marker is Engelbart's, not the page's: let it have its click
+      e.preventDefault(); e.stopPropagation();
+      var el = annotatableAt(pathTarget(e));
+      if (!el) return;
+      hovering = el; schedule();
+      var d = describe(el);
+      report({
+        type: "picked",
+        rect: rectOf(el) || d.rect || null,
+        label: shortLabel(d),
+        anchor: { element: d, ancestors: ancestorsOf(el), frame: ctx.frameRef(), route: route(loc), documentTitle: cap(doc.title, 120) },
+      });
+    }
+    function onKey(e) {
+      if (!active) return;
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); report({ type: "exited" }); setMode(false); return; }
+      e.stopPropagation();
+    }
+
+    function add(target, type, fn, options) {
+      var wrapped = safely(fn);
+      try { target.addEventListener(type, wrapped, options); bound.push([target, type, wrapped, options]); } catch { /* ignore */ }
+    }
+    function listen() {
+      add(win, "pointermove", onMove, { capture: true, passive: true });
+      add(win, "pointerdown", swallow, { capture: true, passive: false });
+      add(win, "mousedown", swallow, { capture: true, passive: false });
+      add(win, "mouseup", swallow, { capture: true, passive: false });
+      add(win, "dblclick", swallow, { capture: true, passive: false });
+      add(win, "contextmenu", swallow, { capture: true, passive: false });
+      add(win, "click", onClick, { capture: true, passive: false });
+      add(win, "keydown", onKey, { capture: true, passive: false });
+      add(win, "scroll", onViewport, { capture: true, passive: true });
+      add(win, "resize", onViewport, { capture: false, passive: true });
+      add(doc, "pointerleave", onLeave, { capture: true, passive: true });
+    }
+    function unlisten() {
+      bound.forEach(function (b) { try { b[0].removeEventListener(b[1], b[2], b[3]); } catch { /* ignore */ } });
+      bound = [];
+    }
+    function setMode(next) {
+      if (active === next) return;
+      active = next;
+      hovering = null;
+      if (active) { listen(); overlay.ensure(); } else unlisten();
+      overlay.hide();
+      if (!active && !showing) overlay.remove();
+    }
+
+    function announce() {
+      report({ type: "ready", frame: ctx.frameRef(), route: route(loc), title: cap(doc.title, 120), unavailable: ctx.unavailable() });
+    }
+    function receive(e) {
+      var msg = e.data;
+      if (!msg || msg.engelbart !== ANNOTATE || typeof msg.type !== "string") return;
+      if (msg.dir === "down") {
+        if (!e.source || e.source === win || e.source !== win.parent || !downOk(e.origin)) return;
+        channel = { win: e.source, origin: targetOriginFor(e.origin) };
+        if (msg.type === "mode") {
+          setMode(msg.on === true);
+          tellChildren({ type: "mode", on: msg.on === true });
+          if (active) announce();
+        } else if (msg.type === "show") {
+          var items = Array.isArray(msg.items) ? msg.items : [];
+          if (items.length) show(items); else clearMarks();
+          tellChildren({ type: "show", items: items });
+        } else if (msg.type === "flash") {
+          if (!overlay.flash(msg.id)) tellChildren({ type: "flash", id: msg.id });
+        }
+        return;
+      }
+      if (msg.dir === "up") {
+        if (!e.source || e.source === win || !sameOrigin(e.origin)) return;
+        var el = ctx.findFrame(e.source);
+        if (!el) return;
+        report(liftThrough(msg, el));
+      }
+    }
+
+    return {
+      receive: receive,
+      detach: function () { setMode(false); clearMarks(); overlay.remove(); channel = null; },
+      state: function () { return { active: active, channel: !!channel, hovering: hovering ? selectorFor(hovering) : null, markers: overlay.marked() }; },
+      resolve: function (anchor) { var got = resolveAnchor(doc, anchor); return { confidence: got.confidence, matchedOn: got.matchedOn, changed: got.changed, selector: got.el ? selectorFor(got.el) : null }; },
+      annotatableAt: annotatableAt,
+    };
   }
 
   // ---- this document

@@ -360,7 +360,18 @@ function instrumentationFor(repo: Repo): Instrumentation | null {
 // wait for it to announce itself. Best effort: if it does not come up, it
 // is stopped and the plain proxy serves the run, which is then traced on
 // the model side only.
+// The one origin allowed to turn annotate mode on inside a served
+// document. The bridge only observes until it is told to, and it is told
+// only by the window that embeds the preview, and only when that window's
+// origin is this one. With nothing here the control channel never opens
+// and the run is traced exactly as it was before annotations existed.
+function workspaceOrigin(): string | null {
+  const raw = process.env.ENGELBART_WORKSPACE_ORIGIN ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  try { return new URL(raw).origin; } catch { return null; }
+}
+
 async function startPreviewGateway(sandbox: Sandbox, specs: string, trace: NonNullable<LaunchOptions["trace"]>, env: Record<string, string>, record: Recorder): Promise<boolean> {
+  const origin = workspaceOrigin();
   const lines = new LineReader();
   lines.onLine = (line) => { if (!trace.collector.line(line)) record.event("stdout", line + "\n"); };
   try {
@@ -370,7 +381,10 @@ async function startPreviewGateway(sandbox: Sandbox, specs: string, trace: NonNu
     const handle = await sandbox.commands.run(cmd, {
       background: true,
       timeoutMs: RUN_SANDBOX_TIMEOUT_MS,
-      envs: { ENGELBART_TRACE_CAPTURE: trace.capture, ENGELBART_REDACT_FILE: PREVIEW_REDACT_FILE },
+      envs: {
+        ENGELBART_TRACE_CAPTURE: trace.capture, ENGELBART_REDACT_FILE: PREVIEW_REDACT_FILE,
+        ...(origin ? { ENGELBART_BRIDGE_CONFIG: JSON.stringify({ parentOrigin: origin }) } : {}),
+      },
       onStdout: (d) => lines.push(d),
       onStderr: (d) => record.event("stderr", d),
     });
