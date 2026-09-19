@@ -210,6 +210,33 @@ identity. The answer is `resolved`, `approximate` — one clear best match,
 but something about it has changed — or `unresolved`, which draws no
 marker: a marker on a guess would be a lie about where the note belongs.
 
+### The survey
+
+The same channel carries one other question, and it is the quietest thing
+the workspace does to a page: `survey` asks a document what it holds, and
+the document answers with `surveyed` and is otherwise unchanged. Nothing
+is turned on, no listener is added, no overlay appears, no cursor moves
+and no trace event is recorded — the down-message handling was never
+gated on the picker being on, which is what makes this possible without a
+second channel.
+
+What comes back is the reduced page: every element `meaningfulElement`
+accepts, minus Engelbart's own and minus anything the document says is
+hidden, described by the same `describe()` as everything else and with
+`rect` and `route` dropped — where an element sat says nothing about what
+it is. Each carries an ordinal and the ordinal of the nearest candidate
+above it, which is the only handle that leaves the page. Three caps hold
+it: 120 candidates, 4000 elements looked at, 96 KB on the wire, and the
+answer says when it was cut.
+
+The value of a text field is never in it. `describe()` does not carry
+one, and the survey adds nothing `describe()` did not produce.
+
+The workspace asks each time the preview loads, three times over five
+seconds, because a bridge in an embedded frame arrives after the one in
+the top document. A document that answers twice is no trouble: the
+workspace reads an interface once.
+
 ## Environment
 
 | variable | process | meaning |
@@ -470,6 +497,90 @@ ask for `scope: "run"` to see the whole run, and the repository, the
 README and the source are never scoped. The panel shows which recording
 is in scope above its input.
 
+## What the interface is for
+
+The trace can say `“Submit” (button) in embedded frame “solution”`. It
+cannot say that the embedded document is the game the tutor generated,
+that a textarea is where a student answers, or that a column of divs is a
+conversation. A **semantic map** is one model's answer to that question
+about one document, made once and then cached (`lib/semantics/`).
+
+Three rules hold it together, and everything else follows from them.
+
+*A label never replaces evidence.* Every named thing carries the
+`ElementTarget`s it was derived from, stored verbatim as the page
+described them. `describeTarget(d, match)` puts the name in front and the
+raw description inside the parenthesis — `Generate game (“Submit”
+button)` — and a match the reader was unsure of is not shown at all, so
+the raw description keeps the front of the line. Nothing joins a semantic
+id to a trace row in the database; the rows are named at `traceRows` time
+the way a frame's name is, and a run with no reading is the run it always
+was.
+
+*There is no second targeting system.* A semantic node identifies its
+elements by the same `ElementTarget` the trace and the notes use. Nothing
+in `lib/semantics/` builds a selector or reads a DOM.
+
+*The model never names an element itself.* It is shown numbered lines
+with no selector in them — putting one in front of a model only invites
+it to write one back — and answers through a forced tool whose schema has
+no free-text field that goes anywhere. `readSemanticMap` then resolves
+the ordinals against the survey and **drops any node whose ordinals
+resolve to nothing**. A model cannot point at an element nobody offered.
+The element list is declared to it as data, and the page's own text is
+treated as text on a page whatever it says.
+
+### The signature
+
+A reading is cached on `(repo_id, signature)`. Not on the run — a
+document read yesterday is the same document today, which is the point.
+Not on the commit sha either: that is read at clone time, before the
+repair patch and the sandbox-only instrumentation are applied, so two
+runs on one sha can serve different documents. The sha is kept as context
+and never as identity.
+
+The signature is a hash of the survey under a policy
+(`lib/semantics/signature.ts`), and the policy is a deliberately tunable
+heuristic, not an invariant:
+
+| knob | default | what it decides |
+|---|---|---|
+| `namingText` | `controls` | whose words are a name. A control's text is its name; a heading's names the area under it; a paragraph's is content. `all` invalidates on every message; `none` misses a renamed button. |
+| `repeats` | `fold` | whether **how many** alike parts there are is part of the interface. Folded, a list of three and a list of four are one interface. |
+| `structure` | `true` | whether where a candidate sits counts. It is said as what the parent **is**, never as the ordinal the parent was given, or inserting one list item would change every part below it. |
+| `selectorValue` | `false` | whether the selector's value counts, not merely that there is one. |
+
+`diffSignature` / `sayDiff` say what moved, so a miss is explained rather
+than asserted, and `scripts/semantics/verify.mts` is how the defaults
+were arrived at: it runs this bridge in a jsdom document on its own
+origin, surveys it over the real channel, signs it, applies the changes a
+running application makes to itself (a rerender, a new list item, text
+replacing a placeholder, a control disabled, a control renamed, a whole
+screen swapped) and reports whether the signature held or moved. Two of
+the defaults above are corrections it found.
+
+### Finding a name again
+
+`lookupTarget` climbs the same ladder `resolveAnchor` does, for the same
+reason: a test id, then an id, then the selector, then the shape of the
+thing. **Two named things sharing a handle yields nothing** — half a
+label is worse than none. A document is matched by the chain of
+`<iframe>`s it sits inside, never by a frame id, which is minted per
+served document and is gone on the next reload.
+
+### Where it shows
+
+The Trace tab's **Interface** view lists every reading with its
+signature, and, for the session, whether each document's answer came from
+the database or from a model and what moved when it did not. Each name is
+listed with the raw descriptors under it, and **Read again** asks the
+page for a fresh survey and re-reads it — which is the knob for the
+policy above.
+
+Bart gets `inspect_ui_semantics`, and is told plainly that this is the
+one source that is not evidence: a reading of a page, to be used for the
+application's own words and never as proof that something happened.
+
 ## Bart
 
 Bart is a tab of the right panel, which it shares with whichever tab
@@ -569,6 +680,12 @@ fixture upstreams, the bridge in jsdom, annotate mode in a framed jsdom
 document served on its own origin (the origin is the whole question, and
 jsdom gives a blank frame an opaque one), the collector against a fake
 database, the timeline model. Annotations themselves are under
-`tests/annotations/` and `tests/bart/annotations.test.mts`. The events endpoint is as public as the
+`tests/annotations/` and `tests/bart/annotations.test.mts`, and the
+semantic layer under `tests/semantics/` — the vocabulary and the two
+untrusted boundaries (a survey from a page, a reading from a model), the
+lookup ladder, the signature policy, what the model is shown, and what a
+trace row says with and without a reading. What `npm test` cannot do is
+run a real page: `npm run semantics:verify -- <file-or-url>` does that,
+and with `ANTHROPIC_API_KEY` set it reads the page for real. The events endpoint is as public as the
 preview itself; it can only add events to the run whose gateway received
 them, never read anything.
