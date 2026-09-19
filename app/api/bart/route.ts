@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
     const snap = await getTrace(runOk.id);
     return snap.ok ? traceModel(snap.events, snap.calls) : null;
   })());
+  let notes: Promise<{ notes: Annotation[]; error: string | null }> | null = null;
   let scoped: Promise<TraceModel | null> | null = null;
   const trace = () => (scoped ??= (async () => {
     const full = await fullTrace();
@@ -122,6 +123,19 @@ export async function POST(req: NextRequest) {
       const note = data ? toAnnotation(data as AnnotationRow) : null;
       return note && note.repoId === repo.id ? note : null;
     },
+    // Every note of the open repository, read once per turn. The read
+    // policy is the project's, so the repository is filtered here: a
+    // project holds several repositories and a listing that forgot this
+    // would answer with another artifact's notes. The error is kept
+    // rather than dropped, so a missing table reads as what it is
+    // instead of as a repository nobody has annotated.
+    annotations: async () => (notes ??= (async () => {
+      if (!repo) return { notes: [], error: null };
+      const { data, error } = await supabase.from("engelbart_annotations").select(ANNOTATION_COLUMNS).eq("repo_id", repo.id).order("created_at", { ascending: true });
+      if (error) return { notes: [], error: `The notes could not be read: ${error.message}` };
+      return { notes: (data ?? []).map((r) => toAnnotation(r as AnnotationRow)), error: null };
+    })()),
+    recordingId: recording?.id ?? null,
     rawCall: async (call) => { const got = await getModelCall(call.id, true); return got.ok ? got.call : call; },
   };
   const situation = situationBlock({ repo, run: runOk, selection, trace: await trace(), source: isSandboxLive(runOk ?? undefined) ? "sandbox" : repo ? "github" : "none", recording, annotation });

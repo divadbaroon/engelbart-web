@@ -459,9 +459,10 @@ what the selection is ("Ask Bart about this model call…", from
 the drawer bar or the inspector opens it with the cursor in it. Its
 panel button hands the same thread to the right panel. What
 travels with a question is identity only: the run, the repository, the
-selected stage or call, and the open recording. It answers from
-three sources through tools, never from a dump of them: the trace, the
-captured model calls and the repository. `app/api/bart/route.ts` takes
+selected stage or call, the open recording and the open note. It answers
+from four sources through tools, never from a dump of them: the trace,
+the captured model calls, the repository, and the notes a researcher
+wrote on the running interface. `app/api/bart/route.ts` takes
 a question with what is in the middle named by id (project, repository,
 run, selected moment), writes a short situation (`lib/bart/prompt.ts`:
 the repository, the run and its capture mode, the selected moment, and
@@ -471,8 +472,8 @@ recorded) and lets the model fetch with `lib/bart/tools.ts`:
 time: summary, the system prompt in the sections it marks, messages,
 tools, output, settings, raw bodies; long parts are cut with an offset
 to continue), `compare_model_calls` (the differences computed, not
-narrated), `search_trace`, `read_readme`, `repo_tree`, `read_repo_file`
-and `search_repo`. The trace tools are `lib/bart/grounding.ts`, the
+narrated), `search_trace`, `read_readme`, `repo_tree`, `read_repo_file`,
+`search_repo`, `list_annotations` and `inspect_annotation`. The trace tools are `lib/bart/grounding.ts`, the
 same derivations the tab shows written as text that names things by id
 and says how a tie was made ("by an id the request carried" or "by
 timing; an association, not proof"); the echo after a submit is marked
@@ -485,9 +486,29 @@ environment values are struck from anything returned. The answer
 streams as server-sent events along with the tools it runs; tool output
 is data to the model, never instructions, and the prompt says so.
 
+The two annotation tools are `lib/bart/annotations.ts`.
+`list_annotations` is the way in: one line a note, with its id, the
+element it is on, the route, and an excerpt of what was written, so
+"what have I noted here?" has ids to work from without one being open.
+The list is the repository's, because a note outlives the run that made
+it; which run or recording each was written in is marked rather than
+filtered, since "what did I note in this session" and "what have I ever
+noted here" are both questions. The excerpt is deliberate: a note runs to
+4000 characters and a tool answer is cut at 12,000, so the list stays a
+way of choosing and `inspect_annotation` is how one is read in full.
+That report keeps what the researcher wrote apart from what the DOM held,
+names the run, recording and commit as where it came from, and offers
+moments recorded near it as timing and nothing more. The read policy is
+the project's, so `app/api/bart/route.ts` filters by repository itself:
+a project holds several artifacts and a listing that forgot would answer
+with another one's notes. Both reads are then checked against the open
+repository, and the query error is kept rather than dropped, so an
+unapplied migration reads as what it is instead of as a repository
+nobody has annotated.
+
 An answer cites with tokens (`lib/bart/protocol.ts`):
 `[[moment:<stage id>]]`, `[[call:<call id>:<pane>]]`,
-`[[file:<path>#L<from>-L<to>]]`, `[[readme]]`. The panel renders them as
+`[[file:<path>#L<from>-L<to>]]`, `[[readme]]`, `[[annotation:<id>]]`. The panel renders them as
 chips (`components/bart-markdown.tsx`) labelled from the trace
 (`lib/bart/labels.ts`); a chip opens the moment or the call in the
 Trace tab with the drawer on it, the file in the Code tab, or the

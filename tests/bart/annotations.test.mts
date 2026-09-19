@@ -3,7 +3,7 @@
 // what the trace holds nearby offered as timing and nothing more.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { annotationReport } from "../../lib/bart/annotations";
+import { annotationList, annotationReport } from "../../lib/bart/annotations";
 import { frameLine } from "../../lib/annotations/target";
 import { situationBlock } from "../../lib/bart/prompt";
 import { traceModel } from "../../lib/bart/grounding";
@@ -71,5 +71,61 @@ describe("the situation names an open annotation", () => {
   it("and says nothing about one when none is open", () => {
     const s = situationBlock({ repo, run, selection: null, trace: null, source: "sandbox", recording: null, annotation: null });
     assert.doesNotMatch(s, /Annotation open/);
+  });
+});
+
+describe("the notes listed so Bart can find them", () => {
+  it("says there are none rather than inventing a shape", () => {
+    assert.equal(annotationList([]), "No notes have been written on this repository's interface.");
+  });
+
+  it("gives every note an id, the element it is on and an excerpt", () => {
+    const text = annotationList([note(), note({ id: "a-2", body: "The Run button does nothing the second time.", route: "/solve" })]);
+    assert.match(text, /^2 notes on this repository's interface\./);
+    assert.match(text, /\(a-1\)/);
+    assert.match(text, /\(a-2\)/);
+    assert.match(text, /on “Inspect the Solution\.” \(p\) at \/play/);
+    assert.match(text, /wrote: “Why does the tutor tell me to inspect the Solution here\?”/);
+    assert.match(text, /read one in full with inspect_annotation/, "the list is a way in, not the whole note");
+  });
+
+  it("orders by when they were written, whatever order the rows arrive in", () => {
+    const later = note({ id: "a-2", createdAt: "2026-09-19T01:00:00.000Z", updatedAt: "2026-09-19T01:00:00.000Z" });
+    const text = annotationList([later, note()]);
+    assert.ok(text.indexOf("(a-1)") < text.indexOf("(a-2)"), "the earlier note is listed first");
+    assert.match(text, /#1 .*\(a-1\)/);
+    assert.match(text, /#2 .*\(a-2\)/);
+  });
+
+  it("marks which run and recording a note was written in, and filters out neither", () => {
+    const other = note({ id: "a-2", runId: "run2", recordingId: "rec-9" });
+    const text = annotationList([note(), other], { runId: "run1", recordingId: "rec-9" });
+    assert.match(text, /\(a-1\)  \[this run\]/);
+    assert.match(text, /\(a-2\)  \[the open recording\]/);
+    assert.ok(text.includes("(a-2)"), "a note from another run is still listed: notes outlive the run that made them");
+  });
+
+  it("marks nothing when the workspace has no run or recording in hand", () => {
+    const text = annotationList([note()]);
+    assert.ok(!text.includes("[this run]"));
+    assert.ok(!text.includes("[the open recording]"));
+  });
+
+  it("excerpts a long note instead of spending the budget on one of them", () => {
+    const text = annotationList([note({ body: "x".repeat(4000) })]);
+    assert.ok(text.length < 600, `one note should not fill the answer, got ${text.length} characters`);
+    assert.match(text, /x{159}…/);
+  });
+
+  it("flattens a note's newlines so one note stays one line", () => {
+    const text = annotationList([note({ body: "First thought.\n\nSecond thought." })]);
+    assert.match(text, /wrote: “First thought\. Second thought\.”/);
+  });
+
+  it("stays inside the tool budget with many notes", () => {
+    const many = Array.from({ length: 300 }, (_, i) => note({ id: `a-${i}`, body: "y".repeat(4000) }));
+    const text = annotationList(many);
+    assert.ok(text.length <= 12_200, `the listing must be bounded, got ${text.length} characters`);
+    assert.match(text, /^300 notes on this repository's interface; the last 200\./);
   });
 });

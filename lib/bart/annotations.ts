@@ -15,6 +15,44 @@ import { slice, type TraceModel } from "@/lib/bart/grounding";
 
 const NEAR_MS = 30_000;
 const NEAR_MAX = 4;
+const EXCERPT = 160;
+const LISTED = 200;
+
+// Every note of the repository, one line each, so a question about what
+// a researcher has noted has ids to work from — the same table of
+// contents the run gets, for the fourth source. A line carries enough to
+// choose by and no more: a note runs to 4000 characters, and a hundred
+// of them in full would crowd out everything else, so the text is an
+// excerpt and inspect_annotation is how one is read.
+//
+// Notes belong to the repository and outlive any one run, so the list is
+// the repository's. Which run or recording each was written in is marked
+// rather than filtered: "what did I note in this session" and "what have
+// I ever noted here" are both questions, and only the reader knows which
+// one is being asked.
+export function annotationList(notes: Annotation[], where: { runId: string | null; recordingId: string | null } = { runId: null, recordingId: null }): string {
+  if (!notes.length) return "No notes have been written on this repository's interface.";
+  const ordered = [...notes].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  const shown = ordered.length > LISTED ? ordered.slice(ordered.length - LISTED) : ordered;
+  const lines = shown.map((note) => {
+    const i = ordered.indexOf(note) + 1;
+    const on = describeTarget(note.anchor.element);
+    const marks = [
+      where.runId && note.runId === where.runId ? "this run" : null,
+      where.recordingId && note.recordingId === where.recordingId ? "the open recording" : null,
+    ].filter(Boolean);
+    return `#${i}  ${shortClock(note.createdAt)}  on ${on}${note.route ? ` at ${note.route}` : ""}  (${note.id})${marks.length ? `  [${marks.join(", ")}]` : ""}\n      wrote: ${excerpt(note.body)}`;
+  });
+  const head = ordered.length > shown.length
+    ? `${ordered.length} notes on this repository's interface; the last ${shown.length}. `
+    : `${ordered.length} note${ordered.length === 1 ? "" : "s"} on this repository's interface. `;
+  return slice(head + "Each line is an excerpt of what the researcher wrote; read one in full with inspect_annotation.\n" + lines.join("\n")).text;
+}
+
+const excerpt = (body: string) => {
+  const flat = body.replace(/\s+/g, " ").trim();
+  return `“${flat.length > EXCERPT ? flat.slice(0, EXCERPT - 1) + "…" : flat}”`;
+};
 
 export function annotationReport(note: Annotation, trace: TraceModel | null, offset = 0): string {
   const lines: string[] = [];
