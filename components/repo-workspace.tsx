@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
-import { GitBranch, RotateCw, X } from "lucide-react";
+import { RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
 import type { Goal } from "@/lib/plan";
@@ -13,74 +13,25 @@ import { getSharedTrail, type SharedTrail } from "@/app/workspace/[workspaceId]/
 import { Input } from "@/components/ui/input";
 import { environmentFromEvents, isRunActive, isRunCloned, isRunRunning, isRunUsable, isSandboxLive, STATUS_LABEL, terminalLines, type PreviewService, type SandboxEvent, type SandboxRun } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Markdown } from "@/components/markdown";
-import { CodeBrowser } from "@/components/code-browser";
+import { CodeBrowser, type CodeOpen } from "@/components/code-browser";
 import { NotesPad } from "@/components/notes-pad";
 import { EnvPanel } from "@/components/env-panel";
 import { PatchView } from "@/components/patch-view";
 import { patchFromEvents, type RepoPatch } from "@/lib/patch";
+import { BehaviorTrace, type TraceRecordings } from "@/components/trace/behavior-trace";
+import { RecordButton, RecordingSaved } from "@/components/trace/record-control";
+import { LiveStrip } from "@/components/trace/live-strip";
+import type { TraceView } from "@/hooks/use-trace-view";
+import { selectedStage, type Selection } from "@/lib/trace/selection";
+import type { Stage } from "@/lib/trace/timeline";
 
 // xterm touches the DOM as soon as it loads.
 const SandboxShell = dynamic(() => import("@/components/sandbox-shell"), { ssr: false });
 
-export type RepoTab = "readme" | "code" | "preview" | "terminal" | "env" | "notes";
-
-// The shadcn list fixes its height under an orientation variant, which a
-// plain `h-auto` cannot override; the tabs are taller than that, so their
-// underline drifted below the bar's border. Everything sits on the
-// bottom edge so the active underline lands on the border line.
-export const TAB_LIST =
-  "group-data-[orientation=horizontal]/tabs:h-auto h-auto w-full items-end justify-start gap-6 rounded-none border-b bg-transparent p-0";
-
-export const TAB_TRIGGER =
-  "-mb-px h-auto flex-none rounded-none border-0 border-b-2 border-transparent px-0 pt-2.5 pb-3 font-normal text-muted-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none";
-
-type RepoTabsProps = {
-  repo: Repo;
-  tab: RepoTab;
-  onTabChange: (tab: RepoTab) => void;
-  run: SandboxRun | undefined;
-  onClose: () => void;
-};
-
-const dotClass = (run: SandboxRun | undefined) =>
-  isRunRunning(run) ? "bg-green-500" : run?.status === "failed" ? "bg-red-500" : isRunActive(run) ? "animate-pulse bg-neutral-400" : isRunCloned(run) ? "bg-neutral-400" : "bg-neutral-300";
-
-// Tab bar for the selected repo: repo chip + README / Code / Live preview (status dot) / Terminal / Notes.
-export function RepoTabs({ repo, tab, onTabChange, run, onClose }: RepoTabsProps) {
-  return (
-    <Tabs value={tab} onValueChange={(v) => onTabChange(v as RepoTab)}>
-      <TabsList className={TAB_LIST}>
-        <div className="flex shrink-0 items-center gap-2 pt-2 pb-2.5 text-[13px] text-muted-foreground">
-          <GitBranch className="size-3.5 shrink-0" />
-          <span className="max-w-[200px] truncate font-medium text-foreground" title={repo.fullName}>{repo.fullName}</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Back to project workspace"
-            title="Back to project workspace"
-            onClick={onClose}
-            className="size-[18px] rounded text-muted-foreground/70 hover:text-foreground"
-          >
-            <X className="size-2.5" />
-          </Button>
-          <span className="ml-1 h-4 w-px bg-border" />
-        </div>
-        <TabsTrigger value="readme" className={TAB_TRIGGER}>README</TabsTrigger>
-        <TabsTrigger value="code" className={TAB_TRIGGER}>Code</TabsTrigger>
-        <TabsTrigger value="preview" title={run ? STATUS_LABEL[run.status] : "Not prepared"} className={cn(TAB_TRIGGER, "gap-[7px]")}>
-          Live preview
-          <span aria-hidden className={cn("size-1.5 rounded-full", dotClass(run))} />
-        </TabsTrigger>
-        <TabsTrigger value="terminal" className={TAB_TRIGGER}>Terminal</TabsTrigger>
-        <TabsTrigger value="env" className={TAB_TRIGGER}>Environment</TabsTrigger>
-        <TabsTrigger value="notes" className={TAB_TRIGGER}>Notes</TabsTrigger>
-      </TabsList>
-    </Tabs>
-  );
-}
+import { RepoTabs, TAB_LIST, TAB_TRIGGER, type RepoTab } from "@/components/repo-tabs";
+export { RepoTabs, TAB_LIST, TAB_TRIGGER, type RepoTab };
 
 // `readme` is undefined while it loads, null when the repo has none GitHub can serve.
 type RunControls = {
@@ -107,9 +58,27 @@ type RepoContentProps = RunControls & {
   // Bumped each time a file is saved into the sandbox; the preview reloads on it.
   previewVersion: number;
   onFileSaved: () => void;
+  // The run's trace, shared with Bart, and the moment selected in it.
+  trace: TraceView;
+  selection: Selection | null;
+  detail: boolean;
+  onSelect: (selection: Selection, options?: { detail?: boolean }) => void;
+  onDetail: (open: boolean) => void;
+  onAskBart: () => void;
+  onOpenTrace: () => void;               // switch to the Trace tab
+  onOpenPreview: () => void;             // and back to the Live preview
+  codeOpen: CodeOpen | null;             // a file a Bart answer pointed at
+  slot: "middle" | "side";               // where this content is shown
+  traceAside: boolean;                   // the trace is on the side: no "Open trace", no way back
+  scopedTrace: TraceView;                // what the Trace tab shows: the run, or the open recording's slice of it
+  recording: TraceRecordings;            // the run's recordings, the Record button's state, where the Trace tab is
+  traceBart: ReactNode;                  // Bart's small window, floating over the trace canvas
 };
 
-export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
+// The trace's selection callbacks, shared by the preview's strip and the Trace tab.
+export type TraceControls = { trace: TraceView; selection: Selection | null; onSelect: RepoContentProps["onSelect"]; onOpenTrace: () => void; traceAside: boolean; recording: TraceRecordings };
+
+export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, trace, selection, detail, onSelect, onDetail, onAskBart, onOpenTrace, onOpenPreview, codeOpen, slot, traceAside, scopedTrace, recording, traceBart, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
   // The environment scan and any repair edits from this run's log if it
   // has them, else the last ones saved on the repository.
   const envReport = (run && environmentFromEvents(events, run.id)) ?? repo.envReport;
@@ -123,9 +92,27 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
         origin: repo.patch?.runId === run.id ? repo.patch.origin ?? null : null,
       }
     : repo.patch;
-  if (tab === "code") return <CodeBrowser repo={repo} run={run} onSaved={onFileSaved} />;
+  if (tab === "code") return <CodeBrowser repo={repo} run={run} onSaved={onFileSaved} open={codeOpen} />;
   if (tab === "notes") return <NotesPad goal={notesGoal} onSaved={onNotesSaved} />;
   if (tab === "env") return <EnvPanel repo={repo} run={run} report={envReport} onPrepare={onPrepare} />;
+
+  // The Live preview and the Trace tab are one branch on purpose. Both
+  // return the same shape -- the preview first, the canvas second -- so
+  // React keeps the iframe's subtree across the switch and the running
+  // application is never reloaded; only the wrapper's class changes.
+  // On the side the trace stands alone: the preview is in the middle.
+  if (tab === "preview" || tab === "trace") {
+    const canvas = tab === "trace" ? <BehaviorTrace repo={repo} run={run} runTrace={trace} trace={scopedTrace} selection={selection} detail={detail} onSelect={onSelect} onDetail={onDetail} onAskBart={onAskBart} slot={slot} onBack={slot === "middle" ? onOpenPreview : null} recordings={recording} bart={traceBart} /> : null;
+    if (tab === "trace" && slot === "side") return canvas;
+    return (
+      <>
+        <div className={tab === "trace" ? "hidden h-full" : "h-full"}>
+          <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, traceAside, recording }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onOpenTerminal={onOpenTerminal} onRunWithoutPatch={onRunWithoutPatch} onSaveHint={onSaveHint} />
+        </div>
+        {canvas}
+      </>
+    );
+  }
 
   if (tab === "readme") {
     return (
@@ -137,10 +124,6 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
         )}
       </section>
     );
-  }
-
-  if (tab === "preview") {
-    return <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onOpenTerminal={onOpenTerminal} onRunWithoutPatch={onRunWithoutPatch} onSaveHint={onSaveHint} />;
   }
 
   // The run's log, and a shell in its sandbox once there is one to open.
@@ -163,15 +146,17 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   );
 }
 
-type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; events: SandboxEvent[]; version: number; missing: string[]; localError: string | null; patch: RepoPatch | null };
+type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; events: SandboxEvent[]; version: number; missing: string[]; localError: string | null; patch: RepoPatch | null; controls: TraceControls };
 
-function Preview({ repo, run, error, events, version, missing, localError, patch, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: PreviewProps) {
+function Preview({ repo, run, error, events, version, missing, localError, patch, controls, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: PreviewProps) {
   const [showPatch, setShowPatch] = useState(false);
   if (showPatch && patch) {
     return <PatchView patch={patch} onBack={() => setShowPatch(false)} onRunWithoutPatch={run && isRunActive(run) ? null : () => { setShowPatch(false); onRunWithoutPatch(); }} />;
   }
   if (run && isRunUsable(run)) return <UsablePreview repo={repo} run={run} events={events} patch={patch} onShowPatch={() => setShowPatch(true)} onOpenTerminal={onOpenTerminal} onStop={onStop} onStartOver={onPrepareFresh} />;
-  if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} events={events} version={version} patch={patch} onShowPatch={() => setShowPatch(true)} onStop={onStop} onStartOver={onPrepareFresh} />;
+  if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} events={events} version={version} patch={patch} controls={controls} onShowPatch={() => setShowPatch(true)} onStop={onStop} onStartOver={onPrepareFresh} />;
+  // A run that is over but was traced still has its trace to open.
+  const traced = run && run.trace !== "off" && controls.trace.stages.length > 0 && !controls.traceAside;
 
   const [title, detail, action] = error
     ? ["Could not prepare " + repo.fullName, error, { label: "Try again", onClick: onPrepare }]
@@ -228,6 +213,7 @@ function Preview({ repo, run, error, events, version, missing, localError, patch
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {startOver}
+            {traced && <Button variant="ghost" size="sm" onClick={controls.onOpenTrace} className="shrink-0 font-normal text-muted-foreground">Open trace</Button>}
             {action && <Button variant="outline" size="sm" onClick={action.onClick} className="shrink-0 font-normal">{action.label}</Button>}
           </div>
         </div>
@@ -384,7 +370,8 @@ function TrailInsight({ repo }: { repo: Repo }) {
 // reload covers both. A run with several services (a frontend and its API,
 // say) gets a picker; a service that forbids framing opens in a tab instead.
 // The steps that brought it up stay one click away above the page.
-function RunningPreview({ repo, run, events, version, patch, onShowPatch, onStop, onStartOver }: { repo: Repo; run: SandboxRun; events: SandboxEvent[]; version: number; patch: RepoPatch | null; onShowPatch: () => void; onStop: (runId: string) => void | Promise<void>; onStartOver: () => void }) {
+function RunningPreview({ repo, run, events, version, patch, controls, onShowPatch, onStop, onStartOver }: { repo: Repo; run: SandboxRun; events: SandboxEvent[]; version: number; patch: RepoPatch | null; controls: TraceControls; onShowPatch: () => void; onStop: (runId: string) => void | Promise<void>; onStartOver: () => void }) {
+  const rec = controls.recording.recordings;
   const services = useMemo<PreviewService[]>(
     () => (run.services?.length ? run.services : [{ id: "app", port: run.port ?? 0, previewUrl: run.previewUrl!, isEntry: true, embeddable: true }]),
     [run.services, run.port, run.previewUrl],
@@ -403,6 +390,12 @@ function RunningPreview({ repo, run, events, version, patch, onShowPatch, onStop
   }, [version]);
   const reload = () => { setReloads((n) => n + 1); setLoading("update"); };
   const pick = (id: string) => { if (id !== service.id) { setServiceId(id); setLoading("first"); } };
+  // A moment chosen in the strip is selected, and the trace opens on it.
+  const pickMoment = (stage: Stage) => {
+    controls.recording.reveal(stage.stage === "call" && stage.callId ? { callId: stage.callId } : { stageId: stage.id });
+    controls.onSelect(stage.stage === "call" && stage.callId ? { kind: "call", callId: stage.callId, jump: { pane: "overview", focus: null } } : { kind: "stage", stageId: stage.id }, { detail: true });
+    controls.onOpenTrace();
+  };
 
   return (
     <section aria-label="Live preview" className="flex h-full flex-col">
@@ -438,8 +431,12 @@ function RunningPreview({ repo, run, events, version, patch, onShowPatch, onStop
         {events.some((e) => e.data?.phase === "trail" && (e.data?.status === "own" || e.data?.status === "shared")) && (
           <Button variant="ghost" size="sm" onClick={async () => { await onStop(run.id); onStartOver(); }} title="Stop, then analyze from scratch ignoring the saved trail" className="h-6 px-2 font-normal text-muted-foreground">Start over</Button>
         )}
+        {run.trace !== "off" && <RecordButton active={rec.active} busy={rec.busy} onStart={() => void rec.start()} onStop={() => void rec.stop()} />}
+        {run.trace !== "off" && !controls.traceAside && <Button variant="ghost" size="sm" onClick={controls.onOpenTrace} className="h-6 px-2 font-normal text-muted-foreground">Open trace</Button>}
         <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="h-6 px-2 font-normal text-muted-foreground">Stop</Button>
       </div>
+      {rec.lastStopped && <RecordingSaved recording={rec.lastStopped} stats={controls.recording.stats(rec.lastStopped)} onOpen={() => { controls.recording.open(rec.lastStopped!.id); rec.dismissStopped(); }} onDismiss={rec.dismissStopped} />}
+      {rec.error && <p role="alert" className="shrink-0 border-b px-3 py-1.5 text-xs text-destructive">{rec.error}</p>}
       <RunTimeline run={run} events={events} open={false} className="max-h-[60%] shrink-0 overflow-y-auto border-b" />
       {service.embeddable ? (
         <iframe key={`${service.id}:${reloads}`} src={service.previewUrl} title={`${repo.fullName} ${service.id} preview`} onLoad={() => setLoading(null)} className="min-h-0 w-full flex-1 bg-white" />
@@ -451,6 +448,7 @@ function RunningPreview({ repo, run, events, version, patch, onShowPatch, onStop
           </Button>
         </div>
       )}
+      {run.trace !== "off" && <LiveStrip trace={controls.trace} live selectedId={selectedStage(controls.trace.stages, controls.selection)?.id ?? null} onPick={pickMoment} onOpenTrace={controls.traceAside ? null : controls.onOpenTrace} />}
     </section>
   );
 }
