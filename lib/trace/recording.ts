@@ -19,10 +19,18 @@ export const defaultName = (n: number) => `Recording ${n}`;
 export const REPLAYS_BUCKET = "engelbart-replays";
 export const replayStoragePath = (projectId: string, recordingId: string) => `${projectId}/${recordingId}.json`;
 
-// Where the Trace tab is: the whole run, the list of recordings, one
-// recording open on the same canvas, or the notes written on this
-// repository's interface.
-export type TraceNav = { kind: "full" } | { kind: "list" } | { kind: "recording"; id: string } | { kind: "annotations" } | { kind: "interface" };
+// Where the Trace tab is: what somebody was doing, the whole run, the
+// list of recordings, one recording open on the same canvas, the notes
+// written on this repository's interface, or what has been read about
+// that interface.
+export type TraceNav = { kind: "activity" } | { kind: "full" } | { kind: "list" } | { kind: "recording"; id: string } | { kind: "annotations" } | { kind: "interface" };
+
+// Which of them are drawn on the canvas. The others are read top to
+// bottom and have no viewport, so a moment chosen from outside has to
+// bring the canvas back before it can be shown. One definition, because
+// the header and the reveal path both need the same answer and a view
+// added to one and not the other is a moment that silently goes nowhere.
+export const hasCanvas = (nav: TraceNav) => nav.kind === "full" || nav.kind === "recording";
 
 // ---- the window
 export type Window = { start: string; end: string | null };   // end null: still recording

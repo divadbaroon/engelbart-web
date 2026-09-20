@@ -3,7 +3,7 @@
 import { ArrowLeft, Circle, Eraser } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Recordings } from "@/hooks/use-recordings";
-import { statsLine, type Recording, type RecordingStats, type TraceNav } from "@/lib/trace/recording";
+import { hasCanvas, statsLine, type Recording, type RecordingStats, type TraceNav } from "@/lib/trace/recording";
 import { InterfaceReadings } from "@/components/trace/interface-readings";
 import type { Semantics } from "@/hooks/use-semantics";
 import { RecordingsList } from "@/components/trace/recordings-list";
@@ -20,6 +20,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 import { TraceCanvas, type Pick } from "@/components/trace/trace-canvas";
 import { Diagnostics, type RunSummary } from "@/components/trace/diagnostics";
 import { DrawerBar, DrawerBody } from "@/components/trace/trace-drawer";
+import { ActivityTimeline } from "@/components/trace/activity-timeline";
 
 type Props = {
   repo: Repo;
@@ -99,8 +100,16 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
   const rec = recordings.recordings;
   const openRecording = nav.kind === "recording" ? recordings.recordings.list.find((r) => r.id === nav.id) ?? null : null;
   const notesList = notes.annotations;
-  // Two of the views are lists, and a list has no canvas under it.
-  const listing = nav.kind === "list" || nav.kind === "annotations" || nav.kind === "interface";
+  // Several of the views are read top to bottom, and there is no canvas
+  // under those.
+  const listing = !hasCanvas(nav);
+  // The reading of this session, from the view that holds it. The
+  // Activity timeline is it over the clock; the canvas is it beside what
+  // the software did; the drawer, the inspector and the line above
+  // Bart's input are it for one moment. Every one of those is the same
+  // array — reading it again here would be a second account of one run.
+  const episodes = trace.episodes;
+
   const selected = selectedStage(stages, selection) ?? [...stages].reverse().find((s) => s.stage === "call") ?? stages[stages.length - 1] ?? null;
   const relation = selected ? relationFor(selected, stages, callRows) : null;
   // Beside the canvas, the details cost it width it can spare, so a card
@@ -190,6 +199,7 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
         ) : (
           <>
             <div role="tablist" aria-label="Trace view" className="flex items-center gap-0.5 rounded-md bg-muted/60 p-0.5">
+              <NavTab active={nav.kind === "activity"} onClick={() => onNav({ kind: "activity" })}>Activity</NavTab>
               <NavTab active={nav.kind === "full"} onClick={() => onNav({ kind: "full" })}>Full trace</NavTab>
               <NavTab active={nav.kind === "list"} onClick={() => onNav({ kind: "list" })}>Recordings{count ? ` · ${count}` : ""}</NavTab>
               <NavTab active={nav.kind === "annotations"} onClick={() => onNav({ kind: "annotations" })}>Annotations{notesList.list.length ? ` · ${notesList.list.length}` : ""}</NavTab>
@@ -218,7 +228,13 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
         )}
       </header>
       {error && <p role="alert" className="shrink-0 border-b px-[22px] py-2 text-xs text-destructive">{error}</p>}
-      {nav.kind === "interface" ? (
+      {nav.kind === "activity" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* Reading an episode back to its moments means the canvas, so
+              choosing one goes there and rings it. */}
+          <ActivityTimeline trace={trace} episodes={episodes} onOpenMoment={(stageId, episodeId) => { onNav({ kind: "full" }); onSelect({ kind: "stage", stageId, ...(episodeId ? { episodeId } : {}) }, beside ? { detail: true } : undefined); }} />
+        </div>
+      ) : nav.kind === "interface" ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
           <InterfaceReadings semantics={semantics} traced={!!run.previewUrl} />
         </div>
