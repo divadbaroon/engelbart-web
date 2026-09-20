@@ -28,6 +28,13 @@ import { Redactor, decompressor, makeEmitter, makeLogger, newId, pickHeaders, st
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const BRIDGE_PATH = "/__engelbart/bridge.js";
+// The DOM recorder the bridge drives while a recording is open. It is a
+// second file rather than part of the bridge because it is vendored
+// third-party code (@rrweb/record, MIT) that nothing here maintains, and
+// because a document that never records should not pay for it: the tag
+// is injected beside the bridge but the browser fetches it once, cached,
+// and the bridge is what decides whether anything is ever recorded.
+export const RECORDER_PATH = "/__engelbart/recorder.js";
 export const EVENTS_PATH = "/__engelbart/events";
 export const HEALTH_PATH = "/__engelbart/health";
 
@@ -205,10 +212,11 @@ export function rateLimiter(perSecond) {
   };
 }
 
-export function createPreviewGateway({ listenPort, targetPort, targetAddress = "127.0.0.1", bridge, bridgeConfig = null, redactor = new Redactor(), emit, emitBrowser = emit, log, limiter = rateLimiter(EVENTS_PER_SECOND) }) {
+export function createPreviewGateway({ listenPort, targetPort, targetAddress = "127.0.0.1", bridge, recorder = null, bridgeConfig = null, redactor = new Redactor(), emit, emitBrowser = emit, log, limiter = rateLimiter(EVENTS_PER_SECOND) }) {
   const targetHost = `${targetAddress.includes(":") ? `[${targetAddress}]` : targetAddress}:${targetPort}`;
   const targetOrigin = `http://${targetHost}`;
   const bridgeEtag = `"${crypto.createHash("sha1").update(bridge).digest("hex").slice(0, 16)}"`;
+  const recorderEtag = recorder ? `"${crypto.createHash("sha1").update(recorder).digest("hex").slice(0, 16)}"` : null;
   const configAttr = bridgeConfig ? ` data-config="${escapeAttr(JSON.stringify(bridgeConfig))}"` : "";
   const stats = { requests: 0, documents: 0, injected: 0, blocked: 0, batches: 0, events: 0, rejected: 0, dropped: 0 };
   let complained = 0;
@@ -229,6 +237,16 @@ export function createPreviewGateway({ listenPort, targetPort, targetAddress = "
     if (req.headers["if-none-match"] === bridgeEtag) { res.writeHead(304); return res.end(); }
     res.writeHead(200, { "content-type": "application/javascript; charset=utf-8", "cache-control": "no-cache", etag: bridgeEtag, "content-length": Buffer.byteLength(bridge) });
     res.end(req.method === "HEAD" ? undefined : bridge);
+  }
+
+  // The recorder, if the template carries one. It is pinned and never
+  // changes within a run, so unlike the bridge it may be cached hard: it is
+  // the same bytes for every document of every sandbox on this image.
+  function serveRecorder(req, res) {
+    if (!recorder) { res.writeHead(404, { "content-type": "text/plain" }); return res.end("no recorder"); }
+    if (req.headers["if-none-match"] === recorderEtag) { res.writeHead(304); return res.end(); }
+    res.writeHead(200, { "content-type": "application/javascript; charset=utf-8", "cache-control": "public, max-age=31536000, immutable", etag: recorderEtag, "content-length": Buffer.byteLength(recorder) });
+    res.end(req.method === "HEAD" ? undefined : recorder);
   }
 
   function serveEvents(req, res) {
@@ -310,13 +328,18 @@ export function createPreviewGateway({ listenPort, targetPort, targetAddress = "
         return;
       }
       const id = frameId();
-      const tag = `<script src="${BRIDGE_PATH}" data-frame="${id}"${configAttr}${policy.nonce ? ` nonce="${escapeAttr(policy.nonce)}"` : ""}></script>`;
+      // The recorder first: both are classic scripts, so they run in order,
+      // and the bridge can then see whether a recorder is present at all
+      // rather than racing it. Neither records anything on its own.
+      const nonceAttr = policy.nonce ? ` nonce="${escapeAttr(policy.nonce)}"` : "";
+      const recorderTag = recorder ? `<script src="${RECORDER_PATH}"${nonceAttr}></script>` : "";
+      const tag = `${recorderTag}<script src="${BRIDGE_PATH}" data-frame="${id}"${configAttr}${nonceAttr}></script>`;
       delete responseHeaders["content-length"];
       delete responseHeaders["content-encoding"];
       res.writeHead(status, responseHeaders);
       const inject = injector(tag, (point) => {
         injected = id; stats.injected++;
-        emit("frame.served", { requestId, ...ids, frameId: id, path: pathname, has_query: !!url.search, query: safeQuery(url.search), dest: req.headers["sec-fetch-dest"], referer: refererPath(req), status, injected_at: point, nonce: !!policy.nonce });
+        emit("frame.served", { requestId, ...ids, frameId: id, path: pathname, has_query: !!url.search, query: safeQuery(url.search), dest: req.headers["sec-fetch-dest"], referer: refererPath(req), status, injected_at: point, nonce: !!policy.nonce, recorder: !!recorder });
       });
       const source = decoder ? up.pipe(decoder) : up;
       up.on("data", (c) => { responseBytes += c.length; });
@@ -337,6 +360,7 @@ export function createPreviewGateway({ listenPort, targetPort, targetAddress = "
   const server = http.createServer((req, res) => {
     const pathname = (req.url ?? "/").split("?")[0];
     if (pathname === BRIDGE_PATH) return serveBridge(req, res);
+    if (pathname === RECORDER_PATH) return serveRecorder(req, res);
     if (pathname === EVENTS_PATH) return serveEvents(req, res);
     // Counters only, and readable from the workspace: when the picker gets
     // no answer from a document, these say whether the bridge was injected
@@ -385,12 +409,18 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const bridgeFile = process.env.ENGELBART_BRIDGE_FILE || path.join(here, "bridge.js");
   let bridge;
   try { bridge = fs.readFileSync(bridgeFile, "utf8"); } catch (err) { log(`cannot read the bridge at ${bridgeFile}: ${err.message}`); process.exit(2); }
+  // The recorder is optional: an older image without the file still serves
+  // a working bridge, and the workspace is told there is nothing to record
+  // rather than waiting for an answer that cannot come.
+  const recorderFile = process.env.ENGELBART_RECORDER_FILE || path.join(here, "rrweb-record.js");
+  let recorder = null;
+  try { recorder = fs.readFileSync(recorderFile, "utf8"); } catch { log(`no recorder at ${recorderFile}: replay capture is off`); }
   let bridgeConfig = null;
   if (process.env.ENGELBART_BRIDGE_CONFIG) { try { bridgeConfig = JSON.parse(process.env.ENGELBART_BRIDGE_CONFIG); } catch { log("ignoring ENGELBART_BRIDGE_CONFIG: not JSON"); } }
   const redactor = Redactor.fromFile(process.env.ENGELBART_REDACT_FILE, log);
   const bind = process.env.ENGELBART_PREVIEW_BIND || "0.0.0.0";
   const limiter = rateLimiter(EVENTS_PER_SECOND);
-  const gateways = mappings.map((m) => createPreviewGateway({ ...m, bridge, bridgeConfig, redactor, emit, emitBrowser, log, limiter }));
+  const gateways = mappings.map((m) => createPreviewGateway({ ...m, bridge, recorder, bridgeConfig, redactor, emit, emitBrowser, log, limiter }));
   Promise.all(gateways.map((g) => g.listen(bind))).then(() => {
     emit("gateway.listening", { gateway: "preview", port: mappings[0].listenPort, bind, mappings: mappings.map((m) => ({ listen: m.listenPort, target: `${m.targetAddress}:${m.targetPort}` })) });
     for (const m of mappings) log(`listening on ${bind}:${m.listenPort} for ${m.targetAddress}:${m.targetPort}`);

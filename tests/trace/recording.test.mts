@@ -8,7 +8,7 @@ import { clearMark, defaultName, formatDuration, formatElapsed, formatWhen, inWi
 import { events, t } from "./fixtures/session";
 import { call1 } from "../bart/fixtures/call";
 
-const rec = (startedAt: string, stoppedAt: string | null): Recording => ({ id: "rec1", runId: "r", projectId: "p", name: "Recording 1", status: stoppedAt ? "complete" : "recording", startedAt, stoppedAt, createdAt: startedAt });
+const rec = (startedAt: string, stoppedAt: string | null): Recording => ({ id: "rec1", runId: "r", projectId: "p", name: "Recording 1", status: stoppedAt ? "complete" : "recording", startedAt, stoppedAt, createdAt: startedAt, replayPath: null });
 const stageIds = (s: ReturnType<typeof scopeTrace>) => traceStages(traceRows(s.events, s.calls)).primary.map((x) => x.id);
 
 describe("recording scope", () => {

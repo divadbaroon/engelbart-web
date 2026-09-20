@@ -22,6 +22,11 @@ import { PatchView } from "@/components/patch-view";
 import { patchFromEvents, type RepoPatch } from "@/lib/patch";
 import { BehaviorTrace, type CanvasMark, type TraceRecordings } from "@/components/trace/behavior-trace";
 import { RecordButton, RecordingSaved } from "@/components/trace/record-control";
+import { ReplaySurface } from "@/components/trace/replay-surface";
+import { useCapture } from "@/hooks/use-capture";
+import { REPLAYS_BUCKET, replayStoragePath, type Recording } from "@/lib/trace/recording";
+import { clockOffset, type StoredReplay } from "@/lib/trace/replay";
+import { createClient } from "@/lib/supabase/client";
 import { AnnotateControl } from "@/components/annotate/control";
 import { AnnotationComposer } from "@/components/annotate/composer";
 import { AnnotationNote } from "@/components/annotate/note";
@@ -85,12 +90,28 @@ type RepoContentProps = RunControls & {
   onAskAboutAnnotation: (id: string) => void;   // ask Bart about one of them
   semantics: Semantics;                         // what the parts of this application's interfaces are for
   traceBart: ReactNode;                  // Bart's small window, floating over the trace canvas
+  // A recording being watched back in place of the running application.
+  // Null is the ordinary case and means the middle is live.
+  replay: ReplayControls | null;
+  // Where the Live preview puts its way of stopping a recording, so the
+  // Stop buttons on the trace and the recordings list use the same one.
+  registerStop: React.RefObject<(() => Promise<void>) | null>;
+};
+
+// Playing a recording back where the preview usually is. The recording
+// being open is what puts the workspace here; there is no second flag.
+export type ReplayControls = {
+  recording: Recording;
+  offset: number | null;                 // the sandbox clock, less this browser's
+  seekTo: { at: string; key: number } | null;
+  onMoment: (at: string) => void;
+  onBackToLive: () => void;
 };
 
 // The trace's selection callbacks, shared by the preview's strip and the Trace tab.
-export type TraceControls = { trace: TraceView; selection: Selection | null; onSelect: RepoContentProps["onSelect"]; onOpenTrace: () => void; traceAside: boolean; recording: TraceRecordings; annotations: Annotations; onAskAboutAnnotation: (id: string) => void; semantics: Semantics };
+export type TraceControls = { trace: TraceView; selection: Selection | null; onSelect: RepoContentProps["onSelect"]; onOpenTrace: () => void; traceAside: boolean; recording: TraceRecordings; annotations: Annotations; onAskAboutAnnotation: (id: string) => void; semantics: Semantics; replay: ReplayControls | null; registerStop: RepoContentProps["registerStop"] };
 
-export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, trace, selection, detail, onSelect, onDetail, onAskBart, onOpenTrace, onOpenPreview, codeOpen, slot, traceAside, scopedTrace, recording, canvasMark, annotations, onAskAboutAnnotation, semantics, traceBart, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
+export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, trace, selection, detail, onSelect, onDetail, onAskBart, onOpenTrace, onOpenPreview, codeOpen, slot, traceAside, scopedTrace, recording, canvasMark, annotations, onAskAboutAnnotation, semantics, traceBart, replay, registerStop, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
   // The environment scan and any repair edits from this run's log if it
   // has them, else the last ones saved on the repository.
   const envReport = (run && environmentFromEvents(events, run.id)) ?? repo.envReport;
@@ -119,7 +140,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
     return (
       <>
         <div className={tab === "trace" ? "hidden h-full" : "h-full"}>
-          <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, traceAside, recording, annotations, onAskAboutAnnotation, semantics }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onOpenTerminal={onOpenTerminal} onRunWithoutPatch={onRunWithoutPatch} onSaveHint={onSaveHint} />
+          <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, traceAside, recording, annotations, onAskAboutAnnotation, semantics, replay, registerStop }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onOpenTerminal={onOpenTerminal} onRunWithoutPatch={onRunWithoutPatch} onSaveHint={onSaveHint} />
         </div>
         {canvas}
       </>
@@ -428,6 +449,44 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
     [controls.trace.events],
   );
   useSurvey(frame, service.embeddable ? service.previewUrl : null, traced && service.embeddable && controls.semantics.enabled, reloads + controls.semantics.round + documents, controls.semantics.offer);
+  // What the page looked like, while a recording is open. It follows the
+  // recording rather than having a life of its own: Record starts it, Stop
+  // takes what it has. A preview that cannot be framed has nothing to
+  // record, and a recording without one is a recording as before.
+  const capture = useCapture(frame, service.embeddable ? service.previewUrl : null, traced && service.embeddable && !!rec.active, reloads);
+  const [saving, setSaving] = useState(false);
+  // Stop: take the stream, put it in the bucket, then complete the
+  // recording with the path. The object exists before the row points at
+  // it, which is the order the papers path takes — a recording that says
+  // it has a replay always has one. A failed upload is not a failed
+  // recording: the boundaries are what a recording is, and they are saved
+  // either way.
+  const stopRecording = async () => {
+    if (saving) return;
+    const open = rec.active;
+    setSaving(true);
+    try {
+      const taken = await capture.finish();
+      let path: string | null = null;
+      if (open && taken) {
+        const body: StoredReplay = { v: 1, startedAt: taken.startedAt, offset: clockOffset(controls.trace.events), truncated: taken.truncated, dropped: taken.dropped, events: taken.events, canvas: taken.canvas };
+        const at = replayStoragePath(open.projectId, open.id);
+        const { error } = await createClient().storage.from(REPLAYS_BUCKET)
+          .upload(at, new Blob([JSON.stringify(body)], { type: "application/json" }), { contentType: "application/json", upsert: true });
+        if (!error) path = at;
+      }
+      await rec.stop(path);
+    } finally {
+      setSaving(false);
+    }
+  };
+  // Every Stop in the workspace is this one. Kept current rather than
+  // registered once, so it closes over the recording that is actually open.
+  const register = controls.registerStop;
+  useEffect(() => {
+    register.current = stopRecording;
+    return () => { if (register.current === stopRecording) register.current = null; };
+  });
   const note = notes.list.find((a) => a.id === openNote) ?? null;
   // A note chosen somewhere else — the list, a reference in an answer —
   // is shown where it lives: the markers go up, the page is scrolled to
@@ -454,8 +513,25 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
     controls.onOpenTrace();
   };
 
+  // A recording open for watching puts the replay here. The live preview
+  // is hidden rather than unmounted: its iframe must keep its key and its
+  // place in the tree, or React remounts it and the running application
+  // reloads — so "Back to live" would come back to a different page than
+  // the one that was left. This is the same arrangement the Trace tab
+  // already uses one level up.
+  const replay = controls.replay;
   return (
-    <section aria-label="Live preview" className="flex h-full flex-col">
+    <>
+    {replay && (
+      <ReplaySurface
+        recording={replay.recording}
+        offset={replay.offset}
+        seekTo={replay.seekTo}
+        onMoment={replay.onMoment}
+        onBackToLive={replay.onBackToLive}
+      />
+    )}
+    <section aria-label="Live preview" className={cn("h-full flex-col", replay ? "hidden" : "flex")} aria-hidden={!!replay}>
       <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3.5 font-mono text-xs text-muted-foreground">
         <span className={cn("size-1.5 rounded-full", loading && service.embeddable ? "animate-pulse bg-neutral-400" : "bg-green-500")} />
         {services.length > 1 && (
@@ -488,7 +564,7 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
         {events.some((e) => e.data?.phase === "trail" && (e.data?.status === "own" || e.data?.status === "shared")) && (
           <Button variant="ghost" size="sm" onClick={async () => { await onStop(run.id); onStartOver(); }} title="Stop, then analyze from scratch ignoring the saved trail" className="h-6 px-2 font-normal text-muted-foreground">Start over</Button>
         )}
-        {traced && <RecordButton active={rec.active} busy={rec.busy} onStart={() => void rec.start()} onStop={() => void rec.stop()} />}
+        {traced && <RecordButton active={rec.active} busy={rec.busy || saving} onStart={() => void rec.start()} onStop={() => void stopRecording()} />}
         {traced && service.embeddable && <AnnotateControl active={picker.active} count={notes.list.length} onStart={picker.start} onStop={picker.stop} />}
         {traced && !controls.traceAside && <Button variant="ghost" size="sm" onClick={controls.onOpenTrace} className="h-6 px-2 font-normal text-muted-foreground">Open trace</Button>}
         <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="h-6 px-2 font-normal text-muted-foreground">Stop</Button>
@@ -532,5 +608,6 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
       )}
       {traced && <LiveStrip trace={controls.trace} live selectedId={selectedStage(controls.trace.stages, controls.selection)?.id ?? null} onPick={pickMoment} onOpenTrace={controls.traceAside ? null : controls.onOpenTrace} />}
     </section>
+    </>
   );
 }

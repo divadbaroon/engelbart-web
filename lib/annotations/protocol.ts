@@ -28,7 +28,9 @@ export type DownMessage =
   | { type: "mode"; on: boolean }
   | { type: "show"; items: { id: string; anchor: unknown }[] }
   | { type: "flash"; id: string }
-  | { type: "survey" };
+  | { type: "survey" }
+  // Record what the page looks like, for as long as a recording is open.
+  | { type: "record"; on: boolean };
 export const envelope = (msg: DownMessage) => ({ engelbart: ANNOTATE, v: ANNOTATE_V, dir: "down" as const, ...msg });
 
 // Page → workspace.
@@ -41,7 +43,30 @@ export type UpMessage =
   // What a document holds, asked for once so a model can read it once.
   // The candidates stay `unknown` here: they are the page's own words
   // about itself, and lib/semantics/model.ts is where they are rebuilt.
-  | { type: "surveyed"; frame: unknown; route: string | null; title: string | null; candidates: unknown[]; truncated: boolean; unavailable: UnavailableFrame[] };
+  | { type: "surveyed"; frame: unknown; route: string | null; title: string | null; candidates: unknown[]; truncated: boolean; unavailable: UnavailableFrame[] }
+  // A part of what the page looked like, on its way to being saved.
+  //
+  // `events` is the one thing in this file that is not rebuilt. It is an
+  // rrweb stream — an arbitrary serialized document — and there is no
+  // smaller true statement about it than "what the page was". So it is
+  // carried as opaque data and treated that way for the rest of its life:
+  // counted, size-capped, stored, and handed to the replayer, which
+  // rebuilds it into an iframe that cannot run scripts. Nothing here reads
+  // it, nothing renders it as markup, and no name in it reaches a person.
+  // The envelope around it is rebuilt exactly like everything else.
+  //
+  // `canvas` is the opposite case and is treated as such. A picture of a
+  // canvas is three scalars, so all three are rebuilt: the time, the
+  // element the recorder named, and a data URL that has to look like one
+  // — it becomes the `src` of an image in the workspace, and the page
+  // that sent it does not get to choose what kind of URL that is.
+  | { type: "replay"; phase: "start"; startedAt: number }
+  | { type: "replay"; phase: "part" | "end"; seq: number; events: unknown[]; canvas: CanvasFrame[]; dropped: number; truncated: boolean; startedAt: number }
+  | { type: "replay"; phase: "unavailable"; reason: string };
+
+// A picture of one canvas at one moment: when, which element (by the id
+// the recorder's mirror gave it), and what it showed.
+export type CanvasFrame = { at: number; nodeId: number; dataUrl: string };
 
 const obj = (v: unknown) => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
 const text = (v: unknown, max: number): string | null => {
@@ -56,6 +81,25 @@ const rect = (v: unknown): Rect | null => {
   const x = n("x"), y = n("y"), w = n("w"), h = n("h");
   return x === null || y === null || w === null || h === null ? null : { x, y, w, h };
 };
+
+// Only a base64 image, and only the characters base64 is made of. An
+// `<img src>` will not run a script whatever it is handed, but this is
+// the boundary where the page stops choosing, so it chooses nothing.
+const DATA_IMAGE = /^data:image\/[a-z0-9.+-]{1,20};base64,[A-Za-z0-9+/]+={0,2}$/;
+const MAX_DATA_URL = 4 * 1024 * 1024;
+// One part is flushed at 48KB, so a handful of pictures. This is the
+// bound on a page that is not the one we shipped.
+const MAX_FRAMES = 500;
+
+export function readCanvasFrame(raw: unknown): CanvasFrame | null {
+  const o = obj(raw);
+  if (!o) return null;
+  const { at, nodeId, dataUrl } = o;
+  if (typeof at !== "number" || !Number.isFinite(at)) return null;
+  if (typeof nodeId !== "number" || !Number.isInteger(nodeId) || nodeId <= 0) return null;
+  if (typeof dataUrl !== "string" || dataUrl.length > MAX_DATA_URL || !DATA_IMAGE.test(dataUrl)) return null;
+  return { at, nodeId, dataUrl };
+}
 
 // How a frame is named to a person: what the trace would call it, or
 // where it sits when it has no name of its own. The anchor keeps the
@@ -116,6 +160,24 @@ export function readUp(data: unknown): UpMessage | null {
     case "marker": {
       const id = text(msg.id, 64);
       return id ? { type: "marker", id } : null;
+    }
+    case "replay": {
+      if (msg.phase === "unavailable") return { type: "replay", phase: "unavailable", reason: text(msg.reason, 120) ?? "unavailable" };
+      const startedAt = typeof msg.startedAt === "number" && Number.isFinite(msg.startedAt) ? msg.startedAt : null;
+      if (startedAt === null) return null;
+      if (msg.phase === "start") return { type: "replay", phase: "start", startedAt };
+      if (msg.phase !== "part" && msg.phase !== "end") return null;
+      if (!Array.isArray(msg.events)) return null;
+      const seq = typeof msg.seq === "number" && Number.isInteger(msg.seq) && msg.seq >= 0 ? msg.seq : null;
+      if (seq === null) return null;
+      const canvas = Array.isArray(msg.canvas)
+        ? msg.canvas.slice(0, MAX_FRAMES).flatMap((f) => { const got = readCanvasFrame(f); return got ? [got] : []; })
+        : [];
+      return {
+        type: "replay", phase: msg.phase, seq, events: msg.events, canvas,
+        dropped: typeof msg.dropped === "number" && msg.dropped > 0 ? Math.round(msg.dropped) : 0,
+        truncated: msg.truncated === true, startedAt,
+      };
     }
     case "exited":
       return { type: "exited" };

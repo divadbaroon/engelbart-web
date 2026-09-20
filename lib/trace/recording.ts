@@ -7,11 +7,17 @@ import type { ModelCall, TraceEvent } from "@/lib/trace/types";
 import { traceRows, traceStages, type FrameInfo } from "@/lib/trace/timeline";
 
 export type RecordingStatus = "recording" | "complete";
-export type Recording = { id: string; runId: string; projectId: string; name: string; status: RecordingStatus; startedAt: string; stoppedAt: string | null; createdAt: string };
-export type RecordingRow = { id: string; run_id: string; project_id: string; name: string; status: RecordingStatus; started_at: string; stopped_at: string | null; created_at: string };
-export const RECORDING_COLUMNS = "id, run_id, project_id, name, status, started_at, stopped_at, created_at";
-export const toRecording = (r: RecordingRow): Recording => ({ id: r.id, runId: r.run_id, projectId: r.project_id, name: r.name, status: r.status, startedAt: r.started_at, stoppedAt: r.stopped_at, createdAt: r.created_at });
+export type Recording = { id: string; runId: string; projectId: string; name: string; status: RecordingStatus; startedAt: string; stoppedAt: string | null; createdAt: string; replayPath: string | null };
+export type RecordingRow = { id: string; run_id: string; project_id: string; name: string; status: RecordingStatus; started_at: string; stopped_at: string | null; created_at: string; replay_path: string | null };
+export const RECORDING_COLUMNS = "id, run_id, project_id, name, status, started_at, stopped_at, created_at, replay_path";
+export const toRecording = (r: RecordingRow): Recording => ({ id: r.id, runId: r.run_id, projectId: r.project_id, name: r.name, status: r.status, startedAt: r.started_at, stoppedAt: r.stopped_at, createdAt: r.created_at, replayPath: r.replay_path ?? null });
 export const defaultName = (n: number) => `Recording ${n}`;
+
+// Where a recording's replay is kept. The project id is the first folder
+// because that is what the storage policies read to decide who may have
+// it — the same arrangement as a paper's PDF (lib/papers.ts).
+export const REPLAYS_BUCKET = "engelbart-replays";
+export const replayStoragePath = (projectId: string, recordingId: string) => `${projectId}/${recordingId}.json`;
 
 // Where the Trace tab is: the whole run, the list of recordings, one
 // recording open on the same canvas, or the notes written on this

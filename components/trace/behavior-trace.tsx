@@ -71,6 +71,11 @@ export type TraceRecordings = {
   open: (id: string) => void;             // a recording onto the canvas, in the Trace tab
   reveal: (target: { stageId?: string; callId?: string }) => void;   // leave the open recording if the moment is outside it
   stats: (rec: Recording) => RecordingStats;
+  // Stop the open recording. There are three buttons for it — here, the
+  // list, and the Live preview's header — and one of them is beside the
+  // capture of what the preview looked like. They all come through this,
+  // so a recording stopped from the trace keeps its replay too.
+  stop: () => void;
 };
 
 // The behavior trace of a run: a canvas with every moment of the session
@@ -178,7 +183,7 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
             {openRecording.status === "recording" && <Circle className="size-2 shrink-0 animate-pulse fill-red-500 text-red-500" />}
             <span className="ml-auto" />
             {openRecording.status === "recording" && (
-              <Button variant="ghost" size="sm" disabled={rec.busy} onClick={() => void rec.stop()} title="Stop recording; the run keeps going" className="h-7 px-2 font-normal text-muted-foreground">Stop</Button>
+              <Button variant="ghost" size="sm" disabled={rec.busy} onClick={recordings.stop} title="Stop recording; the run keeps going" className="h-7 px-2 font-normal text-muted-foreground">Stop</Button>
             )}
             <Button variant="ghost" size="sm" onClick={() => onNav({ kind: "full" })} className="h-7 px-2 font-normal text-muted-foreground">Full trace</Button>
           </>
@@ -240,7 +245,7 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
             error={rec.error}
             busy={rec.busy}
             onOpen={(id) => onNav({ kind: "recording", id })}
-            onStop={() => void rec.stop()}
+            onStop={recordings.stop}
             onRename={(id, name) => void rec.rename(id, name)}
             onRemove={(id) => void rec.remove(id)}
             onDismissError={rec.dismissError}

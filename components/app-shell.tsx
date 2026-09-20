@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addSubgoal, findGoal, isDone, patchGoal, type Goal, type Plan } from "@/lib/plan";
 import { createGoal, updateGoal } from "@/app/workspace/[workspaceId]/actions";
 import { addRepo, dropPatch, fetchReadme, removeRepo, setRepoHint } from "@/app/workspace/[workspaceId]/repo-actions";
@@ -15,6 +15,7 @@ import { useRecordings } from "@/hooks/use-recordings";
 import { useAnnotations } from "@/hooks/use-annotations";
 import { useSemantics } from "@/hooks/use-semantics";
 import { clearMark, recordingStats, windowOf, type Recording, type TraceNav } from "@/lib/trace/recording";
+import { clockOffset, stageAt } from "@/lib/trace/replay";
 import type { CanvasMark, TraceRecordings } from "@/components/trace/behavior-trace";
 import { useTraceSelection } from "@/hooks/use-trace-selection";
 import { describeSelection, selectedStage } from "@/lib/trace/selection";
@@ -308,10 +309,48 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
     const inside = target.stageId ? scopedTrace.stages.some((s) => s.id === target.stageId) : target.callId ? scopedTrace.callRows.has(target.callId) : true;
     if (!inside) setTraceNav({ kind: "full" });
   };
+  // ---- the replay, and keeping it beside the trace
+  //
+  // A recording that was captured can be watched back where the running
+  // application usually is. There is no separate mode for that: the
+  // recording being open IS the mode, so nothing can disagree about
+  // whether the middle is live.
+  //
+  // The two records keep different clocks — rrweb stamps the viewer's, the
+  // trace carries the sandbox's — and the gateway already measured the
+  // difference on every event the browser sent. Without a reading the two
+  // are left alone rather than lined up on a guess.
+  const replayOffset = useMemo(() => clockOffset(trace.events), [trace.events]);
+  // Where a moment has asked the playhead to go. Keyed, so choosing the
+  // same moment twice moves it back there rather than doing nothing.
+  const [seekTo, setSeekTo] = useState<{ at: string; key: number } | null>(null);
+  const openRecordingId = openRecording?.id ?? null;
+  useEffect(() => { setSeekTo(null); }, [openRecordingId]);
+  // The playhead names a moment. It only ever selects: it never seeks, or
+  // the two would drive each other in a circle.
+  const replayMoment = useCallback((at: string) => {
+    const stage = stageAt(scopedTrace.stages, at);
+    if (!stage) return;
+    const now = picked.selection;
+    if (now?.kind === "stage" && now.stageId === stage.id) return;
+    picked.select({ kind: "stage", stageId: stage.id });
+  }, [scopedTrace.stages, picked]);
+
   // One conversation for the workspace, shown at full size on the right
   // panel's Bart tab and in the corner of the trace canvas. Both write
   // into it, so a question asked beside the evidence is there in the
   // panel too.
+  // Choosing a moment anywhere — the canvas, the strip, a reference in an
+  // answer — takes the replay to it, when one is open. It hangs off the
+  // act of choosing rather than off the selection changing, so the
+  // playhead's own selections do not come back as seeks.
+  const chooseMoment: typeof picked.select = useCallback((selection, options) => {
+    picked.select(selection, options);
+    if (!openRecording) return;
+    const stage = selectedStage(scopedTrace.stages, selection);
+    if (stage) setSeekTo((s) => ({ at: stage.at, key: (s?.key ?? 0) + 1 }));
+  }, [picked, openRecording, scopedTrace.stages]);
+
   const bart = useBartSession(projectId);
   const [traceBartOpen, setTraceBartOpen] = useState(false);
   const selectionText = repo ? describeSelection(scopedTrace.stages, scopedTrace.callRows, picked.selection) : null;
@@ -415,9 +454,22 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
       onOpenPanel={() => { setTraceBartOpen(false); bart.ask("tab"); }}
     />
   );
+  // How a recording is stopped, registered by the Live preview because the
+  // capture of what the page looked like is there. Without one — no
+  // preview, nothing captured — stopping is what it always was.
+  const stopWithReplay = useRef<(() => Promise<void>) | null>(null);
   const traceRecordings: TraceRecordings | null = repo ? {
     recordings, nav: traceNav, onNav: setTraceNav, stats, reveal,
-    open: (id) => { setTraceNav({ kind: "recording", id }); show(repo.id, "trace"); },
+    stop: () => { void (stopWithReplay.current ? stopWithReplay.current() : recordings.stop()); },
+    // Opening a recording is what puts the workspace into replay: the
+    // middle stops being the running application and plays the recording
+    // back, and the trace moves beside it, cut to the same window. They
+    // are two records of the same minutes and belong next to each other.
+    //
+    // The preview was already pinned to the middle (lib/workspace-slots
+    // STAYS), so this is the ordinary slot algebra and not a special case:
+    // the trace is sent aside exactly as the person could have sent it.
+    open: (id) => { setTraceNav({ kind: "recording", id }); update(repo.id, (sl) => sendAside(chooseTab(sl, "preview"), "trace")); },
   } : null;
   const traceCanvasMark: CanvasMark = { clearedAt, canClear: trace.events.length > 0, onClear: clearCanvas, onShowEverything: showEverything };
   // The repository's content for a slot: the same everything, only the tab
@@ -429,6 +481,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
       scopedTrace={scopedTrace}
       recording={traceRecordings}
       canvasMark={traceCanvasMark}
+      registerStop={stopWithReplay}
       annotations={annotations}
       onAskAboutAnnotation={(id) => { setAskedAnnotation(id); bart.ask("tab"); }}
       semantics={semantics}
@@ -444,9 +497,19 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
       previewVersion={previewVersions[repo.id] ?? 0}
       onFileSaved={() => setPreviewVersions((v) => ({ ...v, [repo.id]: (v[repo.id] ?? 0) + 1 }))}
       trace={trace}
+      replay={repo && openRecording ? {
+        recording: openRecording,
+        offset: replayOffset,
+        seekTo,
+        onMoment: replayMoment,
+        // Back to live leaves the recording, which is the only thing that
+        // was making the middle not live. The running application was
+        // never unmounted and is underneath.
+        onBackToLive: () => setTraceNav({ kind: "list" }),
+      } : null}
       selection={picked.selection}
       detail={picked.detail}
-      onSelect={picked.select}
+      onSelect={chooseMoment}
       onDetail={picked.setDetail}
       onAskBart={askBart}
       onOpenTrace={() => show(repo.id, "trace")}

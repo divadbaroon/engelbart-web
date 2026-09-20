@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { RECORDING_COLUMNS, defaultName, toRecording, type Recording, type RecordingRow } from "@/lib/trace/recording";
+import { RECORDING_COLUMNS, REPLAYS_BUCKET, defaultName, toRecording, type Recording, type RecordingRow } from "@/lib/trace/recording";
 
 // Recordings of a run, as the signed-in member: list, start, stop, rename,
 // delete. A recording is a name and two clock readings over the run's
@@ -42,11 +42,16 @@ export async function startRecording(runId: string): Promise<RecordingResult> {
   return { ok: false, error: describe(error.message) };
 }
 
-export async function stopRecording(id: string): Promise<RecordingResult> {
+// `replayPath` is the object the browser has already uploaded, if the
+// preview was being captured. It is written in the same update that
+// completes the recording, so a recording is never marked complete holding
+// a path to something that is not there — the object exists before this is
+// called, and the row is what makes it findable.
+export async function stopRecording(id: string, replayPath: string | null = null): Promise<RecordingResult> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("engelbart_recordings")
-    .update({ status: "complete", stopped_at: new Date().toISOString() })
+    .update({ status: "complete", stopped_at: new Date().toISOString(), ...(replayPath ? { replay_path: replayPath } : {}) })
     .eq("id", id).eq("status", "recording")
     .select(RECORDING_COLUMNS).maybeSingle();
   if (error) return { ok: false, error: describe(error.message) };
@@ -73,10 +78,21 @@ export async function deleteRecording(id: string): Promise<{ ok: true } | { ok: 
   const supabase = await createClient();
   // A delete that matches nothing returns no error, so the deleted row is
   // asked for: gone means gone, and nothing deleted is said out loud.
-  const { data, error } = await supabase.from("engelbart_recordings").delete().eq("id", id).select("id").maybeSingle();
+  const { data, error } = await supabase.from("engelbart_recordings").delete().eq("id", id).select("id, replay_path").maybeSingle();
   if (error) return { ok: false, error: describe(error.message) };
-  return data ? { ok: true } : { ok: false, error: "That recording could not be deleted." };
+  if (!data) return { ok: false, error: "That recording could not be deleted." };
+  // The row is what made the object findable, so it goes too. Row first:
+  // a file left behind is waste, a row pointing at nothing is a broken
+  // recording. This is the order the papers path takes, for the same reason.
+  const path = (data as { replay_path: string | null }).replay_path;
+  if (path) await supabase.storage.from(REPLAYS_BUCKET).remove([path]);
+  return { ok: true };
 }
 
 const describe = (message: string) =>
-  /relation .* does not exist|schema cache/i.test(message) ? "The recordings table is not in the database yet: apply the recordings migration." : message;
+  /relation .* does not exist|schema cache/i.test(message) ? "The recordings table is not in the database yet: apply the recordings migration."
+  // A column this code reads but the database does not have yet. It
+  // reads as a Postgres error and means one thing: a migration that has
+  // not been applied.
+  : /column .*replay_path|replay_path.* does not exist/i.test(message) ? "This database has no replay column yet: apply the recording replay migration."
+  : message;

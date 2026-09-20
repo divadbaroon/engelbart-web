@@ -289,6 +289,27 @@ describe("gateway", () => {
     assert.equal(lines.some((l) => l.kind === "network.request" && l.path.startsWith("/__engelbart")), false, "the gateway's own endpoints are not application traffic");
     assert.equal(gateway.stats.events, 1);
   });
+  it("serves a recorder beside the bridge when the image carries one, and injects both", async () => {
+    const withRecorder = createPreviewGateway({ listenPort: 0, targetPort: appPort, bridge: BRIDGE, recorder: "globalThis.rrwebRecord = {};", emit: () => {}, log: () => {} });
+    const port = await withRecorder.listen("127.0.0.1");
+    const at = `http://127.0.0.1:${port}`;
+    try {
+      const js = await fetch(at + "/__engelbart/recorder.js");
+      assert.equal(await js.text(), "globalThis.rrwebRecord = {};");
+      assert.equal(js.headers.get("content-type"), "application/javascript; charset=utf-8");
+      // Pinned and identical on every document of every sandbox on this
+      // image, so unlike the bridge it may be cached hard.
+      assert.match(js.headers.get("cache-control"), /immutable/);
+      assert.equal((await fetch(at + "/__engelbart/recorder.js", { headers: { "if-none-match": js.headers.get("etag") } })).status, 304);
+      const html = await (await fetch(at + "/", { headers: { accept: "text/html,*/*", "sec-fetch-dest": "document" } })).text();
+      // The recorder first: both are classic scripts, so they run in
+      // order and the bridge can see whether one is there at all.
+      assert.match(html, /<script src="\/__engelbart\/recorder\.js"><\/script><script src="\/__engelbart\/bridge\.js" data-frame="f_/);
+    } finally {
+      await withRecorder.close();
+    }
+  });
+
   it("answers 502 when the application is gone, and records the failure", async () => {
     const dead = createPreviewGateway({ listenPort: 0, targetPort: 1, bridge: BRIDGE, emit, log: () => {} });
     const port = await dead.listen("127.0.0.1");

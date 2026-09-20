@@ -11,7 +11,8 @@
     "bench:grade": "node --env-file-if-exists=.env.local --import tsx scripts/bench/grade.mts",
     "bench:report": "node --import tsx scripts/bench/report.mts",
     "test": "node --import tsx --test 'tests/**/*.test.*'",
-    "semantics:verify": "node --env-file-if-exists=.env.local --import tsx scripts/semantics/verify.mts"
+    "semantics:verify": "node --env-file-if-exists=.env.local --import tsx scripts/semantics/verify.mts",
+    "replay:verify": "node --import tsx scripts/trace/replay-check.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
@@ -23,6 +24,8 @@
     "@radix-ui/react-dropdown-menu": "^2.1.14",
     "@radix-ui/react-label": "^2.1.6",
     "@radix-ui/react-slot": "^1.2.2",
+    "@rrweb/replay": "^2.1.6",
+    "@rrweb/types": "^2.1.6",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
     "@tanstack/react-virtual": "^3.14.13",

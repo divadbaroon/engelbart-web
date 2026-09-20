@@ -11,7 +11,10 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   // Staged hc source for the E2B template build; not our code.
-  { ignores: ["sandbox/.hc/**"] },
+  // The recorder beside it is @rrweb/record's published build, vendored
+  // verbatim and pinned, for the same reason: linting it says nothing
+  // about anything anybody here can change.
+  { ignores: ["sandbox/.hc/**", "sandbox/trace/rrweb-record.js"] },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 ];
 

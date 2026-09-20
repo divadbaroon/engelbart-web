@@ -18,7 +18,10 @@ export type Recordings = {
   lastStopped: Recording | null;     // for the "Recording saved" line, until dismissed
   dismissStopped: () => void;
   start: () => Promise<Recording | null>;
-  stop: () => Promise<Recording | null>;
+  // Stopping may carry a replay: the object the browser uploaded while the
+  // recording was open. Without one the recording is saved as recordings
+  // have always been saved.
+  stop: (replayPath?: string | null) => Promise<Recording | null>;
   rename: (id: string, name: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
 };
@@ -58,10 +61,10 @@ export function useRecordings(run: SandboxRun | undefined): Recordings {
     return r.recording;
   }, [runId, busy, active, put]);
 
-  const stop = useCallback(async () => {
+  const stop = useCallback(async (replayPath: string | null = null) => {
     if (!active || busy) return null;
     setBusy(true); setError(null);
-    const r = await stopRecording(active.id);
+    const r = await stopRecording(active.id, replayPath);
     setBusy(false);
     if (!r.ok) { setError(r.error); return null; }
     put(r.recording);

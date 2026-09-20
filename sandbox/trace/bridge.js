@@ -45,6 +45,17 @@
     textChars: 80, sampleChars: 200, sampleNodes: 40,
     helloRetryMs: [0, 250, 1000, 3000],
     attachGraceMs: 400,   // how long the parent waits for an embedded frame to say hello after it loads
+    // Replay capture, while the workspace has a recording open. The
+    // recorder is third-party and pinned; these are the terms it runs on.
+    replayFlushMs: 1000,           // how long a part waits for company
+    replayBatchBytes: 48 * 1024,   // ...or how big it gets first
+    replayMaxBytes: 32 * 1024 * 1024,  // a recording longer than this is cut off, and says so
+    maskTyping: false,             // whether a person's own typing is hidden (credentials always are)
+    canvasFps: 12,                 // pictures a second of anything that draws itself
+    canvasType: "image/webp",      // ...in this format,
+    canvasQuality: 0.6,            // ...at this quality
+    canvasDocs: 50,                // how far a page of frames is followed looking for them
+    checkoutMs: 30000,             // a whole picture this often, so seeking stays cheap
     // The one origin allowed to turn annotate mode on in this document.
     // Empty — the default — means the control channel never opens and the
     // bridge only observes, as it always has. The gateway sets it per run
@@ -810,12 +821,13 @@
     function flushAll(unloading) {
       flushKey();
       if (unloading) closeBurst("unload");
+      if (unloading && annotator) annotator.flushCapture();
       frames.forEach(function (entry) { if (entry.bridge) entry.bridge.flushAll(unloading); });
     }
     // Annotate mode over this document. It observes nothing on its own:
     // it installs listeners only while the workspace has turned it on.
     var annotator = createAnnotator({
-      win: win, doc: doc, frameId: frameId,
+      win: win, doc: doc, frameId: frameId, emit: emit,
       frameRef: function () {
         return { frameId: frameId, name: frameInfo.name, selectorInParent: frameInfo.selectorInParent, depth: 0, kind: frameInfo.frameKind || "document", path: [] };
       },
@@ -1484,6 +1496,264 @@
         candidates: got.candidates, truncated: got.truncated, unavailable: ctx.unavailable(),
       });
     }
+    // ---- replay capture
+    //
+    // What the page looked like, so a recording can be watched back. The
+    // recorder itself is @rrweb/record, served beside this file and left
+    // exactly as published; everything here is about when it runs, what it
+    // is allowed to see, and how what it produces leaves the page.
+    //
+    // It is off unless the workspace asks, and it asks only while a
+    // recording is open. Nothing about the trace changes either way: this
+    // records what the application drew, and the trace still records what
+    // somebody did. The two meet on the clock and nowhere else.
+    //
+    // It goes up the annotate channel, never the events endpoint. That
+    // endpoint is unauthenticated, reachable by anyone holding the preview
+    // URL, and everything it accepts is fanned out to every viewer of the
+    // run; a picture of somebody's screen does not belong there. This
+    // channel is pinned to one origin, closed unless the workspace opened
+    // it, and what comes out of it is written by a signed-in member.
+    var capture = null;
+
+    // What of a person's own typing is recorded.
+    //
+    // It used to be none of it, and that turned out to protect almost
+    // nothing while costing the most interesting half of a recording. A
+    // message is hidden for as long as it sits in the box and then sent,
+    // at which point it is ordinary text in the document and replays in
+    // full: in a real run, "help" was masked for four tenths of a second
+    // and then published. What masking actually kept was the shape of
+    // getting there — the hesitating, the deleting, the rewriting — which
+    // is a large part of what a recording of somebody working is for.
+    //
+    // So typing is recorded, and credentials are not. With maskAllInputs
+    // false rrweb still masks password fields and nothing else
+    // (rrweb.js:1489), and maskInputFn replaces its default run of
+    // asterisks with a fixed three dots, so a password's length does not
+    // leak either. `.rr-mask` and `.rr-block` still work on anything an
+    // application wants kept out, and the events endpoint's own redaction
+    // is untouched and unrelated.
+    //
+    // `maskTyping` turns it back on for a run that needs it, without a new
+    // image: it comes through the gateway's bridge config like every other
+    // knob here. rrweb does not know about contenteditable at all, so the
+    // surface a rich editor types into is named separately, and only when
+    // there is masking to do.
+    function recordOptions(emitEvent) {
+      return {
+        emit: emitEvent,
+        maskAllInputs: config.maskTyping,
+        maskInputFn: function () { return "\u2022\u2022\u2022"; },
+        maskTextSelector: config.maskTyping ? "[contenteditable]" : null,
+        // A canvas draws rather than describes itself, so it has nothing
+        // in the DOM to replay. Sampling turns each one into a picture a
+        // few times a second, which is the only way a drawing survives at
+        // all; the frames are painted back by the workspace, not by
+        // scripts in the replay. This covers the top document only — see
+        // startFrames for the rest of them.
+        recordCanvas: true,
+        sampling: { canvas: config.canvasFps },
+        dataURLOptions: { type: config.canvasType, quality: config.canvasQuality },
+        // Seeking replays every change since the last whole picture, so
+        // without these a scrub backwards walks the entire recording.
+        checkoutEveryNms: config.checkoutMs,
+        // Fetched again at replay time rather than copied in. Keeping them
+        // would make a recording self-contained and several times larger;
+        // that is a decision of its own and has not been taken.
+        inlineImages: false,
+        collectFonts: false,
+        errorHandler: function (err) { debug("recorder:", err && err.message); return true; },
+      };
+    }
+
+    function recorderAvailable() {
+      try { return !!(win.rrwebRecord && typeof win.rrwebRecord.record === "function"); } catch { return false; }
+    }
+
+    // ---- the canvases the recorder cannot see
+    //
+    // The recorder photographs canvases itself, and for one document it
+    // does it better than we could: it patches getContext as it starts,
+    // so a WebGL canvas that would otherwise read back blank keeps its
+    // drawing buffer. That document is the one its canvas manager was
+    // built with — a single `win`, fixed at construction
+    // (rrweb.js:14350) — and it finds its subjects there with
+    // `win.document.querySelectorAll("canvas")` (rrweb.js:13972), a query
+    // that does not descend into frames. Nothing registers a child window
+    // with it afterwards either: attaching a frame serialises that
+    // document into the same mirror but adds no observer for it, and the
+    // manager has no method to add one.
+    //
+    // So everything below the top document is recorded as a white
+    // rectangle — which is the usual case rather than the exception,
+    // because an imported application renders into a frame of its own.
+    // This covers exactly that gap: the same pictures, a few times a
+    // second, for every canvas in every document the page can reach and
+    // the recorder cannot.
+    //
+    // Identity is not ours to invent. Each canvas is named by the id the
+    // recorder's own mirror already gave it — the mirror holds the nested
+    // documents even though the sampler ignores them — and that is the id
+    // the replay rebuilds the element under. So a picture and its element
+    // find each other without anyone having to describe what the element
+    // is.
+
+    // Every document below this one, the top document deliberately not
+    // among them: that one is the recorder's.
+    function nestedDocs(root) {
+      var docs = [root];
+      for (var i = 0; i < docs.length && docs.length < config.canvasDocs; i++) {
+        var frames;
+        try { frames = docs[i].querySelectorAll("iframe,frame"); } catch { continue; }
+        for (var j = 0; j < frames.length; j++) {
+          var child = null;
+          // Reading contentDocument across origins throws, and a frame we
+          // cannot read is a frame the recorder could not record either.
+          try { child = frames[j].contentDocument; } catch { child = null; }
+          if (child && docs.indexOf(child) === -1) docs.push(child);
+        }
+      }
+      return docs.slice(1);
+    }
+
+    function unseenCanvases(root) {
+      var docs = nestedDocs(root), out = [];
+      for (var i = 0; i < docs.length; i++) {
+        var list;
+        try { list = docs[i].querySelectorAll("canvas"); } catch { continue; }
+        // `rr-block` is the recorder's own way of being told to leave
+        // something alone, and it means the same thing here.
+        for (var j = 0; j < list.length; j++) if (!list[j].closest(".rr-block")) out.push(list[j]);
+      }
+      return out;
+    }
+
+    function startFrames(onFrame) {
+      var every = Math.max(1, Math.round(1000 / Math.max(1, config.canvasFps)));
+      var shown = {};   // the last picture sent for each element, so a still canvas is sent once
+      function tick() {
+        // A page in a background tab is not drawing either, and encoding
+        // pictures of it would be work for nobody. Asked as "hidden"
+        // rather than `doc.hidden`, which is also true of a document that
+        // has not been displayed yet — one of those is about to be looked
+        // at.
+        if (doc.visibilityState === "hidden") return;
+        var mirror = null;
+        try { mirror = win.rrwebRecord.record.mirror; } catch { /* gone */ }
+        if (!mirror || typeof mirror.getId !== "function") return;
+        var list = unseenCanvases(doc);
+        for (var i = 0; i < list.length; i++) {
+          var el = list[i], id = -1, url = null;
+          // Nothing has been drawn on a canvas with no area, and an
+          // element the recorder has not serialised yet has no name to
+          // send it under; both are worth waiting a frame for.
+          if (!el.width || !el.height) continue;
+          try { id = mirror.getId(el); } catch { continue; }
+          if (!(id > 0)) continue;
+          // A canvas that has had a cross-origin image drawn onto it
+          // cannot be read back at all. That is the browser's decision
+          // and there is nothing to do but leave that one blank.
+          try { url = el.toDataURL(config.canvasType, config.canvasQuality); } catch { continue; }
+          // A canvas with nothing on it answers "data:," in some browsers
+          // rather than an image, and that is not a picture of anything.
+          if (typeof url !== "string" || url.lastIndexOf("data:image/", 0) !== 0) continue;
+          if (shown[id] === url) continue;
+          shown[id] = url;
+          onFrame({ at: Date.now(), nodeId: id, dataUrl: url });
+        }
+      }
+      var timer = win.setInterval(safely(tick), every);
+      return function () { win.clearInterval(timer); shown = {}; };
+    }
+
+    function startCapture() {
+      if (capture) return;
+      if (!recorderAvailable()) { report({ type: "replay", phase: "unavailable", reason: "no recorder in this document" }); return; }
+      var state = {
+        stop: null, frames: null, seq: 0, queue: [], canvas: [], bytes: 0, total: 0,
+        timer: null, dropped: 0, truncated: false, startedAt: Date.now(),
+      };
+      capture = state;
+
+      function send(done) {
+        if (state.timer) { clearTimeout(state.timer); state.timer = null; }
+        if (!state.queue.length && !state.canvas.length && !done) return;
+        var batch = state.queue, pictures = state.canvas;
+        state.queue = []; state.canvas = []; state.bytes = 0;
+        report({
+          type: "replay", phase: done ? "end" : "part", seq: state.seq++,
+          events: batch, canvas: pictures, dropped: state.dropped, truncated: state.truncated,
+          startedAt: state.startedAt,
+        });
+      }
+      function schedule() {
+        if (state.timer) return;
+        state.timer = setTimeout(safely(function () { state.timer = null; send(false); }), config.replayFlushMs);
+      }
+      // The stream and the pictures share one budget, so a page that
+      // draws a great deal is cut off the same way as one that changes a
+      // great deal, and neither can starve the other.
+      function room(size) {
+        if (state.total + size <= config.replayMaxBytes) { state.total += size; state.bytes += size; return true; }
+        state.truncated = true;
+        debug("recorder: over " + config.replayMaxBytes + " bytes, stopping");
+        send(false);
+        stopCapture(false);
+        return false;
+      }
+      function take(ev) {
+        if (state.truncated) return;
+        var size = 0;
+        try { size = JSON.stringify(ev).length; } catch { state.dropped++; return; }
+        if (!room(size)) return;
+        state.queue.push(ev);
+        if (state.bytes >= config.replayBatchBytes) send(false); else schedule();
+      }
+      function takeFrame(frame) {
+        if (state.truncated) return;
+        if (!room(frame.dataUrl.length + 48)) return;
+        state.canvas.push(frame);
+        if (state.bytes >= config.replayBatchBytes) send(false); else schedule();
+      }
+
+      state.send = send;
+      var t0 = Date.now();
+      try {
+        state.stop = win.rrwebRecord.record(recordOptions(safely(take))) || null;
+      } catch (err) {
+        capture = null;
+        debug("recorder: could not start:", err && err.message);
+        report({ type: "replay", phase: "unavailable", reason: "recorder failed to start" });
+        return;
+      }
+      // The whole first picture of the page is taken synchronously above,
+      // and a page large enough can spend the budget on it alone — which
+      // ends the capture before this line. Photographing a recording that
+      // is already over would leave a timer running for nothing.
+      if (capture !== state) return;
+      state.frames = startFrames(safely(takeFrame));
+      // One ordinary trace event, so the two clocks have a pin between
+      // them. It goes the usual way, which is what makes it useful: the
+      // gateway stamps it with the sandbox's clock and keeps the browser's
+      // beside it, and rrweb's timestamps are that same browser clock. It
+      // is a note on the timeline, never a moment on the canvas.
+      try { if (ctx.emit) ctx.emit("frame.record", { action: "start", fps: config.canvasFps }, { at: t0 }); } catch { /* the trace is not the recording */ }
+      report({ type: "replay", phase: "start", startedAt: t0 });
+    }
+
+    function stopCapture(tell) {
+      var state = capture;
+      if (!state) return;
+      capture = null;
+      try { if (state.frames) state.frames(); } catch (err) { debug("recorder: could not stop frames:", err && err.message); }
+      try { if (state.stop) state.stop(); } catch (err) { debug("recorder: could not stop:", err && err.message); }
+      if (tell !== false) {
+        try { if (ctx.emit) ctx.emit("frame.record", { action: "stop" }); } catch { /* ignore */ }
+      }
+      try { state.send(true); } catch (err) { debug("recorder: could not flush:", err && err.message); }
+    }
+
     function receive(e) {
       var msg = e.data;
       if (!msg || msg.engelbart !== ANNOTATE || typeof msg.type !== "string") return;
@@ -1503,6 +1773,11 @@
         } else if (msg.type === "survey") {
           survey();
           tellChildren({ type: "survey" });
+        } else if (msg.type === "record") {
+          // Not passed down. The recorder walks same-origin frames from
+          // here, so a child that started its own would be a second copy
+          // of the same screen on the same channel.
+          if (msg.on === true) startCapture(); else stopCapture(true);
         }
         return;
       }
@@ -1516,11 +1791,14 @@
 
     return {
       receive: receive,
-      detach: function () { setMode(false); clearMarks(); overlay.remove(); channel = null; },
+      detach: function () { stopCapture(false); setMode(false); clearMarks(); overlay.remove(); channel = null; },
       state: function () { return { active: active, channel: !!channel, hovering: hovering ? selectorFor(hovering) : null, label: hovering ? hoverLabel(describe(hovering), rectOf(hovering)) : null, markers: overlay.marked() }; },
       resolve: function (anchor) { var got = resolveAnchor(doc, anchor); return { confidence: got.confidence, matchedOn: got.matchedOn, changed: got.changed, selector: got.el ? selectorFor(got.el) : null }; },
       annotatableAt: annotatableAt,
       survey: function () { return surveyCandidates(doc); },
+      // The page is going. postMessage has no equivalent of sendBeacon, so
+      // the queue is posted now or lost.
+      flushCapture: function () { if (capture && capture.send) { try { capture.send(false); } catch { /* going anyway */ } } },
     };
   }
 
