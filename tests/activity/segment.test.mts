@@ -9,7 +9,8 @@
 // the cuts in the direction it says on the tin.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { windows, parts, eventsOf, quietWithin, surfaceKey, DEFAULT_SEGMENTATION, type Deliberate, type Part, type Segmentation } from "../../lib/activity/segment.ts";
+import { windows, parts, eventsOf, appearances, quietWithin, surfaceKey, DEFAULT_SEGMENTATION, type Deliberate, type Part, type Segmentation } from "../../lib/activity/segment.ts";
+import type { TraceEvent } from "../../lib/trace/types.ts";
 import { frames, stages, at, restage, like, isSend } from "./session.mts";
 
 const cut = (over: Partial<Segmentation> = {}) => windows(stages, frames, { ...DEFAULT_SEGMENTATION, ...over });
@@ -234,5 +235,37 @@ describe("which brief stretches are doorways", () => {
       windows(stages, frames, DEFAULT_SEGMENTATION).map((w) => `${w.startedAt}/${w.endedAt}/${w.parts.length}`),
       windows(stages, frames, DEFAULT_SEGMENTATION, () => false).map((w) => `${w.startedAt}/${w.endedAt}/${w.parts.length}`),
     );
+  });
+});
+
+describe("text that appeared, and where it appeared", () => {
+  // A burst of DOM changes is one event. Its `container` is the lowest
+  // element holding all of them, so a repaint that touches two unrelated
+  // panels reduces both to whatever contains both — and joining their
+  // texts under it would say that one part of the interface said all of
+  // it. Where the bridge named the regions, each is its own appearance.
+  const change = (data: Record<string, unknown>): TraceEvent =>
+    ({ id: 1, seq: 1, at: "2026-01-01T00:00:00.000+00:00", frameId: "f", kind: "ui.change", data } as unknown as TraceEvent);
+
+  it("gives each changed region its own text", () => {
+    const got = appearances([change({
+      added: ["the tutor answered", "a requirement appeared"],
+      container: { tag: "main", selector: "main" },
+      regions: [
+        { target: { tag: "div", id: "log" }, added: ["the tutor answered"] },
+        { target: { tag: "ul", id: "reqs" }, added: ["a requirement appeared"] },
+      ],
+    })]);
+    assert.deepEqual(got.map((a) => [a.container?.id, a.text]), [["log", "the tutor answered"], ["reqs", "a requirement appeared"]]);
+  });
+
+  it("reads a burst recorded before regions existed exactly as it always did", () => {
+    const got = appearances([change({ added: ["hello", "world"], container: { tag: "main", selector: "main" } })]);
+    assert.deepEqual(got.map((a) => [a.container?.tag, a.text]), [["main", "hello world"]]);
+  });
+
+  it("falls back to the container when no region had any text of its own", () => {
+    const got = appearances([change({ added: ["hello"], container: { tag: "main" }, regions: [{ target: { tag: "div", id: "x" }, added: [] }] })]);
+    assert.deepEqual(got.map((a) => [a.container?.tag, a.text]), [["main", "hello"]]);
   });
 });

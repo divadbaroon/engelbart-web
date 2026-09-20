@@ -35,6 +35,7 @@
   var ENDPOINT = "/__engelbart/events";
   var config = {
     keyFoldMs: 800,       // identical keys this close together fold into one event with a count
+    editFoldMs: 900,      // edits to one field this close together fold into one event with a count
     quietMs: 700,         // a change summary closes after this much DOM silence
     burstMaxMs: 10000,    // ...or after this long, continuing in a new part
     armMs: 45000,         // mutations count as "after the interaction" for this long
@@ -43,6 +44,7 @@
     flushMs: 250,         // batch debounce
     batchEvents: 50, batchBytes: 48 * 1024, eventBytes: 4 * 1024, maxQueue: 500,
     textChars: 80, sampleChars: 200, sampleNodes: 40,
+    regionsMax: 6,        // changed regions named per burst, beyond which only the container is reported
     helloRetryMs: [0, 250, 1000, 3000],
     attachGraceMs: 400,   // how long the parent waits for an embedded frame to say hello after it loads
     // Replay capture, while the workspace has a recording open. The
@@ -129,6 +131,50 @@
   }
   var GOOD_ID = /^[A-Za-z_][\w-]{0,47}$/;
   function goodId(el) { var id = el.id; return typeof id === "string" && GOOD_ID.test(id) && !/\d{4,}/.test(id) ? id : null; }
+  // The attribute names a test harness points with. Every one of them
+  // exists for a single reason — to give a machine a stable name for
+  // this element — so they are all the same fact and all read as one.
+  var TEST_ATTRS = ["data-testid", "data-test-id", "data-test", "data-cy", "data-qa", "data-qa-id", "data-e2e", "data-test-selector"];
+  function testidOf(el) {
+    for (var i = 0; i < TEST_ATTRS.length; i++) { var v = el.getAttribute(TEST_ATTRS[i]); if (v) return v; }
+    return null;
+  }
+  // An application's own name for its own control. Applications that log
+  // their own clicks label the controls they care about, and that label
+  // is the best name anything will ever have for them — but every
+  // application invents its own attribute, so there is no list to keep.
+  // What is general is the convention: the attribute name ends in "id".
+  //
+  // Kept by shape rather than by name, and conservatively. The value has
+  // to read like an identifier — one token, starts with a letter, no long
+  // run of digits, no address, short — so that application state and
+  // content serialised into a data attribute stay where they are. A
+  // framework's own bookkeeping is named and skipped.
+  var ID_ATTR = /^data-([a-z0-9]+-)*id$/;
+  var ID_VALUE = /^[A-Za-z][\w.:-]{0,63}$/;
+  var FRAMEWORK_ATTR = /^data-(reactid|react-|v-|n-|ng-|svelte|astro|qwik|turbo|headlessui|radix|dash)/;
+  function identifierLike(v) { return typeof v === "string" && ID_VALUE.test(v) && !/\d{4,}/.test(v) && v.indexOf("@") < 0; }
+  //
+  // The attribute NAME is kept beside the value, because it is a
+  // different fact and usually the more general one. data-cell-id="B7"
+  // and data-node-id="B7" are the same identifier and not the same
+  // thing: the value says which one, the name says what kind. In an
+  // interface built out of many of something — cells, nodes, layers,
+  // tracks, markers — the value is per-instance and useless as a
+  // control anchor, while the name is the author's own word for the
+  // category and is the same on every one of them. Collapsing them
+  // would throw away the half that generalises. The name is static
+  // source text written by whoever wrote the element, so keeping it
+  // carries none of the risk that keeping a value does.
+  function appIdOf(el) {
+    var attrs = el.attributes; if (!attrs) return null;
+    for (var i = 0; i < attrs.length; i++) {
+      var n = attrs[i].name;
+      if (!ID_ATTR.test(n) || FRAMEWORK_ATTR.test(n)) continue;
+      if (identifierLike(attrs[i].value)) return { attr: n, value: cap(attrs[i].value, 64) };
+    }
+    return null;
+  }
   function rootOf(node) { return node.getRootNode ? node.getRootNode() : document; }
   // A CSS path that finds the element again in its document: an id when it
   // has a stable one, otherwise tag, stable classes and position, up to
@@ -224,7 +270,8 @@
     var label = labelFor(el); if (label) d.label = label;
     var placeholder = el.getAttribute("placeholder"); if (placeholder) d.placeholder = cap(placeholder, config.textChars);
     var title = el.getAttribute("title"); if (title) d.title = cap(title, config.textChars);
-    var testid = el.getAttribute("data-testid") || el.getAttribute("data-test-id") || el.getAttribute("data-test"); if (testid) d.testid = cap(testid, 64);
+    var testid = testidOf(el); if (testid) d.testid = cap(testid, 64);
+    var appId = appIdOf(el); if (appId) { d.appId = appId.value; d.appIdAttr = appId.attr; }
     var classes = usefulClasses(el, 6); if (classes.length) d.classes = classes;
     var href = d.tag === "a" || d.tag === "area" ? el.getAttribute("href") : null; if (href) { var h = safeUrl(href, el.ownerDocument.baseURI, loc); if (h) d.href = h; }
     if (d.tag === "form") { var action = el.getAttribute("action"); var a = safeUrl(action || loc.href, el.ownerDocument.baseURI, loc); if (a) d.action = a; d.method = (el.getAttribute("method") || "get").toLowerCase(); }
@@ -402,7 +449,7 @@
     }
 
     on(doc, "click", function (e) {
-      flushKey();
+      flushKey(); flushEdit();
       var target = targetOf(e);
       if (!target || target.nodeType !== 1) target = target && target.parentElement ? target.parentElement : doc.body;
       if (ours(target)) return;
@@ -414,7 +461,7 @@
     });
 
     on(doc, "submit", function (e) {
-      flushKey();
+      flushKey(); flushEdit();
       var form = e.target;
       var data = { trusted: e.isTrusted === true, form: describe(form) };
       if (e.submitter) data.submitter = describe(e.submitter);
@@ -450,12 +497,64 @@
       } else if (tag === "input" && type === "file") {
         data.kind = "file"; data.files = el.files ? el.files.length : 0;
       } else if (editableKind(el)) {
-        data.kind = editableKind(el) === "password" ? "password" : "text"; data.valueLength = typeof el.value === "string" ? el.value.length : undefined;
+        data.kind = editableKind(el) === "password" ? "password" : "text";
+        if (data.kind !== "password") data.valueLength = typeof el.value === "string" ? el.value.length : undefined;
       } else {
         data.kind = tag;
       }
+      data.commit = true;
       interaction("ui.input", data);
     });
+
+    // A person typing was the one act the collector could not see. The
+    // DOM "change" event above fires on blur with a value different from
+    // the one the field was focused with — which a controlled component
+    // never produces: it clears the box when the message is sent, and
+    // focus never leaves. So a whole sentence could be typed and sent
+    // and nothing but the Return would be recorded, and a reading built
+    // on that says somebody was writing when all it saw was a click into
+    // a field.
+    //
+    // "input" fires on every keystroke, so edits fold into one event per
+    // quiet period, the way keys do. Counts and the current length only:
+    // the characters never leave the page, exactly as before, and a
+    // password field reports neither its contents nor how long they are.
+    var pendingEdit = null;
+    function flushEdit() {
+      if (!pendingEdit) return;
+      var p = pendingEdit; pendingEdit = null;
+      if (p.timer) clearTimeout(p.timer);
+      var data = { target: p.target, kind: p.kind, editing: true, edits: p.edits, trusted: p.trusted };
+      if (p.kind !== "password" && p.valueLength !== undefined) data.valueLength = p.valueLength;
+      if (p.edits > 1) data.lastAt = p.lastAt;
+      emit("ui.input", data, { interactionId: p.id, at: p.firstAt });
+    }
+    function lengthOf(el, kind) {
+      try {
+        if (typeof el.value === "string") return el.value.length;
+        if (kind === "editor") return (el.textContent || "").length;
+      } catch { /* cross-origin or exotic element */ }
+      return undefined;
+    }
+    on(doc, "input", function (e) {
+      var el = targetOf(e);
+      if (!el || el.nodeType !== 1 || ours(el)) return;
+      var kind = editableKind(el);
+      if (!kind) return;                 // selects, checkboxes and sliders commit through "change"
+      var now = Date.now();
+      if (pendingEdit && pendingEdit.el !== el) flushEdit();
+      if (!pendingEdit) {
+        flushKey();
+        closeBurst("interaction");
+        pendingEdit = { el: el, target: describe(el), kind: kind === "password" ? "password" : kind, edits: 0, firstAt: now, id: mint(now), trusted: e.isTrusted === true };
+      }
+      pendingEdit.edits++;
+      pendingEdit.lastAt = now;
+      pendingEdit.valueLength = lengthOf(el, kind);
+      clearTimeout(pendingEdit.timer);
+      pendingEdit.timer = setTimeout(flushEdit, config.editFoldMs);
+    });
+    on(doc, "blur", function () { flushEdit(); }, { capture: true, passive: true });
 
     function flushKey() {
       if (!pendingKey) return;
@@ -609,7 +708,7 @@
       }
       return chain ? chain[0] : null;
     }
-    function samples(nodes, budget) {
+    function sampled(nodes, budget) {
       var out = [], chars = 0, seen = {};
       for (var i = 0; i < nodes.length && chars < budget; i++) {
         var n = nodes[i];
@@ -621,16 +720,64 @@
         var t = textOf(n); if (!t || seen[t]) continue;
         seen[t] = true;
         if (chars + t.length > budget) t = t.slice(0, Math.max(0, budget - chars - 1)) + "…";
-        out.push(t); chars += t.length;
+        out.push({ node: n, text: t }); chars += t.length;
       }
       return out;
+    }
+    // The lowest common ancestor of a burst is the least specific true
+    // answer there is. One repaint that touches a conversation and a
+    // document at the same moment reduces both to whatever contains
+    // them — often <main>, sometimes <body> — and a reading is then left
+    // with two unrelated texts, one container, and no way to say which
+    // part of the interface either came from. A channel written against
+    // the specific region matches nothing, and says nothing when it
+    // fails.
+    //
+    // So the changed subtrees are also reported as themselves: for each
+    // sampled text, the nearest ancestor that says what it is, which is
+    // the same walk the annotation picker uses. Several candidates
+    // rather than one, each with the text that appeared inside it.
+    // `container` is left exactly as it was, so nothing that reads it
+    // changes.
+    // Where a changed node landed, not what it is. The walk starts at the
+    // parent: the node itself is new — a fresh bubble, a fresh row — and
+    // naming it would name this repaint rather than the part of the
+    // interface it happened in.
+    function placeOf(node) {
+      var el = node && node.nodeType === 1 ? node : node ? node.parentElement : null;
+      var start = el && el.parentElement ? el.parentElement : el;
+      for (var up = start, i = 0; up && i < 8; i++, up = upFrom(up)) if (meaningfulElement(up)) return up;
+      return start;
+    }
+    function regionsFrom(pairs) {
+      var groups = [];
+      for (var i = 0; i < pairs.length; i++) {
+        var el = placeOf(pairs[i].node);
+        if (!el || el === doc.body || el === doc.documentElement) continue;
+        var found = null;
+        for (var j = 0; j < groups.length; j++) if (groups[j].el === el) { found = groups[j]; break; }
+        if (!found) { if (groups.length >= config.regionsMax) continue; found = { el: el, added: [] }; groups.push(found); }
+        if (found.added.indexOf(pairs[i].text) < 0) found.added.push(pairs[i].text);
+      }
+      if (!groups.length) return undefined;
+      return groups.map(function (g) {
+        var d = describe(g.el);
+        delete d.rect; delete d.route;    // where it was on screen says nothing about which one it is
+        // The places above it, so that a reading can anchor at whichever
+        // level of the interface is the stable one. An application that
+        // renders its panels as unlabelled divs offers none, and saying
+        // so is the honest answer rather than a guess.
+        var within = ancestorsOf(g.el).slice(0, 2);
+        return within.length ? { target: d, within: within, added: g.added } : { target: d, added: g.added };
+      });
     }
     function closeBurst(why) {
       if (!burst) return;
       var b = burst; burst = null;
       clearTimeout(b.timer); clearTimeout(b.maxTimer);
       if (!b.mutations) return;
-      var added = samples(b.added.concat(b.changed), config.sampleChars);
+      var pairs = sampled(b.added.concat(b.changed), config.sampleChars);
+      var added = pairs.map(function (p) { return p.text; });
       var removed = b.removed;
       // Text taken out and put back is a rerender, not a visible change;
       // it is counted, not quoted.
@@ -640,12 +787,14 @@
         removed = removed.filter(function (t) { return same.indexOf(t) < 0; });
       }
       var container = lowestCommonAncestor(b.targets);
+      var regions = regionsFrom(pairs.filter(function (p) { return added.indexOf(p.text) >= 0; }));
       var data = {
         part: b.part, closed: why, firstMutationAt: b.firstAt, lastMutationAt: b.lastAt, durationMs: b.lastAt - b.firstAt,
         sinceInteractionMs: b.interactionAt ? b.firstAt - b.interactionAt : null, requestsInFlight: b.requestsInFlight,
         mutations: b.mutations, addedNodes: b.addedNodes, removedNodes: b.removedNodes, textChanges: b.textChanges, attributeChanges: b.attributeChanges,
         added: added.slice(0, 12), removed: removed.slice(0, 12), rerendered: same.length || undefined,
         container: container ? describe(container) : undefined,
+        regions: regions,
       };
       emit("ui.change", data, { interactionId: b.interactionId, correlation: b.interactionId ? "temporal" : undefined, at: b.firstAt });
     }
@@ -819,7 +968,7 @@
       scanForFrames(doc.documentElement);
     }
     function flushAll(unloading) {
-      flushKey();
+      flushKey(); flushEdit();
       if (unloading) closeBurst("unload");
       if (unloading && annotator) annotator.flushCapture();
       frames.forEach(function (entry) { if (entry.bridge) entry.bridge.flushAll(unloading); });
@@ -846,13 +995,13 @@
       timers.forEach(clearTimeout);
       frames.forEach(function (entry) { clearTimeout(entry.timer); if (entry.bridge) entry.bridge.detach(); });
       frames.clear();
-      flushKey(); closeBurst("detach");
+      flushKey(); flushEdit(); closeBurst("detach");
     }
 
     var api = {
       version: VERSION, frameId: frameId, describe: describe, selectorFor: selectorFor, annotatableAt: annotatableAt, classifyKey: classifyKey, editableKind: editableKind, safeUrl: safeUrl,
       configure: function (patch) { for (var k in patch) if (k in config) config[k] = patch[k]; },
-      flush: function () { flushKey(); frames.forEach(function (entry) { if (entry.bridge) entry.bridge.flushAll(false); }); return transport.flush(false); },
+      flush: function () { flushKey(); flushEdit(); frames.forEach(function (entry) { if (entry.bridge) entry.bridge.flushAll(false); }); return transport.flush(false); },
       stats: function () { return { interactions: interactions, latest: latest, pendingRequests: pendingRequests, frames: frames.size, transport: transport.stats() }; },
       frames: function () { var out = []; frames.forEach(function (entry, el) { out.push({ frameId: entry.frameId, state: entry.state, reason: entry.reason, selector: selectorFor(el) }); }); return out; },
       parent: function () { return { parentFrameId: parentFrameId, depth: depth }; },
@@ -894,7 +1043,7 @@
   // goes past it. If nothing above it says anything either, the element
   // under the pointer is the answer — an ancestor picked for being nearby
   // would be a guess, and a guess is worse than a plain <div>.
-  var REGION_SELECTOR = "main,article,section,aside,nav,header,footer,figure,figcaption,blockquote,li,tr,td,th,table,form,fieldset,legend,h1,h2,h3,h4,h5,h6,p,pre,dl,dt,dd,[role],[aria-label],[aria-labelledby],[data-testid],[data-test-id],[data-test]";
+  var REGION_SELECTOR = "main,article,section,aside,nav,header,footer,figure,figcaption,blockquote,li,tr,td,th,table,form,fieldset,legend,h1,h2,h3,h4,h5,h6,p,pre,dl,dt,dd,[role],[aria-label],[aria-labelledby],[data-testid],[data-test-id],[data-test],[data-cy],[data-qa],[data-qa-id],[data-e2e],[data-test-selector]";
   // Text of its own is a part of the interface too. A page that renders
   // its content as plain <div>s with utility classes — which is most of
   // them — offers nothing above but its buttons: a tutor's whole
@@ -926,6 +1075,11 @@
     if (name === "html" || name === "body") return false;
     try { if (el.matches(REGION_SELECTOR)) return true; } catch { /* not matchable */ }
     if (goodId(el)) return true;
+    // An application's own name for this element, by shape rather than
+    // by a list of attribute names — CSS cannot ask whether an attribute
+    // NAME matches a pattern, and naming one application's attribute
+    // here would be knowing about that application.
+    if (appIdOf(el)) return true;
     if (labelFor(el)) return true;
     if (usefulClasses(el, 1).length > 0) return true;
     return textBlock(el);

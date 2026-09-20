@@ -50,7 +50,9 @@ export type ElementTarget = {
   label?: string;       // aria-label, aria-labelledby, or the element's <label>
   placeholder?: string;
   title?: string;
-  testid?: string;      // data-testid, data-test-id or data-test
+  testid?: string;      // data-testid, data-test-id, data-test, data-cy, data-qa, data-qa-id, data-e2e or data-test-selector
+  appId?: string;       // the application's own name for this element: the value of a data-*-id attribute that reads like an identifier
+  appIdAttr?: string;   // which attribute that was, e.g. "data-cell-id" — the kind, where appId is the instance
   classes?: string[];   // hashed and utility classes stripped
   href?: string;        // through safeUrl already: no credentials, no query values
   action?: string;      // forms

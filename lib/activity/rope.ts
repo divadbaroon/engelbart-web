@@ -54,13 +54,13 @@ const CHANNELS: Taxonomy["channels"] = [
     // Matching on the words instead would read the page as the tutor:
     // ROPE rerenders whole containers, and a repaint of `main` or `body`
     // carries every word on the screen, the tutor's among them.
-    is: (a) => /^main > div:nth-of-type\(2\) > div:nth-of-type\(2\) > div > div/.test(a.container ?? ""),
+    is: (a) => /^main > div:nth-of-type\(2\) > div:nth-of-type\(2\) > div > div/.test(a.container?.selector ?? ""),
   },
   {
     id: "participant",
     label: "the person",
     from: "person",
-    is: (a) => a.container === "main > div:nth-of-type(2) > div:nth-of-type(2) > div",
+    is: (a) => a.container?.selector === "main > div:nth-of-type(2) > div:nth-of-type(2) > div",
   },
   {
     id: "requirements",
@@ -68,7 +68,7 @@ const CHANNELS: Taxonomy["channels"] = [
     from: "system",
     // The document fills in a word at a time as the tutor accepts what
     // was written, and those mutations land on the page container itself.
-    is: (a) => a.container === "main" || /^main > div:nth-of-type\(3\)/.test(a.container ?? ""),
+    is: (a) => a.container?.tag === "main" || /^main > div:nth-of-type\(3\)/.test(a.container?.selector ?? ""),
   },
 ];
 

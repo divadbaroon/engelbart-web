@@ -53,7 +53,7 @@ export const MAX_BODY = 4000;
 
 const CAP: Record<string, number> = {
   tag: 64, selector: 1000, id: 128, name: 64, type: 32, role: 64,
-  text: 200, label: 200, placeholder: 200, title: 200, testid: 128,
+  text: 200, label: 200, placeholder: 200, title: 200, testid: 128, appId: 128, appIdAttr: 64,
   href: 2048, action: 2048, method: 16, size: 32, editable: 32, route: 2048,
 };
 const STRING_KEYS = Object.keys(CAP) as (keyof ElementTarget & keyof typeof CAP)[];

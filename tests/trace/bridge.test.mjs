@@ -228,6 +228,40 @@ describe("interactions", () => {
     assert.equal(inputs[3].data.target.placeholder, "Name");
     assert.equal(JSON.stringify(inputs).includes("Lovelace"), false);
   });
+  it("records that a person typed, without the characters, and never a password's length", async () => {
+    // The committed-value handler above fires on blur with a changed
+    // value, which a controlled component never produces: it clears the
+    // box when the message is sent and focus never leaves. Without this
+    // the one act that matters most in a text interface is invisible,
+    // and a reading of the session says somebody was writing when all it
+    // saw was a click into a field.
+    const { win, doc, events } = await load(`<textarea placeholder="Say"></textarea><input id=p type=password><div id=e contenteditable>ab</div>`);
+    const type = (el, value) => { el.value = value; el.dispatchEvent(new win.InputEvent("input", { bubbles: true, data: value.slice(-1), inputType: "insertText" })); };
+    const field = doc.querySelector("textarea");
+    for (const draft of ["c", "cr", "cre", "crea", "creat", "create"]) type(field, draft);
+    // Sent with Return: the framework clears the box and focus stays put.
+    key(win, field, { key: "Enter" });
+    field.value = "";
+    for (const draft of ["h", "hu"]) type(doc.getElementById("p"), draft);
+    doc.getElementById("e").textContent = "abc";
+    doc.getElementById("e").dispatchEvent(new win.InputEvent("input", { bubbles: true, inputType: "insertText" }));
+    await sleep(60);
+    const all = await events();
+    const inputs = ofKind(all, "ui.input");
+    assert.deepEqual(inputs.map((e) => [e.data.kind, e.data.editing === true, e.data.edits, e.data.valueLength]),
+      [["text", true, 6, 6], ["password", true, 2, undefined], ["editor", true, 1, 3]]);
+    assert.equal(inputs[0].data.target.placeholder, "Say");
+    assert.equal(JSON.stringify(all).includes("create"), false, "the characters never leave the page");
+    assert.equal(JSON.stringify(all).includes("hu"), false);
+  });
+  it("folds a run of edits to one field and starts again at the next", async () => {
+    const { win, doc, events } = await load(`<input id=a placeholder=A><input id=b placeholder=B>`);
+    const type = (id, v) => { const el = doc.getElementById(id); el.value = v; el.dispatchEvent(new win.InputEvent("input", { bubbles: true, inputType: "insertText" })); };
+    type("a", "x"); type("a", "xy"); type("b", "q"); type("a", "xyz");
+    await sleep(60);
+    const inputs = ofKind(await events(), "ui.input");
+    assert.deepEqual(inputs.map((e) => [e.data.target.placeholder, e.data.edits]), [["A", 2], ["B", 1], ["A", 1]]);
+  });
   it("records route changes made through history and hashes", async () => {
     const { win, events } = await load(``);
     win.history.pushState({}, "", "/lesson/2?step=3");
@@ -285,6 +319,47 @@ describe("network tagging", () => {
   });
 });
 
+describe("what an application calls its own elements", () => {
+  it("reads every test-harness attribute as one fact", async () => {
+    const { doc, api } = await load(`<button data-cy=send>S</button><button data-qa=next>N</button><button data-e2e=go>G</button><button data-test-selector=stop>X</button>`);
+    assert.deepEqual([...doc.querySelectorAll("button")].map((b) => api.describe(b).testid), ["send", "next", "go", "stop"]);
+  });
+  it("keeps an application's own identifier, by shape and not by name", async () => {
+    // Applications that log their own clicks name the controls they care
+    // about, and that name is the best one anything will ever have for
+    // them. Every application invents its own attribute, so there is no
+    // list to keep: what is general is that the name ends in "id".
+    const { doc, api } = await load(
+      `<button id=one data-button-id="reset-game">R</button>` +
+      `<button id=two data-node-id="alpha.beta">N</button>` +
+      `<button id=three data-id="pick">P</button>`);
+    const id = (s) => api.describe(doc.getElementById(s)).appId;
+    assert.deepEqual([id("one"), id("two"), id("three")], ["reset-game", "alpha.beta", "pick"]);
+  });
+  it("keeps which attribute the name came from, because the kind is not the instance", async () => {
+    // data-cell-id="b7" and data-node-id="b7" are the same identifier
+    // and not the same thing. In an interface made of many of something
+    // the value is per-instance and useless as an anchor, while the
+    // attribute is the author's own word for the category and is the
+    // same on every one of them.
+    const { doc, api } = await load(`<div id=a data-cell-id="b7">x</div><div id=b data-node-id="b7">y</div>`);
+    const seen = ["a", "b"].map((s) => { const d = api.describe(doc.getElementById(s)); return [d.appIdAttr, d.appId]; });
+    assert.deepEqual(seen, [["data-cell-id", "b7"], ["data-node-id", "b7"]]);
+  });
+  it("leaves state, content and anything private where it is", async () => {
+    const { doc, api } = await load(
+      `<div id=a data-row-id='{"user":"ada","email":"a@b.c"}'>x</div>` +
+      `<div id=b data-user-id="a@b.c">x</div>` +
+      `<div id=c data-order-id="0000123456">x</div>` +
+      `<div id=d data-index="42">x</div>` +
+      `<div id=e data-state="open">x</div>` +
+      `<div id=f data-radix-collection-id="r1">x</div>` +
+      `<div id=g data-note-id="a very long identifier that is really a sentence pretending to be one">x</div>`);
+    const seen = ["a", "b", "c", "d", "e", "f", "g"].map((s) => api.describe(doc.getElementById(s)).appId);
+    assert.deepEqual(seen, [undefined, undefined, undefined, undefined, undefined, undefined, undefined]);
+  });
+});
+
 describe("visible change summaries", () => {
   it("folds the DOM changes after an interaction into one temporal ui.change", async () => {
     const { win, doc, events } = await load(`<main><div id="chat"><p>Hello</p></div><button>Ask</button></main>`);
@@ -324,6 +399,54 @@ describe("visible change summaries", () => {
     doc.querySelector("nextjs-portal").textContent = "1 error";
     await sleep(60);
     assert.equal(ofKind(await events(), "ui.change").length, 0);
+  });
+  it("names the regions a burst changed, not only the one element holding all of them", async () => {
+    // The lowest common ancestor of a burst is the least specific true
+    // answer there is: one repaint touching two unrelated panels reduces
+    // both to whatever contains them, and a reading is left with two
+    // texts, one container, and no way to say which panel said what.
+    const { win, doc, events } = await load(
+      `<main><section aria-label="Conversation"><div id=log></div></section>` +
+      `<section aria-label="Requirements"><ul id=reqs></ul></section><button>Ask</button></main>`);
+    click(win, doc.querySelector("button"));
+    doc.getElementById("log").append(Object.assign(doc.createElement("p"), { textContent: "You identified the first step." }));
+    doc.getElementById("reqs").append(Object.assign(doc.createElement("li"), { textContent: "Creating and Drawing the Board" }));
+    await sleep(60);
+    const c = ofKind(await events(), "ui.change")[0];
+    assert.equal(c.data.container.tag, "main", "the container is still what it always was");
+    assert.deepEqual(c.data.regions.map((r) => [r.target.id, r.added]), [
+      ["log", ["You identified the first step."]],
+      ["reqs", ["Creating and Drawing the Board"]],
+    ]);
+    // Several candidates, so a reading can anchor at whichever level of
+    // the interface turns out to be the stable one.
+    assert.deepEqual(c.data.regions.map((r) => r.within.map((w) => w.label ?? w.tag)), [
+      ["Conversation", "main"], ["Requirements", "main"],
+    ]);
+    assert.equal(c.data.regions[0].target.rect, undefined, "where it was says nothing about which one it is");
+  });
+  it("degrades to what it can name when a panel is nothing but unlabelled divs", async () => {
+    // An application that renders its panels as bare <div>s offers
+    // nothing to anchor on, and no amount of walking up invents a name.
+    // The honest answer is the one element that does say what it is —
+    // which is exactly what the container said before — so this makes
+    // such an interface no worse and never pretends otherwise.
+    const { win, doc, events } = await load(`<main><div><div id=x></div></div><button>Ask</button></main>`);
+    click(win, doc.querySelector("button"));
+    doc.querySelector("#x > *, #x").append(Object.assign(doc.createElement("span"), { textContent: "some text arrived" }));
+    await sleep(60);
+    const c = ofKind(await events(), "ui.change")[0];
+    assert.deepEqual(c.data.regions.map((r) => r.target.id ?? r.target.tag), ["x"]);
+    assert.deepEqual(c.data.regions[0].within.map((w) => w.tag), ["main"]);
+  });
+  it("splits one burst per region, so two panels are never quoted as one voice", async () => {
+    const { win, doc, events } = await load(`<main><div class="col"><div></div></div><button>Ask</button></main>`);
+    click(win, doc.querySelector("button"));
+    // Nothing between the text and <main> says anything at all.
+    doc.querySelector(".col > div").append(Object.assign(doc.createElement("span"), { textContent: "arrived" }));
+    await sleep(60);
+    const c = ofKind(await events(), "ui.change")[0];
+    assert.deepEqual(c.data.regions.map((r) => r.target.tag), ["main"], "no guess below it, so it says main and stops");
   });
   it("never quotes what a text field mirrors into its DOM, and counts a rerender instead of quoting it", async () => {
     const { win, doc, events } = await load(`<form><textarea placeholder="Say"></textarea></form><ul id="log"><li>create a board</li></ul><button>Go</button>`);

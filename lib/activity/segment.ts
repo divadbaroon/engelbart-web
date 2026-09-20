@@ -27,7 +27,7 @@
 import type { FrameInfo, Stage, TraceRow } from "@/lib/trace/timeline";
 import type { SemanticIndex } from "@/lib/semantics/lookup";
 import { regionLabel, lookupTarget } from "@/lib/semantics/lookup";
-import { targetOf, type TraceEvent } from "@/lib/trace/types";
+import { elementTarget, targetOf, type ElementTarget, type TraceEvent } from "@/lib/trace/types";
 
 // The four numbers that decide where episodes begin and end. Named and
 // passed in rather than written into the code, because the right pause
@@ -235,7 +235,21 @@ export function parts(stages: Stage[], cfg: Segmentation = DEFAULT_SEGMENTATION)
   return out.sort((a, b) => ms(a.at) - ms(b.at) || a.events[0].seq - b.events[0].seq);
 }
 
-export type Appearance = { at: number; container: string | null; containerText: string | null; text: string };
+// Text that arrived on screen, and the element it arrived in.
+//
+// The container is the whole descriptor rather than a selector and a
+// string, because a channel has to be recognisable by the same things any
+// other element is recognisable by — a test id, a role, an accessible
+// name — and not only by where it sat in the tree. What the bridge
+// happens to know about a given container varies; an interface that names
+// its conversation can be matched on the name, and one that does not
+// falls back to the path. Throwing the descriptor away made that choice
+// for every artifact in advance, and made it the worst one.
+export type Appearance = {
+  at: number;
+  container: ElementTarget | null;
+  text: string;
+};
 
 // `ui.change` reports the text that arrived as the nodes it arrived in,
 // so a sentence comes back as its words and its punctuation separately:
@@ -260,18 +274,35 @@ export function eventsOf(parts: Part[]): TraceEvent[] {
   return out.sort((a, b) => ms(a.at) - ms(b.at) || a.seq - b.seq);
 }
 
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((t): t is string => typeof t === "string") : []);
+
+// Text that appeared, and where. A burst of DOM changes is one event,
+// and its `container` is the lowest element holding all of them: when
+// one repaint touches two unrelated panels that is whatever contains
+// both, and joining their texts under it would say that one part of the
+// interface said all of it.
+//
+// So where the bridge reported the regions a burst changed, each is its
+// own appearance with its own text. Bursts recorded before it did — and
+// any that resolve to nothing nameable — still read exactly as they did,
+// as one appearance under the container.
 export function appearances(events: TraceEvent[]): Appearance[] {
   const out: Appearance[] = [];
-  {
-    for (const e of events) {
-      if (e.kind !== "ui.change") continue;
-      const d = e.data ?? {};
-      const added = Array.isArray(d.added) ? d.added.filter((t): t is string => typeof t === "string") : [];
-      const container = targetOf(e);
-      const text = tidy(added.join(" "));
+  for (const e of events) {
+    if (e.kind !== "ui.change") continue;
+    const d = e.data ?? {};
+    const at = ms(e.at);
+    const before = out.length;
+    for (const r of Array.isArray(d.regions) ? d.regions : []) {
+      const region = r as { target?: unknown; added?: unknown } | null;
+      const text = tidy(strings(region?.added).join(" "));
       if (!text) continue;
-      out.push({ at: ms(e.at), container: container?.selector ?? null, containerText: container?.text ?? null, text });
+      out.push({ at, container: elementTarget(region?.target), text });
     }
+    if (out.length > before) continue;
+    const text = tidy(strings(d.added).join(" "));
+    if (!text) continue;
+    out.push({ at, container: targetOf(e), text });
   }
   return out;
 }
