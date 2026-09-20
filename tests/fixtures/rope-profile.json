@@ -1,0 +1,1732 @@
+{
+  "version": 1,
+  "artifact": {
+    "name": "ROPE"
+  },
+  "provenance": {
+    "by": "handwritten",
+    "note": "The existing ROPE taxonomy, written out as data. It exists to test the profile language, not to replace lib/activity/rope.ts: if something here cannot be said, the language is missing an operator."
+  },
+  "surfaces": [
+    {
+      "id": "page",
+      "match": {
+        "equals": [
+          "/",
+          "top"
+        ]
+      },
+      "label": "the tutoring page",
+      "role": "shell",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "trace",
+            "eventKind": "frame.loaded"
+          }
+        ],
+        "note": "a single page with no router, so the document itself is the surface; \"top\" is a stage that happened on no document at all"
+      }
+    },
+    {
+      "id": "own",
+      "match": {
+        "equals": "my-canvas"
+      },
+      "label": "their canvas",
+      "role": "own",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "trace",
+            "eventKind": "frame.attached"
+          }
+        ],
+        "note": "the sandbox names itself in its own query string"
+      }
+    },
+    {
+      "id": "reference",
+      "match": {
+        "equals": "solution"
+      },
+      "label": "the reference game",
+      "role": "reference",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "trace",
+            "eventKind": "frame.attached"
+          }
+        ]
+      }
+    },
+    {
+      "id": "reference-step",
+      "match": {
+        "glob": "solution-step-*"
+      },
+      "label": "the reference for step {1}",
+      "role": "reference",
+      "generation": {
+        "confidence": "high",
+        "grounding": "abstraction",
+        "ev": [
+          {
+            "kind": "trace",
+            "eventKind": "frame.attached"
+          }
+        ],
+        "note": "step frames are minted one per step, so they are matched by shape rather than listed"
+      }
+    }
+  ],
+  "channels": [
+    {
+      "id": "tutor",
+      "label": "the tutor",
+      "from": "system",
+      "container": {
+        "selector": {
+          "prefix": "main > div:nth-of-type(2) > div:nth-of-type(2) > div > div"
+        }
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "inference",
+        "ev": [
+          {
+            "kind": "trace",
+            "eventKind": "ui.change"
+          }
+        ],
+        "note": "the answer streams into a message of its own inside the conversation, one level below the list that holds them; fitted from one recording, and nothing at that container carries an id, a test id or a role"
+      }
+    },
+    {
+      "id": "participant",
+      "label": "the person",
+      "from": "person",
+      "container": {
+        "selector": {
+          "equals": "main > div:nth-of-type(2) > div:nth-of-type(2) > div"
+        }
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "inference",
+        "ev": [
+          {
+            "kind": "trace",
+            "eventKind": "ui.change"
+          }
+        ],
+        "note": "what a person sent is written straight into the list that holds the messages; that one level is the whole of the difference from the tutor's own words"
+      }
+    },
+    {
+      "id": "requirements",
+      "label": "the requirements document",
+      "from": "system",
+      "container": {
+        "any": [
+          {
+            "tag": {
+              "equals": "main"
+            }
+          },
+          {
+            "selector": {
+              "prefix": "main > div:nth-of-type(3)"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "inference",
+        "ev": [
+          {
+            "kind": "trace",
+            "eventKind": "ui.change"
+          }
+        ],
+        "note": "the document fills in a word at a time, and those mutations land on the page container itself"
+      }
+    }
+  ],
+  "controls": [
+    {
+      "id": "open-reference",
+      "label": "the Solution tab",
+      "anchor": {
+        "any": [
+          {
+            "testid": {
+              "equals": "tab-solution"
+            }
+          },
+          {
+            "text": {
+              "equals": "Solution"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "survey"
+          }
+        ]
+      }
+    },
+    {
+      "id": "open-own",
+      "label": "the My canvas tab",
+      "anchor": {
+        "any": [
+          {
+            "testid": {
+              "equals": "tab-my-canvas"
+            }
+          },
+          {
+            "text": {
+              "equals": "My canvas"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "survey"
+          }
+        ]
+      }
+    },
+    {
+      "id": "replay-reference",
+      "label": "Replay",
+      "anchor": {
+        "any": [
+          {
+            "testid": {
+              "equals": "replay-solution"
+            }
+          },
+          {
+            "text": {
+              "equals": "Replay"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "survey"
+          }
+        ]
+      }
+    },
+    {
+      "id": "generate",
+      "label": "Generate Game",
+      "anchor": {
+        "text": {
+          "equals": "Generate Game"
+        }
+      },
+      "moment": true,
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "survey"
+          }
+        ]
+      }
+    },
+    {
+      "id": "next-step",
+      "label": "Next Step",
+      "anchor": {
+        "text": {
+          "equals": "Next Step"
+        }
+      },
+      "moment": true,
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "survey"
+          }
+        ]
+      }
+    },
+    {
+      "id": "reset",
+      "label": "Reset",
+      "anchor": {
+        "text": {
+          "equals": "Reset"
+        }
+      },
+      "moment": true,
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "survey"
+          }
+        ]
+      }
+    },
+    {
+      "id": "end",
+      "label": "End",
+      "anchor": {
+        "text": {
+          "equals": "End"
+        }
+      },
+      "moment": true,
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "survey"
+          }
+        ]
+      }
+    },
+    {
+      "id": "change-game",
+      "label": "Change Game",
+      "anchor": {
+        "text": {
+          "equals": "Change Game"
+        }
+      },
+      "moment": true,
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "survey"
+          }
+        ]
+      }
+    },
+    {
+      "id": "login",
+      "label": "the sign-in button",
+      "anchor": {
+        "text": {
+          "equals": "login"
+        }
+      },
+      "moment": true,
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "survey"
+          }
+        ]
+      }
+    },
+    {
+      "id": "composer",
+      "label": "the message box",
+      "anchor": {
+        "all": [
+          {
+            "tag": {
+              "equals": [
+                "textarea",
+                "form"
+              ]
+            }
+          },
+          {
+            "selector": {
+              "contains": "form"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "survey"
+          }
+        ]
+      }
+    },
+    {
+      "id": "game",
+      "label": "the game",
+      "anchor": {
+        "elementId": {
+          "equals": "game-canvas"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "survey"
+          }
+        ]
+      }
+    }
+  ],
+  "keySets": [
+    {
+      "id": "play",
+      "label": "the movement and rotation keys",
+      "keys": [
+        "ArrowLeft",
+        "ArrowRight",
+        "ArrowUp",
+        "ArrowDown",
+        " ",
+        "Space",
+        "Spacebar"
+      ],
+      "generation": {
+        "confidence": "high",
+        "grounding": "abstraction",
+        "ev": [
+          {
+            "kind": "trace",
+            "eventKind": "ui.key"
+          }
+        ],
+        "note": "browser key names are a fixed vocabulary; that these ones move and rotate a piece is a reading of the artifact"
+      }
+    }
+  ],
+  "rules": [
+    {
+      "id": "no-recorded-activity",
+      "sub": "NO_RECORDED_ACTIVITY",
+      "broad": "UNCLEAR",
+      "priority": 10,
+      "when": {
+        "not": {
+          "flag": "observed"
+        }
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "acts": {
+                "of": [
+                  "keys",
+                  "clicks",
+                  "typing"
+                ],
+                "op": "gt",
+                "value": 0
+              }
+            },
+            "then": {
+              "join": [
+                {
+                  "lit": "Nothing further was recorded for "
+                },
+                {
+                  "duration": true
+                },
+                {
+                  "lit": "."
+                }
+              ]
+            }
+          }
+        ],
+        "else": {
+          "join": [
+            {
+              "lit": "Nothing was recorded for "
+            },
+            {
+              "duration": true
+            },
+            {
+              "lit": "."
+            }
+          ]
+        }
+      },
+      "because": {
+        "join": [
+          {
+            "field": "surfaceLabel"
+          },
+          {
+            "lit": " was the last thing open; the interface reports nothing that would tell time spent reading from time away"
+          }
+        ]
+      },
+      "confidence": "low",
+      "note": "First, and unconditional: time in front of an unchanging screen and time away from the desk look exactly alike."
+    },
+    {
+      "id": "resume-session",
+      "sub": "RESUME_SESSION",
+      "broad": "ORIENTING",
+      "priority": 20,
+      "when": {
+        "all": [
+          {
+            "flag": "discontinuity"
+          },
+          {
+            "not": {
+              "flag": "submitted"
+            }
+          }
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "controlUsed": [
+                "login"
+              ]
+            },
+            "then": {
+              "lit": "Signed back in after the page was replaced."
+            }
+          }
+        ],
+        "else": {
+          "lit": "The page was replaced and the session picked up again."
+        }
+      },
+      "because": {
+        "cond": [
+          {
+            "when": {
+              "controlUsed": [
+                "login"
+              ]
+            },
+            "then": {
+              "lit": "the document behind the page was replaced, and the sign-in was used in what followed"
+            }
+          }
+        ],
+        "else": {
+          "field": "discontinuity"
+        }
+      },
+      "note": "Behind the sending rules on purpose: a page replaced around a submission must not take the submission's row."
+    },
+    {
+      "id": "experiment-with-reference",
+      "sub": "EXPERIMENT_WITH_REFERENCE",
+      "broad": "EXPLORING",
+      "priority": 30,
+      "when": {
+        "all": [
+          {
+            "surfaceRole": [
+              "reference"
+            ]
+          },
+          {
+            "acts": {
+              "of": [
+                "keys",
+                "clicks"
+              ],
+              "op": "gt",
+              "value": 1
+            }
+          }
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "all": [
+                {
+                  "acts": {
+                    "of": [
+                      "keys"
+                    ],
+                    "op": "gt",
+                    "value": 0
+                  }
+                },
+                {
+                  "keysIn": "play"
+                }
+              ]
+            },
+            "then": {
+              "join": [
+                {
+                  "lit": "Played the reference game"
+                },
+                {
+                  "cond": [
+                    {
+                      "when": {
+                        "enteredBy": [
+                          "replay-reference"
+                        ]
+                      },
+                      "then": {
+                        "lit": ", after restarting it"
+                      }
+                    }
+                  ],
+                  "else": {
+                    "lit": ""
+                  }
+                },
+                {
+                  "lit": "."
+                }
+              ]
+            }
+          }
+        ],
+        "else": {
+          "join": [
+            {
+              "lit": "Experimented with the reference game"
+            },
+            {
+              "cond": [
+                {
+                  "when": {
+                    "enteredBy": [
+                      "replay-reference"
+                    ]
+                  },
+                  "then": {
+                    "lit": ", after restarting it"
+                  }
+                }
+              ],
+              "else": {
+                "lit": ""
+              }
+            },
+            {
+              "lit": "."
+            }
+          ]
+        }
+      },
+      "because": {
+        "cond": [
+          {
+            "when": {
+              "all": [
+                {
+                  "acts": {
+                    "of": [
+                      "keys"
+                    ],
+                    "op": "gt",
+                    "value": 0
+                  }
+                },
+                {
+                  "keysIn": "play"
+                }
+              ]
+            },
+            "then": {
+              "join": [
+                {
+                  "count": {
+                    "of": [
+                      "keys"
+                    ],
+                    "one": "press",
+                    "many": "presses"
+                  }
+                },
+                {
+                  "lit": " of "
+                },
+                {
+                  "keys": {
+                    "in": "play",
+                    "join": ", "
+                  }
+                },
+                {
+                  "lit": " in the reference game over "
+                },
+                {
+                  "duration": true
+                }
+              ]
+            }
+          }
+        ],
+        "else": {
+          "join": [
+            {
+              "count": {
+                "of": [
+                  "keys"
+                ],
+                "one": "key"
+              }
+            },
+            {
+              "lit": " and "
+            },
+            {
+              "count": {
+                "of": [
+                  "clicks"
+                ],
+                "one": "click"
+              }
+            },
+            {
+              "lit": " in the reference game over "
+            },
+            {
+              "duration": true
+            }
+          ]
+        }
+      },
+      "note": "What somebody did in a stretch outranks the button that got them into it, which is why this sits above the sign-in and the replay."
+    },
+    {
+      "id": "sign-in",
+      "sub": "SIGN_IN",
+      "broad": "ORIENTING",
+      "priority": 40,
+      "when": {
+        "all": [
+          {
+            "controlUsed": [
+              "login"
+            ]
+          },
+          {
+            "not": {
+              "flag": "submitted"
+            }
+          }
+        ]
+      },
+      "description": {
+        "lit": "Signed in to start the session."
+      },
+      "because": {
+        "lit": "the sign-in was used and nothing had been replaced"
+      }
+    },
+    {
+      "id": "wait-for-tutor",
+      "sub": "WAIT_FOR_TUTOR_RESPONSE",
+      "broad": "WAITING",
+      "priority": 50,
+      "when": {
+        "all": [
+          {
+            "flag": "awaiting"
+          },
+          {
+            "flag": "call"
+          },
+          {
+            "not": {
+              "flag": "submitted"
+            }
+          },
+          {
+            "not": {
+              "flag": "composing"
+            }
+          }
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "channelSaid": "tutor"
+            },
+            "then": {
+              "join": [
+                {
+                  "lit": "Waited for the tutor, which answered: "
+                },
+                {
+                  "quote": {
+                    "source": {
+                      "channel": "tutor"
+                    },
+                    "max": 44
+                  }
+                },
+                {
+                  "lit": "."
+                }
+              ]
+            }
+          }
+        ],
+        "else": {
+          "lit": "Waited for the tutor to answer."
+        }
+      },
+      "because": {
+        "cond": [
+          {
+            "when": {
+              "acts": {
+                "of": [
+                  "clicks",
+                  "keys"
+                ],
+                "op": "gt",
+                "value": 0
+              }
+            },
+            "then": {
+              "join": [
+                {
+                  "lit": "a model call was open for "
+                },
+                {
+                  "duration": true
+                },
+                {
+                  "lit": ", with "
+                },
+                {
+                  "count": {
+                    "of": [
+                      "clicks",
+                      "keys"
+                    ],
+                    "one": "incidental click and key",
+                    "many": "incidental clicks and keys"
+                  }
+                },
+                {
+                  "lit": " while it ran"
+                }
+              ]
+            }
+          }
+        ],
+        "else": {
+          "join": [
+            {
+              "lit": "a model call was open for "
+            },
+            {
+              "duration": true
+            },
+            {
+              "lit": " and nothing else was done"
+            }
+          ]
+        }
+      },
+      "note": "A call has to have been open: a submission that opened none still leaves a stretch after it."
+    },
+    {
+      "id": "submit-response",
+      "sub": "SUBMIT_RESPONSE",
+      "broad": "ACTING",
+      "priority": 60,
+      "when": {
+        "flag": "submitted"
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "flag": "entered"
+            },
+            "then": {
+              "join": [
+                {
+                  "lit": "Sent the tutor a message: "
+                },
+                {
+                  "quote": {
+                    "source": {
+                      "entered": true
+                    },
+                    "max": 44
+                  }
+                },
+                {
+                  "lit": "."
+                }
+              ]
+            }
+          }
+        ],
+        "else": {
+          "lit": "Submitted the response."
+        }
+      },
+      "because": {
+        "lit": "a submit was recorded in the trace"
+      }
+    },
+    {
+      "id": "generate-game",
+      "sub": "GENERATE_GAME",
+      "broad": "ACTING",
+      "priority": 70,
+      "when": {
+        "controlUsed": [
+          "generate"
+        ]
+      },
+      "description": {
+        "lit": "Generated the game from the requirements so far."
+      },
+      "because": {
+        "lit": "the Generate Game action was clicked"
+      }
+    },
+    {
+      "id": "advance-to-next-step",
+      "sub": "ADVANCE_TO_NEXT_STEP",
+      "broad": "ACTING",
+      "priority": 80,
+      "when": {
+        "controlUsed": [
+          "next-step"
+        ]
+      },
+      "description": {
+        "lit": "Moved on to the next step."
+      },
+      "because": {
+        "lit": "the Next Step action was clicked"
+      }
+    },
+    {
+      "id": "session-control",
+      "sub": "SESSION_CONTROL",
+      "broad": "ACTING",
+      "priority": 90,
+      "when": {
+        "controlUsed": [
+          "reset",
+          "end",
+          "change-game"
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "controlUsed": [
+                "reset"
+              ]
+            },
+            "then": {
+              "lit": "Reset the session."
+            }
+          },
+          {
+            "when": {
+              "controlUsed": [
+                "end"
+              ]
+            },
+            "then": {
+              "lit": "Ended the session."
+            }
+          }
+        ],
+        "else": {
+          "lit": "Changed the game."
+        }
+      },
+      "because": {
+        "cond": [
+          {
+            "when": {
+              "controlUsed": [
+                "reset"
+              ]
+            },
+            "then": {
+              "lit": "the reset control was used"
+            }
+          },
+          {
+            "when": {
+              "controlUsed": [
+                "end"
+              ]
+            },
+            "then": {
+              "lit": "the end control was used"
+            }
+          }
+        ],
+        "else": {
+          "lit": "the change-game control was used"
+        }
+      }
+    },
+    {
+      "id": "replay-reference",
+      "sub": "REPLAY_REFERENCE",
+      "broad": "EXPLORING",
+      "priority": 100,
+      "when": {
+        "controlUsed": [
+          "replay-reference"
+        ]
+      },
+      "description": {
+        "lit": "Replayed the reference game from the start."
+      },
+      "because": {
+        "join": [
+          {
+            "lit": "Replay was pressed and the reference ran again for "
+          },
+          {
+            "duration": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "inspect-reference",
+      "sub": "INSPECT_REFERENCE_SOLUTION",
+      "broad": "UNDERSTANDING",
+      "priority": 110,
+      "when": {
+        "all": [
+          {
+            "surfaceRole": [
+              "reference"
+            ]
+          },
+          {
+            "not": {
+              "acts": {
+                "of": [
+                  "keys",
+                  "clicks",
+                  "typing"
+                ],
+                "op": "gt",
+                "value": 0
+              }
+            }
+          }
+        ]
+      },
+      "description": {
+        "lit": "Appeared to study the reference game."
+      },
+      "because": {
+        "join": [
+          {
+            "lit": "the reference game was the open panel for "
+          },
+          {
+            "duration": true
+          },
+          {
+            "lit": " with no controls used"
+          }
+        ]
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "inspect-own-work",
+      "sub": "INSPECT_OWN_WORK",
+      "broad": "UNDERSTANDING",
+      "priority": 120,
+      "when": {
+        "surfaceRole": [
+          "own"
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "acts": {
+                "of": [
+                  "keys",
+                  "clicks",
+                  "typing"
+                ],
+                "op": "gt",
+                "value": 0
+              }
+            },
+            "then": {
+              "lit": "Tried out the game on their own canvas."
+            }
+          }
+        ],
+        "else": {
+          "lit": "Appeared to look over their own canvas."
+        }
+      },
+      "because": {
+        "cond": [
+          {
+            "when": {
+              "acts": {
+                "of": [
+                  "keys",
+                  "clicks",
+                  "typing"
+                ],
+                "op": "gt",
+                "value": 0
+              }
+            },
+            "then": {
+              "join": [
+                {
+                  "count": {
+                    "of": [
+                      "keys"
+                    ],
+                    "one": "key"
+                  }
+                },
+                {
+                  "lit": " and "
+                },
+                {
+                  "count": {
+                    "of": [
+                      "clicks"
+                    ],
+                    "one": "click"
+                  }
+                },
+                {
+                  "lit": " on their canvas over "
+                },
+                {
+                  "duration": true
+                }
+              ]
+            }
+          }
+        ],
+        "else": {
+          "join": [
+            {
+              "lit": "their canvas was the open panel for "
+            },
+            {
+              "duration": true
+            },
+            {
+              "lit": " with no controls used"
+            }
+          ]
+        }
+      },
+      "confidence": {
+        "cond": [
+          {
+            "when": {
+              "acts": {
+                "of": [
+                  "keys",
+                  "clicks",
+                  "typing"
+                ],
+                "op": "gt",
+                "value": 0
+              }
+            },
+            "then": "high"
+          }
+        ],
+        "else": "medium"
+      }
+    },
+    {
+      "id": "formulate-after-reference",
+      "sub": "FORMULATE_AFTER_REFERENCE",
+      "broad": "FORMULATING",
+      "priority": 130,
+      "when": {
+        "all": [
+          {
+            "any": [
+              {
+                "flag": "composing"
+              },
+              {
+                "acts": {
+                  "of": [
+                    "typing"
+                  ],
+                  "op": "gt",
+                  "value": 0
+                }
+              }
+            ]
+          },
+          {
+            "history": {
+              "window": "all",
+              "test": {
+                "sub": [
+                  "SUBMIT_RESPONSE"
+                ]
+              }
+            }
+          },
+          {
+            "history": {
+              "window": 3,
+              "test": {
+                "surfaceRole": [
+                  "reference"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "description": {
+        "lit": "Worked on the next message, having just been in the reference game."
+      },
+      "because": {
+        "join": [
+          {
+            "lit": "the message box was open for "
+          },
+          {
+            "duration": true
+          },
+          {
+            "lit": " after a stretch in the reference game"
+          }
+        ]
+      }
+    },
+    {
+      "id": "formulate-after-feedback",
+      "sub": "FORMULATE_AFTER_FEEDBACK",
+      "broad": "FORMULATING",
+      "priority": 140,
+      "when": {
+        "all": [
+          {
+            "any": [
+              {
+                "flag": "composing"
+              },
+              {
+                "acts": {
+                  "of": [
+                    "typing"
+                  ],
+                  "op": "gt",
+                  "value": 0
+                }
+              }
+            ]
+          },
+          {
+            "history": {
+              "window": "all",
+              "test": {
+                "sub": [
+                  "SUBMIT_RESPONSE"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "description": {
+        "lit": "Worked on the next message, after the tutor's answer."
+      },
+      "because": {
+        "join": [
+          {
+            "lit": "the message box was open for "
+          },
+          {
+            "duration": true
+          },
+          {
+            "lit": " after the tutor answered the previous message"
+          }
+        ]
+      }
+    },
+    {
+      "id": "formulate-response",
+      "sub": "FORMULATE_RESPONSE",
+      "broad": "FORMULATING",
+      "priority": 150,
+      "when": {
+        "any": [
+          {
+            "flag": "composing"
+          },
+          {
+            "acts": {
+              "of": [
+                "typing"
+              ],
+              "op": "gt",
+              "value": 0
+            }
+          }
+        ]
+      },
+      "description": {
+        "lit": "Worked on a message to the tutor."
+      },
+      "because": {
+        "cond": [
+          {
+            "when": {
+              "acts": {
+                "of": [
+                  "typing"
+                ],
+                "op": "gt",
+                "value": 0
+              }
+            },
+            "then": {
+              "join": [
+                {
+                  "count": {
+                    "of": [
+                      "typing"
+                    ],
+                    "one": "edit"
+                  }
+                },
+                {
+                  "lit": " in the message box over "
+                },
+                {
+                  "duration": true
+                },
+                {
+                  "lit": " before anything was sent"
+                }
+              ]
+            }
+          }
+        ],
+        "else": {
+          "join": [
+            {
+              "lit": "the message box was open for "
+            },
+            {
+              "duration": true
+            },
+            {
+              "lit": " before anything was sent"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "read-tutor-prompt",
+      "sub": "READ_TUTOR_PROMPT",
+      "broad": "UNDERSTANDING",
+      "priority": 160,
+      "when": {
+        "all": [
+          {
+            "channelSaid": "tutor"
+          },
+          {
+            "not": {
+              "history": {
+                "window": "all",
+                "test": {
+                  "sub": [
+                    "SUBMIT_RESPONSE"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "not": {
+              "acts": {
+                "of": [
+                  "keys",
+                  "clicks",
+                  "typing"
+                ],
+                "op": "gt",
+                "value": 0
+              }
+            }
+          }
+        ]
+      },
+      "description": {
+        "join": [
+          {
+            "lit": "Appeared to read the tutor's opening prompt: "
+          },
+          {
+            "quote": {
+              "source": {
+                "channel": "tutor"
+              },
+              "max": 40
+            }
+          },
+          {
+            "lit": "."
+          }
+        ]
+      },
+      "because": {
+        "join": [
+          {
+            "lit": "the prompt was on screen for "
+          },
+          {
+            "duration": true
+          },
+          {
+            "lit": " with no competing observed activity"
+          }
+        ]
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "read-tutor-feedback",
+      "sub": "READ_TUTOR_FEEDBACK",
+      "broad": "UNDERSTANDING",
+      "priority": 170,
+      "when": {
+        "all": [
+          {
+            "any": [
+              {
+                "channelSaid": "tutor"
+              },
+              {
+                "all": [
+                  {
+                    "not": {
+                      "acts": {
+                        "of": [
+                          "keys",
+                          "clicks",
+                          "typing"
+                        ],
+                        "op": "gt",
+                        "value": 0
+                      }
+                    }
+                  },
+                  {
+                    "latestChannelSaid": "tutor"
+                  },
+                  {
+                    "history": {
+                      "window": 1,
+                      "test": {
+                        "broad": [
+                          "WAITING"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "not": {
+              "acts": {
+                "of": [
+                  "keys",
+                  "clicks",
+                  "typing"
+                ],
+                "op": "gt",
+                "value": 0
+              }
+            }
+          }
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "any": [
+                {
+                  "channelSaid": "tutor"
+                },
+                {
+                  "latestChannelSaid": "tutor"
+                }
+              ]
+            },
+            "then": {
+              "join": [
+                {
+                  "lit": "Appeared to review the tutor's feedback: "
+                },
+                {
+                  "quote": {
+                    "source": {
+                      "firstOf": [
+                        {
+                          "channel": "tutor"
+                        },
+                        {
+                          "latestChannel": "tutor"
+                        }
+                      ]
+                    },
+                    "max": 40
+                  }
+                },
+                {
+                  "lit": "."
+                }
+              ]
+            }
+          }
+        ],
+        "else": {
+          "lit": "Appeared to review the tutor's feedback."
+        }
+      },
+      "because": {
+        "join": [
+          {
+            "lit": "the feedback appeared and stayed on screen for "
+          },
+          {
+            "duration": true
+          },
+          {
+            "lit": " with no competing observed activity"
+          }
+        ]
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "read-requirements",
+      "sub": "READ_REQUIREMENT_DOC",
+      "broad": "UNDERSTANDING",
+      "priority": 180,
+      "when": {
+        "all": [
+          {
+            "channelSaid": "requirements"
+          },
+          {
+            "not": {
+              "acts": {
+                "of": [
+                  "keys",
+                  "clicks",
+                  "typing"
+                ],
+                "op": "gt",
+                "value": 0
+              }
+            }
+          }
+        ]
+      },
+      "description": {
+        "lit": "Appeared to review the requirements written so far."
+      },
+      "because": {
+        "join": [
+          {
+            "lit": "the requirements document changed and stayed on screen for "
+          },
+          {
+            "duration": true
+          },
+          {
+            "lit": " with nothing else done"
+          }
+        ]
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "navigate-or-orient",
+      "sub": "NAVIGATE_OR_ORIENT",
+      "broad": "ORIENTING",
+      "priority": 190,
+      "when": {
+        "all": [
+          {
+            "index": {
+              "op": "eq",
+              "value": 0
+            }
+          },
+          {
+            "not": {
+              "acts": {
+                "of": [
+                  "keys",
+                  "clicks",
+                  "typing"
+                ],
+                "op": "gt",
+                "value": 0
+              }
+            }
+          }
+        ]
+      },
+      "description": {
+        "lit": "Got started in the interface."
+      },
+      "because": {
+        "lit": "this is where the session opens"
+      },
+      "confidence": "medium"
+    }
+  ],
+  "fallback": {
+    "id": "idle-or-unclear",
+    "sub": "IDLE_OR_UNCLEAR",
+    "broad": "UNCLEAR",
+    "description": {
+      "cond": [
+        {
+          "when": {
+            "quietRatio": {
+              "op": "gte",
+              "value": 0.8
+            }
+          },
+          "then": {
+            "lit": "No recorded activity."
+          }
+        }
+      ],
+      "else": {
+        "lit": "Activity that the trace does not characterise."
+      }
+    },
+    "because": {
+      "cond": [
+        {
+          "when": {
+            "quietRatio": {
+              "op": "gte",
+              "value": 0.8
+            }
+          },
+          "then": {
+            "join": [
+              {
+                "lit": "nothing was observed for "
+              },
+              {
+                "duration": true
+              }
+            ]
+          }
+        }
+      ],
+      "else": {
+        "join": [
+          {
+            "count": {
+              "of": [
+                "clicks"
+              ],
+              "one": "click"
+            }
+          },
+          {
+            "lit": " and "
+          },
+          {
+            "count": {
+              "of": [
+                "keys"
+              ],
+              "one": "key"
+            }
+          },
+          {
+            "lit": " in "
+          },
+          {
+            "field": "surfaceLabel"
+          },
+          {
+            "lit": ", with nothing that identifies the activity"
+          }
+        ]
+      }
+    },
+    "confidence": "low"
+  }
+}

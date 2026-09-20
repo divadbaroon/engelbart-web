@@ -75,17 +75,72 @@ export type Taxonomy = {
 
 // Helpers a taxonomy writes its anchors with. Kept here so every
 // taxonomy spells "this selector, roughly" the same way.
+//
+// They are ordered below by how much they are worth trusting. An id or a
+// test id is something the interface chose to call the element and will
+// keep calling it; a role and an accessible name are what the element
+// tells assistive technology it is; a form relationship is structural. A
+// visible word is none of those — it changes when the copy changes — and
+// a generated CSS path is the weakest of all, because it says only where
+// the element sat in the tree on the day the trace was taken. Anything
+// that generates a taxonomy should reach for the top of this list first
+// and the bottom of it only when nothing else identifies the element.
+//
+// Identity fields are compared exactly: a test id that differs in case is
+// a different test id. Wording fields are compared the way somebody reads
+// them, whitespace collapsed and case ignored.
+//
+// Exported because anything that matches on wording has to spell it the
+// same way: a profile compiled from data and a taxonomy written by hand
+// must agree about whether "Next  Step" is "Next Step".
+export const plain = (s: string): string => s.replace(/\s+/g, " ").trim().toLowerCase();
+const wording = (value: string | undefined, texts: string[]): boolean =>
+  value !== undefined && texts.some((x) => plain(value) === plain(x));
+
 export const anchor = {
-  selector: (...parts: string[]) => (t: ElementTarget) => !!t.selector && parts.some((p) => t.selector!.includes(p)),
-  id: (...ids: string[]) => (t: ElementTarget) => !!t.id && ids.includes(t.id),
-  tag: (...tags: string[]) => (t: ElementTarget) => !!t.tag && tags.includes(t.tag),
-  text: (...texts: string[]) => (t: ElementTarget) => {
-    const said = (t.text ?? t.label ?? "").replace(/\s+/g, " ").trim().toLowerCase();
-    return texts.some((x) => said === x.toLowerCase());
-  },
+  // ---- what the interface calls it
   testid: (...ids: string[]) => (t: ElementTarget) => !!t.testid && ids.includes(t.testid),
+  // The application's own name for the control, which is the best name
+  // anything will ever have for it: written by whoever wrote the button.
+  appId: (...ids: string[]) => (t: ElementTarget) => !!t.appId && ids.includes(t.appId),
+  // Which attribute that name came from. In an interface made of many
+  // of something the value is per-instance and the attribute is the
+  // author's word for the kind, so this is what a rule about "a cell"
+  // rather than "cell B7" is written against.
+  appIdAttr: (...attrs: string[]) => (t: ElementTarget) => !!t.appIdAttr && attrs.includes(t.appIdAttr),
+  id: (...ids: string[]) => (t: ElementTarget) => !!t.id && ids.includes(t.id),
+  // ---- what it tells assistive technology it is
+  role: (...roles: string[]) => (t: ElementTarget) => !!t.role && roles.includes(t.role),
+  // The accessible name: what a screen reader would announce. The label
+  // wins where there is one, because that is what it is for, and the
+  // visible words stand in where there is not.
+  named: (...names: string[]) => (t: ElementTarget) => wording(t.label ?? t.text, names),
+  label: (...texts: string[]) => (t: ElementTarget) => wording(t.label, texts),
+  // ---- what kind of field it is
+  name: (...names: string[]) => (t: ElementTarget) => !!t.name && names.includes(t.name),
+  type: (...types: string[]) => (t: ElementTarget) => !!t.type && types.includes(t.type),
+  placeholder: (...texts: string[]) => (t: ElementTarget) => wording(t.placeholder, texts),
+  // No argument asks only whether this is somewhere text is typed.
+  editable: (...kinds: string[]) => (t: ElementTarget) => !!t.editable && (!kinds.length || kinds.includes(t.editable)),
+  // ---- what it says, and where it goes
+  title: (...texts: string[]) => (t: ElementTarget) => wording(t.title, texts),
+  // What the control reads as. Falls back to the label, because a button
+  // whose words are an icon is still named by the label it carries.
+  text: (...texts: string[]) => (t: ElementTarget) => {
+    const said = plain(t.text ?? t.label ?? "");
+    return texts.some((x) => said === plain(x));
+  },
+  href: (...hrefs: string[]) => (t: ElementTarget) => !!t.href && hrefs.includes(t.href),
+  // ---- shape, and then position
+  tag: (...tags: string[]) => (t: ElementTarget) => !!t.tag && tags.includes(t.tag),
+  classes: (...names: string[]) => (t: ElementTarget) => !!t.classes && t.classes.some((c) => names.includes(c)),
+  // Last resort. A generated path is where the element was, not what it
+  // is, and it stops being true the next time the layout moves.
+  selector: (...parts: string[]) => (t: ElementTarget) => !!t.selector && parts.some((p) => t.selector!.includes(p)),
+  // ---- putting them together
   all: (...fns: ((t: ElementTarget) => boolean)[]) => (t: ElementTarget) => fns.every((f) => f(t)),
   any: (...fns: ((t: ElementTarget) => boolean)[]) => (t: ElementTarget) => fns.some((f) => f(t)),
+  not: (fn: (t: ElementTarget) => boolean) => (t: ElementTarget) => !fn(t),
 };
 
 // Counting things in a sentence a person reads. "1 clicks" is the kind

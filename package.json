@@ -12,7 +12,8 @@
     "bench:report": "node --import tsx scripts/bench/report.mts",
     "test": "node --import tsx --test 'tests/**/*.test.*'",
     "semantics:verify": "node --env-file-if-exists=.env.local --import tsx scripts/semantics/verify.mts",
-    "replay:verify": "node --import tsx scripts/trace/replay-check.mts"
+    "replay:verify": "node --import tsx scripts/trace/replay-check.mts",
+    "profile:check": "node --import tsx scripts/trace/profile-check.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",

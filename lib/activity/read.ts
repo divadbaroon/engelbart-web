@@ -15,8 +15,9 @@ import type { TraceEvent } from "@/lib/trace/types";
 import type { SemanticIndex } from "@/lib/semantics/lookup";
 import { classify } from "@/lib/activity/classify";
 import { ROPE_TAXONOMY, ropeSurface } from "@/lib/activity/rope";
-import { DEFAULT_SEGMENTATION } from "@/lib/activity/segment";
-import type { Episode } from "@/lib/activity/types";
+import { DEFAULT_SEGMENTATION, type Segmentation } from "@/lib/activity/segment";
+import type { Taxonomy } from "@/lib/activity/taxonomy";
+import type { Episode, SurfaceRole } from "@/lib/activity/types";
 
 export type SessionInput = {
   stages: Stage[];
@@ -24,18 +25,31 @@ export type SessionInput = {
   events: TraceEvent[];
   calls?: Map<string, { model: string | null; latencyMs: number | null }>;
   semantics?: SemanticIndex;
+  // How to read it. Left out, this is ROPE, read the way every existing
+  // caller reads it — which is the whole of the promise this file makes,
+  // and the reason the parameter is optional rather than required.
+  //
+  // A caller that brings its own taxonomy brings its own way of naming
+  // surfaces with it: falling back to ROPE's would answer questions about
+  // one artifact with another artifact's vocabulary. So `surfaceOf`
+  // defaults to ROPE's only when the taxonomy does too, and otherwise to
+  // the classifier's own table lookup.
+  taxonomy?: Taxonomy;
+  surfaceOf?: (key: string) => { label: string; role: SurfaceRole };
+  segmentation?: Segmentation;
 };
 
 export function readSession(input: SessionInput): Episode[] {
+  const taxonomy = input.taxonomy ?? ROPE_TAXONOMY;
   return classify({
     stages: input.stages,
     frames: input.frames,
     events: input.events,
     calls: input.calls,
     semantics: input.semantics,
-    taxonomy: ROPE_TAXONOMY,
-    surfaceOf: ropeSurface,
-    segmentation: DEFAULT_SEGMENTATION,
+    taxonomy,
+    surfaceOf: input.surfaceOf ?? (input.taxonomy ? undefined : ropeSurface),
+    segmentation: input.segmentation ?? DEFAULT_SEGMENTATION,
   });
 }
 

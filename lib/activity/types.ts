@@ -72,7 +72,8 @@ export type Confidence = "high" | "medium" | "low";
 // the shell, or an embedded one — named by the most stable thing the
 // trace has about it. `role` is the taxonomy's reading of that name; the
 // segmenter only knows keys.
-export type SurfaceRole = "shell" | "own" | "reference" | "other";
+export const SURFACE_ROLES = ["shell", "own", "reference", "other"] as const;
+export type SurfaceRole = (typeof SURFACE_ROLES)[number];
 export type Surface = { key: string; label: string; role: SurfaceRole; frameIds: string[] };
 
 // What a person did in an episode, counted rather than listed.
