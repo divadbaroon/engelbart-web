@@ -7,7 +7,8 @@ import { Hand, LocateFixed, Maximize2, Undo2, ZoomIn, ZoomOut } from "lucide-rea
 import { cn } from "@/lib/utils";
 import { contextCards, type CardId } from "@/lib/trace/context";
 import { BRANCH_W, MOMENT_W, layoutTrace, type Box, type Point, type Rect } from "@/lib/trace/layout";
-import { cardLines, momentKind, relationWord, type Relation } from "@/lib/trace/moments";
+import { cardLines, relationWord, type Relation } from "@/lib/trace/moments";
+import { stageIdOf, type GraphNode } from "@/lib/activity/graph";
 import { formatMs, type CallRow, type Stage } from "@/lib/trace/timeline";
 import { edgeTypes, nodeTypes, type TraceNode } from "@/components/trace/nodes";
 
@@ -25,8 +26,16 @@ import { edgeTypes, nodeTypes, type TraceNode } from "@/components/trace/nodes";
 // overruled for it alone — kept in `moved`, and given back all at once
 // by the toolbar. A card that was moved is still the same card: the
 // lines into it follow, and so does the camera.
-export type Pick = { kind: "moment"; stageId: string } | { kind: "card"; card: CardId } | { kind: "output" };
+// A click on the line names the moment and, where the moment is one of
+// the person's behaviours, which behaviour: a submit stage is two cards,
+// the writing and the sending, and they are not the same choice.
+export type Pick = { kind: "moment"; stageId: string; episodeId?: string } | { kind: "card"; card: CardId } | { kind: "output" };
 type Props = {
+  // The session as lib/activity read it: the participant's episodes and
+  // the system's moments, in one order. The canvas draws this and works
+  // nothing out for itself, so the timeline and the canvas cannot come to
+  // different conclusions about the same trace.
+  graph: GraphNode[];
   stages: Stage[];
   calls: Map<string, CallRow>;
   selectedId: string | null;    // the selected moment
@@ -60,28 +69,48 @@ const quiet = { selectable: false, focusable: false, interactionWidth: 0 };
 type Branches = { anchor: string; cardIds: string[]; outputId: string | null };
 type Spec = { nodes: TraceNode[]; edges: Edge[]; momentIds: string[]; branches: Branches | null; selectedNodeId: string | null; relatedNodeId: string | null };
 
-function buildSpec({ stages, calls, selectedId, relation }: Omit<Props, "onPick" | "empty">): Spec {
+function buildSpec({ graph, stages, calls, selectedId, relation }: Omit<Props, "onPick" | "empty">): Spec {
   const nodes: TraceNode[] = [];
   const edges: Edge[] = [];
   const momentIds: string[] = [];
+  const byStage = new Map(stages.map((s) => [s.id, s]));
   const selected = stages.find((s) => s.id === selectedId) ?? null;
   const relatedId = relation ? (relation.from === selectedId ? relation.to : relation.from) : null;
   const caption = (id: string, text: string): TraceNode => ({ id, type: "caption", position: ORIGIN, data: { text }, ...still });
+  // Which nodes came from which stage. A submit stage is two moments —
+  // the composing and the send — so a stage no longer names one node.
+  const drawn = new Map<string, string[]>();
 
-  stages.forEach((stage, i) => {
-    const id = `moment:${stage.id}`;
-    momentIds.push(id);
-    const call = stage.stage === "call" ? stage.rows.find((r): r is CallRow => r.kind === "call") ?? null : null;
+  graph.forEach((node, i) => {
+    const stage = byStage.get(node.stageId);
+    if (!stage) return;
+    momentIds.push(node.id);
+    drawn.set(node.stageId, [...(drawn.get(node.stageId) ?? []), node.id]);
+    const call = node.kind === "model" ? stage.rows.find((r): r is CallRow => r.kind === "call") ?? null : null;
     const lines = cardLines(stage, calls);
+    // What the card says, decided here from the reading rather than in
+    // the card from the stage.
+    const said =
+      node.kind === "participant"
+        ? {
+            title: node.description, badge: node.broad as string, preview: formatMs(node.durationMs), summary: node.sub,
+            // On hover, the reading and then what it was read from — so
+            // the collector's name for the stretch is reachable without
+            // being what the card appears to be about.
+            hover: `${node.broad} · ${node.description}\nRead from ${stage.label}`,
+          }
+        : node.kind === "observed"
+          ? { title: node.label, badge: null, preview: node.text ? `“${node.text}”` : null, summary: lines.summary, hover: stage.label }
+          : { title: stage.title, badge: null, preview: lines.preview, summary: lines.summary, hover: stage.label };
     nodes.push({
-      id, type: "moment", position: ORIGIN, style: { width: MOMENT_W }, ...clickable,
-      data: { stage, kind: momentKind(stage), preview: lines.preview, summary: lines.summary, selected: stage.id === selectedId, related: stage.id === relatedId, call },
+      id: node.id, type: "moment", position: ORIGIN, style: { width: MOMENT_W }, ...clickable,
+      data: { stage, kind: node.kind === "participant" ? "human" : node.kind, at: node.at, ...said, selected: node.stageId === selectedId, related: node.stageId === relatedId, call },
     });
     // The line between moments says only that one came before the other.
-    const prev = stages[i - 1];
+    const prev = graph[i - 1];
     if (prev) {
-      const gap = ms(stage.at) - ms(prev.endAt);
-      edges.push({ id: `then:${stage.id}`, source: `moment:${prev.id}`, sourceHandle: "out", target: id, targetHandle: "in", type: "straight", style: EDGE, ...quiet, ...(gap > GAP_MS ? { label: `+${formatMs(gap)}`, ...LABEL } : {}) });
+      const gap = ms(node.at) - ms(prev.endAt);
+      edges.push({ id: `then:${node.id}`, source: prev.id, sourceHandle: "out", target: node.id, targetHandle: "in", type: "straight", style: EDGE, ...quiet, ...(gap > GAP_MS ? { label: `+${formatMs(gap)}`, ...LABEL } : {}) });
     }
   });
 
@@ -90,7 +119,7 @@ function buildSpec({ stages, calls, selectedId, relation }: Omit<Props, "onPick"
   let branches: Branches | null = null;
   const row = selected?.stage === "call" && selected.callId ? calls.get(selected.callId) : undefined;
   if (selected && row) {
-    const anchor = `moment:${selected.id}`;
+    const anchor = drawn.get(selected.id)?.[0] ?? `moment:${selected.id}`;
     const cards = row.call ? contextCards(row.call) : [];
     const cardIds: string[] = [];
     for (const card of cards) {
@@ -113,15 +142,24 @@ function buildSpec({ stages, calls, selectedId, relation }: Omit<Props, "onPick"
   // The tie the trace recorded for the selected moment, over the line:
   // solid and pointed when an id carried the join, dotted when timing did.
   if (relation && selected && (relation.from === selected.id || relation.to === selected.id)) {
+    // A stage can be two nodes, so the tie has to say which. It leaves
+    // the last moment of the stage that caused it — the send, never the
+    // composing before it — and arrives at the first of the stage it
+    // caused.
+    const from = drawn.get(relation.from)?.at(-1);
+    const to = drawn.get(relation.to)?.[0];
     const explicit = relation.correlation === "explicit";
-    edges.push({ id: "tie", source: `moment:${relation.from}`, sourceHandle: "up", target: `moment:${relation.to}`, targetHandle: "top", type: "arc", style: explicit ? EDGE : DOTTED, markerEnd: explicit ? ARROW : undefined, label: relationWord(relation.correlation), ...quiet });
+    if (from && to) edges.push({ id: "tie", source: from, sourceHandle: "up", target: to, targetHandle: "top", type: "arc", style: explicit ? EDGE : DOTTED, markerEnd: explicit ? ARROW : undefined, label: relationWord(relation.correlation), ...quiet });
   }
 
-  return { nodes, edges, momentIds, branches, selectedNodeId: selected ? `moment:${selected.id}` : null, relatedNodeId: relatedId ? `moment:${relatedId}` : null };
+  return { nodes, edges, momentIds, branches, selectedNodeId: selected ? drawn.get(selected.id)?.[0] ?? null : null, relatedNodeId: relatedId ? drawn.get(relatedId)?.[0] ?? null : null };
 }
 
-function pickFor(id: string): Pick | null {
-  if (id.startsWith("moment:")) return { kind: "moment", stageId: id.slice(7) };
+function pickFor(id: string, graph: GraphNode[]): Pick | null {
+  if (id.startsWith("moment:")) {
+    const node = graph.find((n) => n.id === id);
+    return { kind: "moment", stageId: stageIdOf(id), ...(node?.kind === "participant" ? { episodeId: node.episodeId } : {}) };
+  }
   if (id.startsWith("card:")) return { kind: "card", card: id.slice(id.lastIndexOf(":") + 1) as CardId };
   if (id.startsWith("output:")) return { kind: "output" };
   return null;
@@ -185,8 +223,8 @@ export function TraceCanvas(props: Props) {
   );
 }
 
-function Canvas({ stages, calls, selectedId, relation, onPick, empty }: Props) {
-  const spec = useMemo(() => buildSpec({ stages, calls, selectedId, relation }), [stages, calls, selectedId, relation]);
+function Canvas({ graph, stages, calls, selectedId, relation, onPick, empty }: Props) {
+  const spec = useMemo(() => buildSpec({ graph, stages, calls, selectedId, relation }), [graph, stages, calls, selectedId, relation]);
   const [sizes, setSizes] = useState(() => new Map<string, Box>());
   // Where cards were put by hand, and whether the camera belongs to the
   // person. Free view is off by default: while a run is going the newest
@@ -377,7 +415,7 @@ function Canvas({ stages, calls, selectedId, relation, onPick, empty }: Props) {
           // A drag ends in a click as far as the DOM is concerned. A card
           // that was carried somewhere was not chosen, so it does not open.
           if (carried.current) { carried.current = false; return; }
-          const pick = pickFor(node.id);
+          const pick = pickFor(node.id, graph);
           if (pick) onPick(pick);
         }}
         onNodeDrag={() => { carried.current = true; }}

@@ -17,7 +17,12 @@ import type { MomentKind } from "@/lib/trace/moments";
 // edited, and the handles exist only so edges know where to end, and are
 // invisible.
 
-export type MomentNode = FlowNode<{ stage: Stage; kind: MomentKind; preview: string | null; summary: string | null; selected: boolean; related: boolean; call: CallRow | null }, "moment">;
+// A moment carries what to say rather than what to work it out from:
+// the canvas is now drawn from lib/activity's reading of the session, and
+// a card that re-derived its own title would be a second opinion about
+// the same trace. `badge` is the broad behaviour when this moment is a
+// participant episode, and nothing otherwise.
+export type MomentNode = FlowNode<{ stage: Stage; kind: MomentKind; at: string; hover: string; title: string; badge: string | null; preview: string | null; summary: string | null; selected: boolean; related: boolean; call: CallRow | null }, "moment">;
 export type CardNode = FlowNode<{ card: ContextCard }, "card">;
 export type OutputNode = FlowNode<{ call: ModelCall }, "output">;
 export type CaptionNode = FlowNode<{ text: string }, "caption">;
@@ -51,15 +56,30 @@ function Frame({ title, meta, icon: Icon, children, ring = "none", dark = false,
 export const STAGE_ICON: Record<StageKind, LucideIcon> = { explore: MousePointer2, navigate: ArrowRight, submit: CornerDownLeft, call: Cpu, response: Eye };
 const WORD: Record<MomentKind, string> = { human: "Human", model: "Model", observed: "Observed" };
 
+// A person's moment is a behaviour rather than a stage, so its icon says
+// which: a send is the one that leaves the keyboard. Exported because the
+// drawer under the canvas shows the same moment and must not disagree
+// with the card about what it is.
+export const behaviorIcon = (broad: string | null, stage: StageKind): LucideIcon =>
+  broad ? (broad === "ACTING" ? CornerDownLeft : MousePointer2) : STAGE_ICON[stage];
+
 function MomentView({ data }: NodeProps<MomentNode>) {
-  const { stage, kind, preview, summary, selected, related, call } = data;
+  const { stage, kind, at, hover, title, badge, preview, summary, selected, related, call } = data;
   const s = call ? summarizeCall(call) : null;
-  const title = kind === "model" ? s?.model ?? stage.title : stage.title;
+  const shown = kind === "model" ? s?.model ?? title : title;
+  // A participant moment is a behaviour, not a stage, so its icon says
+  // which: a send is the one that leaves the keyboard. Everything else
+  // keeps the icon its stage always had.
+  const Icon = behaviorIcon(badge, stage.stage);
+  // The clock and the tooltip are the moment's own, not the stage's: one
+  // submit stage is the writing and then the send, and the two do not
+  // begin at the same instant or say the same thing.
   return (
-    <div className="w-full" title={stage.label}>
-      <Frame title={WORD[kind]} meta={formatClock(stage.at)} icon={STAGE_ICON[stage.stage]} ring={selected ? "strong" : related ? "weak" : "none"} dark={kind === "model"} dashed={kind === "observed"} spinning={s?.state === "in flight"}>
+    <div className="w-full" title={hover}>
+      <Frame title={WORD[kind]} meta={formatClock(at)} icon={Icon} ring={selected ? "strong" : related ? "weak" : "none"} dark={kind === "model"} dashed={kind === "observed"} spinning={s?.state === "in flight"}>
         <div className="min-h-[38px]">
-          <span className="block truncate text-[13px] font-medium">{title}</span>
+          {badge && <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{badge}</span>}
+          <span className="block truncate text-[13px] font-medium">{shown}</span>
           {preview && <span className={cn("block truncate", s?.state === "error" ? "text-destructive" : "text-muted-foreground")}>{preview}</span>}
         </div>
         {selected && summary && summary !== preview && (

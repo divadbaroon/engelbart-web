@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { ArrowLeft, Circle, Eraser } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Recordings } from "@/hooks/use-recordings";
@@ -18,6 +20,8 @@ import { selectedStage, type Jump, type Selection } from "@/lib/trace/selection"
 import { Button } from "@/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { TraceCanvas, type Pick } from "@/components/trace/trace-canvas";
+import { graphOf } from "@/lib/activity/graph";
+import { ROPE_TAXONOMY } from "@/lib/activity/rope";
 import { Diagnostics, type RunSummary } from "@/components/trace/diagnostics";
 import { DrawerBar, DrawerBody } from "@/components/trace/trace-drawer";
 import { ActivityTimeline } from "@/components/trace/activity-timeline";
@@ -109,6 +113,7 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
   // Bart's input are it for one moment. Every one of those is the same
   // array — reading it again here would be a second account of one run.
   const episodes = trace.episodes;
+  const graph = useMemo(() => graphOf(episodes, stages, ROPE_TAXONOMY), [episodes, stages]);
 
   const selected = selectedStage(stages, selection) ?? [...stages].reverse().find((s) => s.stage === "call") ?? stages[stages.length - 1] ?? null;
   const relation = selected ? relationFor(selected, stages, callRows) : null;
@@ -271,7 +276,7 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
       <ResizablePanelGroup orientation={beside ? "horizontal" : "vertical"} id={`trace-${repo.id}-${beside ? "beside" : "under"}`} className="min-h-0 flex-1">
         <ResizablePanel id="trace-canvas" defaultSize={beside ? "58" : "62"} minSize={beside ? 300 : "30"}>
           <div className="relative h-full">
-            <TraceCanvas key={canvasKey} stages={stages} calls={callRows} selectedId={selected?.id ?? null} relation={relation} onPick={onPick} empty={empty} />
+            <TraceCanvas key={canvasKey} graph={graph} stages={stages} calls={callRows} selectedId={selected?.id ?? null} relation={relation} onPick={onPick} empty={empty} />
             {bart}
           </div>
         </ResizablePanel>
