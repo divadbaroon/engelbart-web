@@ -6,6 +6,7 @@ import { plainRefLabel } from "@/lib/bart/protocol";
 import type { Selection } from "@/lib/trace/selection";
 import { summarizeCall, type CallRow, type Stage } from "@/lib/trace/timeline";
 import { momentKind, shortClock } from "@/lib/trace/moments";
+import { BROAD_NOUN, type Episode } from "@/lib/activity/types";
 
 export function refLabel(ref: Ref, stages: Stage[], calls: Map<string, CallRow>): string {
   switch (ref.kind) {
@@ -28,13 +29,17 @@ export function refLabel(ref: Ref, stages: Stage[], calls: Map<string, CallRow>)
 // The selection as the route takes it: identity only, so nothing the
 // screen happens to say travels with the question.
 export const toSelectionRef = (s: Selection | null): SelectionRef | null =>
-  !s ? null : s.kind === "stage" ? { stageId: s.stageId, callId: null } : { stageId: null, callId: s.callId };
+  !s ? null : s.kind === "stage" ? { stageId: s.stageId, callId: null, episodeId: s.episodeId ?? null } : { stageId: null, callId: s.callId, episodeId: null };
 
-// What the panel over the canvas offers to ask about, from the kind of
-// moment that is selected. Naming the kind is the whole point: it tells
-// the person what "this" will mean. Nothing here constrains the answer.
-export function askPlaceholder(stage: Stage | null): string {
+// What the panel over the canvas offers to ask about, from what is
+// selected. Naming it is the whole point: it tells the person what
+// "this" will mean. Where a moment of theirs is selected, the reading of
+// it names the thing — one submit stage can be work and then an action,
+// and "this interaction" would not say which was clicked. Nothing here
+// constrains the answer, and nothing here knows what the interface is.
+export function askPlaceholder(stage: Stage | null, episode: Episode | null = null): string {
   if (!stage) return "Ask Bart about this run\u2026";
+  if (episode) return `Ask Bart about ${BROAD_NOUN[episode.broadBehavior]}\u2026`;
   switch (momentKind(stage)) {
     case "model": return "Ask Bart about this model call\u2026";
     case "observed": return "Ask Bart about this response\u2026";

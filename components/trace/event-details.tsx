@@ -7,6 +7,8 @@ import { formatMs, frameDetail, frameName, type CallRow, type FrameInfo, type St
 import { momentActions, relatedCall, relationWord, responseQuotes, shortClock, submitEcho } from "@/lib/trace/moments";
 import { CorrelationTag, RowItem, type Select } from "@/components/trace/rows";
 import { Disclosure } from "@/components/trace/disclosure";
+import { confidenceWord } from "@/lib/activity/taxonomy";
+import type { Episode } from "@/lib/activity/types";
 
 // A moment that is not a model call, opened in its panel: what it was,
 // when, what was done, the text the page showed, where it happened, and
@@ -15,13 +17,18 @@ import { Disclosure } from "@/components/trace/disclosure";
 // path, the rows and raw events) waits under "Show evidence".
 export type Back = { label: string; onClick: () => void } | null;
 type Props = {
+  // The behaviour this moment was read as, where it is one of the
+  // person's. It leads, because it is what they did; the stage below is
+  // how we know. A model call and text that appeared have no behaviour
+  // and pass null.
+  episode?: Episode | null;
   stage: Stage; stages: Stage[]; calls: Map<string, CallRow>; frames: Map<string, FrameInfo>;
   select: Select; onOpenCall: (callId: string) => void; onAskBart: () => void; onClose: () => void; back: Back;
 };
 
 const ms = (iso: string) => Date.parse(iso);
 
-export function EventDetails({ stage, stages, calls, frames, select, onOpenCall, onAskBart, onClose, back }: Props) {
+export function EventDetails({ episode, stage, stages, calls, frames, select, onOpenCall, onAskBart, onClose, back }: Props) {
   const first = stage.rows[0];
   const frameId = first && (first.kind === "interaction" || first.kind === "keys") ? first.frameId : null;
   const frame = frameId ? frames.get(frameId) : undefined;
@@ -34,11 +41,32 @@ export function EventDetails({ stage, stages, calls, frames, select, onOpenCall,
   const tie = related ? { correlation: related.correlation, text: related.text } : stage.link;
   return (
     <section aria-label="Event details" className="flex h-full min-h-0 flex-col">
-      <Header title={stage.title} back={back} onAskBart={onAskBart} onClose={onClose}>
-        <span className="font-mono text-[11px]">{shortClock(stage.at)}</span>
-        {duration !== null && <span> · {formatMs(duration)}</span>}
-        {stage.stage === "response" && stage.link && <span> · {stage.link.text.split(",")[0]}</span>}
+      {/* What the person was doing, in the Activity reading's own words,
+          taken from the episode rather than said again here. Under it,
+          how far that reading goes and what it was read from. Where there
+          is no behaviour behind this moment — a model call, text that
+          appeared — the stage speaks for itself as it always did. */}
+      <Header title={episode ? episode.description : stage.title} back={back} onAskBart={onAskBart} onClose={onClose}>
+        {episode ? (
+          <>
+            <span className="font-semibold uppercase tracking-wide">{episode.broadBehavior}</span>
+            <span> · {episode.subBehavior}</span>
+            <span className="font-mono text-[11px]"> · {shortClock(episode.startedAt)}</span>
+            {episode.durationMs >= 1000 && <span> · {formatMs(episode.durationMs)}</span>}
+          </>
+        ) : (
+          <>
+            <span className="font-mono text-[11px]">{shortClock(stage.at)}</span>
+            {duration !== null && <span> · {formatMs(duration)}</span>}
+            {stage.stage === "response" && stage.link && <span> · {stage.link.text.split(",")[0]}</span>}
+          </>
+        )}
       </Header>
+      {episode && (
+        <p className="shrink-0 border-b px-[18px] py-2 text-xs leading-5 text-muted-foreground">
+          {confidenceWord(episode.confidence)} · {episode.because}
+        </p>
+      )}
       <div className="min-h-0 flex-1 overflow-y-auto px-[18px] py-3 text-[13px]">
         {echo && (
           <div className="mb-3">
@@ -70,6 +98,11 @@ export function EventDetails({ stage, stages, calls, frames, select, onOpenCall,
         </dl>
         <Disclosure label="Show evidence" hint={`${stage.rows.length} row${stage.rows.length === 1 ? "" : "s"} · ${stage.events.length} raw event${stage.events.length === 1 ? "" : "s"}`} className="mt-2 border-t">
           <div className="flex flex-col gap-1 pb-2 text-xs leading-5 text-muted-foreground">
+            {/* What the trace called this stretch. It used to be the
+                heading; it is now one line of provenance, because the
+                trace's name for a moment ("Submitted text") is not what
+                the person was doing over it. */}
+            {episode && <p>Read from the moment the trace calls “{stage.title}”.</p>}
             <p>{stage.label}</p>
             {stage.detail && <p>{stage.detail}</p>}
             {tie?.text && <p>{relationWord(tie.correlation) === "linked" ? "Linked" : "By timing"}: {tie.text}</p>}

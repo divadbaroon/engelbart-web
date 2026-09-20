@@ -126,7 +126,12 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
     if (pick.kind === "moment") {
       const stage = stages.find((s) => s.id === pick.stageId);
       if (!stage) return;
-      onSelect(stage.stage === "call" && stage.callId ? { kind: "call", callId: stage.callId, jump: { pane: "overview", focus: null } } : { kind: "stage", stageId: stage.id }, beside ? { detail: true } : undefined);
+      onSelect(
+        stage.stage === "call" && stage.callId
+          ? { kind: "call", callId: stage.callId, jump: { pane: "overview", focus: null } }
+          : { kind: "stage", stageId: stage.id, ...(pick.episodeId ? { episodeId: pick.episodeId } : {}) },
+        beside ? { detail: true } : undefined,
+      );
       return;
     }
     if (selected?.stage !== "call" || !selected.callId) return;
@@ -284,13 +289,13 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
           <>
             <ResizableHandle className="bg-border" />
             <ResizablePanel id="trace-detail" defaultSize={beside ? "42" : "38"} minSize={beside ? 340 : "20"}>
-              <DrawerBody trace={trace} selection={selection} onSelect={onSelect} onAskBart={onAskBart} onClose={() => onDetail(false)} />
+              <DrawerBody trace={trace} episodes={episodes} selection={selection} onSelect={onSelect} onAskBart={onAskBart} onClose={() => onDetail(false)} />
             </ResizablePanel>
           </>
         )}
       </ResizablePanelGroup>
       )}
-      {!listing && !open && <DrawerBar trace={trace} selection={selection} onSelect={onSelect} onAskBart={onAskBart} onOpen={() => onDetail(true)} beside={beside} />}
+      {!listing && !open && <DrawerBar trace={trace} episodes={episodes} selection={selection} onSelect={onSelect} onAskBart={onAskBart} onOpen={() => onDetail(true)} beside={beside} />}
       {!listing && <Diagnostics rows={diagnostics} select={select} summary={summary} />}
     </section>
   );

@@ -16,7 +16,12 @@ export type Ref =
 // answer's wording carries it where it matters, not a label on every line.
 export type Provenance = "trace" | "model_request" | "source_code" | "inferred";
 
-export type SelectionRef = { stageId: string | null; callId: string | null };
+// `episodeId` names which reading of that moment was chosen, because one
+// submit stage is the writing of a message and then the sending of it,
+// and those are two different things to be asked about. It is an
+// identity like the others: the route looks the episode up in its own
+// reading of the run's events, so no wording travels with the question.
+export type SelectionRef = { stageId: string | null; callId: string | null; episodeId?: string | null };
 // What a question is about: identities only, never prose. `annotationId`
 // is a note the person opened and asked about; it is a referent like the
 // selected moment, not a constraint on what may be answered.

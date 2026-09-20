@@ -4,7 +4,7 @@
 // a bound, two calls compared as facts, and search by content.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { CALL_PARTS, callReport, compareCalls, momentReport, searchTrace, slice, tableOfContents, traceModel } from "../../lib/bart/grounding";
+import { CALL_PARTS, activityOutline, callReport, compareCalls, momentReport, searchTrace, slice, tableOfContents, traceModel } from "../../lib/bart/grounding";
 import { events } from "../trace/fixtures/session";
 import { call1, call2 } from "./fixtures/call";
 
@@ -34,7 +34,11 @@ describe("bart grounding", () => {
 
   it("reports a human moment: acts in order, the echo as observed, the tie as timing", () => {
     const r = momentReport(m, "stage:i_page000001_8")!;
-    assert.match(r, /^Moment stage:i_page000001_8: Submitted text, at \d\d:\d\d:\d\d/);
+    // What the person was doing leads; "Submitted text" is what the
+    // collector called the stretch it was read from, and follows it.
+    assert.match(r, /^Activity episode:\S+: .+\nRead as [A-Z]+\/\S+, at \d\d:\d\d:\d\d/);
+    assert.match(r, /Read from moment stage:i_page000001_8, which the collector called “Submitted text”, at \d\d:\d\d:\d\d/);
+    assert.match(r, /Cite it as \[\[moment:stage:i_page000001_8\]\]/);
     assert.match(r, /Source: the browser bridge recorded these acts \(trace\)/);
     assert.match(r, /Acts, in order: Clicked .*; Enter ×1\./);
     assert.match(r, /Echoed in the page after the submit.*“create an 8 x 6 board”.*not what was typed: typed characters are never recorded/);
@@ -42,6 +46,48 @@ describe("bart grounding", () => {
     assert.match(r, /Timing is an association, not proof/);
     assert.doesNotMatch(r, /Evidence:/);
   });
+  it("reads the activity that was chosen, not the first one over the moment", () => {
+    // One submit moment is the writing of a message and then the sending
+    // of it. Which of the two was clicked is an identity on the
+    // selection, and it decides which one the report is about; the other
+    // is still named, so nothing about the moment is hidden.
+    const over = m.episodes.filter((e) => e.stageIds.includes("stage:i_page000001_8"));
+    assert.ok(over.length > 1, "the moment is more than one activity");
+    for (const e of over) {
+      const r = momentReport(m, "stage:i_page000001_8", false, e.id)!;
+      assert.ok(r.startsWith(`Activity ${e.id}: ${e.description}`), `led with ${e.id}`);
+      assert.match(r, new RegExp(`Read as ${e.broadBehavior}/${e.subBehavior}`));
+      for (const other of over.filter((o) => o.id !== e.id)) assert.ok(r.includes(other.description), `also names ${other.id}`);
+    }
+    // An id from another run, or from a reading that has moved on, is
+    // simply not found: the moment's first activity leads, as before.
+    const stale = momentReport(m, "stage:i_page000001_8", false, "episode:not-in-this-run")!;
+    assert.equal(stale, momentReport(m, "stage:i_page000001_8")!);
+  });
+
+  it("says in words how far the reading goes, and what it was read from", () => {
+    const r = momentReport(m, "stage:i_page000001_8")!;
+    assert.match(r, /Confidence (high|medium|low) — (the act itself is in the trace|inferred from behaviour, not observed directly|not enough evidence to characterise); /);
+    assert.doesNotMatch(r, /\.\./, "no doubled full stops where a description already ends in one");
+  });
+
+  it("lists what the person was doing as its own account, beside the moments", () => {
+    // Two cuts of one run: a stretch of writing can run across several
+    // moments, and one moment can be two activities. Folding either into
+    // the other repeats it, so they are given as two lists.
+    const outline = activityOutline(m);
+    assert.match(outline, /^\d+ activit(y|ies):\n/);
+    for (const e of m.episodes) {
+      assert.ok(outline.includes(e.description), `${e.id} is in it`);
+      assert.ok(outline.includes(`activity ${e.id}`), `${e.id} is named so it can be asked about`);
+    }
+    // Every line leads back to the acts it was read from, or says plainly
+    // that there were none.
+    for (const line of outline.split("\n").slice(1)) {
+      assert.match(line, /read from (stage:\S+|no moment: nothing was recorded in this stretch)/, line);
+    }
+  });
+
   it("adds the rows and raw event kinds as evidence on request", () => {
     const r = momentReport(m, "stage:i_page000001_1", true)!;
     assert.match(r, /\nEvidence: \d+ rows, \d+ raw events\./);

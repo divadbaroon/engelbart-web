@@ -22,8 +22,35 @@ describe("bart prompt", () => {
     const s = situationBlock({ repo, run, selection: { stageId: "stage:i_page000001_8", callId: null }, trace, source: "sandbox" });
     assert.match(s, /^# Situation\nRepository: o\/n — A tutor for puzzles \(TypeScript\)\. Source is readable from the live sandbox/);
     assert.match(s, /Run run1: status running, traced with content kept \(redacted\)\. Purpose, as the setup brief put it: Teaches a puzzle \(runs system\)\./);
-    assert.match(s, /Selected moment \(what "this" refers to\): Submitted text \(stage:i_page000001_8\) at \d\d:\d\d:\d\d — .*; tied to call mc_1/);
     assert.match(s, /## Moments of the run\n5 moments:/);
+  });
+
+  it("says what the person was doing where a moment of theirs is selected, not what the collector called it", () => {
+    // The researcher is looking at a reading of the session. "Submitted
+    // text" is the name of the stretch it was read from, and saying that
+    // instead would mean the screen and the answer describe one moment
+    // two ways.
+    const chosen = trace.episodes.find((e) => e.stageIds.includes("stage:i_page000001_8"))!;
+    const s = situationBlock({ repo, run, selection: { stageId: "stage:i_page000001_8", callId: null }, trace, source: "sandbox" });
+    assert.ok(s.includes(`Selected moment (what "this" refers to): ${chosen.description}`), s.split("\n").find((l) => l.startsWith("Selected moment")));
+    assert.match(s, new RegExp(`read as ${chosen.broadBehavior}/${chosen.subBehavior} at \\d\\d:\\d\\d:\\d\\d for .*, confidence ${chosen.confidence}`));
+    assert.match(s, /Read from moment stage:i_page000001_8; call inspect_moment with that id/);
+  });
+
+  it("names which reading was chosen, when the selection says", () => {
+    const over = trace.episodes.filter((e) => e.stageIds.includes("stage:i_page000001_8"));
+    assert.ok(over.length > 1, "the moment is more than one activity");
+    for (const e of over) {
+      const s = situationBlock({ repo, run, selection: { stageId: "stage:i_page000001_8", callId: null, episodeId: e.id }, trace, source: "sandbox" });
+      assert.ok(s.includes(`Selected moment (what "this" refers to): ${e.description}`), `${e.id} leads`);
+    }
+  });
+
+  it("gives the reading of the session beside the moments, as its own list", () => {
+    const s = situationBlock({ repo, run, selection: null, trace, source: "sandbox" });
+    assert.match(s, /## What the person was doing, over the same stretch\n/);
+    assert.match(s, /An activity is not a mental state: it is what was done, named\./);
+    for (const e of trace.episodes) assert.ok(s.includes(e.description), `${e.id} is in it`);
   });
   it("names a selected call by its model and id", () => {
     const s = situationBlock({ repo, run, selection: { stageId: null, callId: "mc_1" }, trace, source: "github" });

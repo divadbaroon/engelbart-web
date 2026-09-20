@@ -6,12 +6,13 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { ModelCall } from "@/lib/trace/types";
 import type { Repo } from "@/lib/repos";
 import type { SandboxRun } from "@/lib/sandbox";
-import { CALL_PARTS, SLICE, callReport, compareCalls, momentReport, searchTrace, slice, tableOfContents, type CallPart, type TraceModel } from "@/lib/bart/grounding";
+import { CALL_PARTS, SLICE, activityOutline, callReport, compareCalls, momentReport, searchTrace, slice, tableOfContents, type CallPart, type TraceModel } from "@/lib/bart/grounding";
 import { listFiles, readFile, readReadme, searchFiles, type RepoAccess } from "@/lib/bart/repo";
 import { annotationList, annotationReport } from "@/lib/bart/annotations";
 import { semanticsList, semanticsReport } from "@/lib/bart/semantics";
 import type { StoredSemantics } from "@/lib/semantics/model";
 import type { Annotation } from "@/lib/annotations/model";
+import type { SelectionRef } from "@/lib/bart/protocol";
 
 export type ToolContext = {
   repo: Repo | null;
@@ -20,6 +21,7 @@ export type ToolContext = {
   annotation: (id: string) => Promise<Annotation | null>;   // a note of this repository, or nothing
   annotations: () => Promise<{ notes: Annotation[]; error: string | null }>;  // every note of this repository; the error is kept so a tool can say why the list is empty
   recordingId: string | null;                       // the recording open in the workspace, so a listed note can be marked as written inside it
+  selection: SelectionRef | null;                   // what was clicked, by identity, so inspecting that same moment reads the activity that was chosen rather than the first one over it
   semantics: () => Promise<{ readings: StoredSemantics[]; error: string | null }>;   // what has been read about this application's interfaces
   trace: () => Promise<TraceModel | null>;          // loaded once, when first asked; cut to the open recording
   fullTrace: () => Promise<TraceModel | null>;      // the whole run, when a tool is asked for it
@@ -79,12 +81,17 @@ export async function runTool(name: string, input: Record<string, unknown>, ctx:
         const m = await model();
         if (!m) return fail(noTrace(ctx));
         const diag = m.diagnostics.length ? `\n${m.diagnostics.length} diagnostic row${m.diagnostics.length === 1 ? "" : "s"} (requests and calls the collector could not tie to an act) are kept apart; search_trace finds calls among them by id.` : "";
-        return ok(`Run ${ctx.run?.id ?? "?"}, ${m.events.length} raw events, ${Object.keys(m.calls).length} model call${Object.keys(m.calls).length === 1 ? "" : "s"}.\n${tableOfContents(m, 200)}${diag}`);
+        return ok(`Run ${ctx.run?.id ?? "?"}, ${m.events.length} raw events, ${Object.keys(m.calls).length} model call${Object.keys(m.calls).length === 1 ? "" : "s"}.\n${tableOfContents(m, 200)}${diag}\n\nWhat the person was doing over the same stretch, as it was read — the moments above are the acts it was read from:\n${activityOutline(m, 200)}`);
       }
       case "inspect_moment": {
         const m = await model();
         if (!m) return fail(noTrace(ctx));
-        const report = momentReport(m, str("stage_id"), input.evidence === true);
+        // One submit stage can be the writing of a message and then the
+        // sending of it. When the question is about the moment that was
+        // clicked, the reading that was clicked leads; for any other
+        // moment, the first over it does, as before.
+        const chosen = ctx.selection?.stageId === str("stage_id") ? ctx.selection.episodeId ?? null : null;
+        const report = momentReport(m, str("stage_id"), input.evidence === true, chosen);
         return report ? ok(report) : fail(`No moment has the id ${str("stage_id")}; ids come from run_overview.`);
       }
       case "inspect_model_call": {

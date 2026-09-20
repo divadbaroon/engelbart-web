@@ -4,10 +4,11 @@ import { ChevronUp, PanelRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { TraceView } from "@/hooks/use-trace-view";
-import { describeSelection, selectedStage, type Selection } from "@/lib/trace/selection";
+import { describeSelection, selectedEpisode, selectedStage, type Selection } from "@/lib/trace/selection";
 import { callOwner, momentKind, relatedCall } from "@/lib/trace/moments";
 import { CorrelationTag } from "@/components/trace/rows";
-import { STAGE_ICON } from "@/components/trace/nodes";
+import { behaviorIcon } from "@/components/trace/nodes";
+import type { Episode } from "@/lib/activity/types";
 import { EventDetails } from "@/components/trace/event-details";
 import { ModelCallInspector } from "@/components/trace/model-call-inspector";
 
@@ -20,24 +21,29 @@ import { ModelCallInspector } from "@/components/trace/model-call-inspector";
 // details.
 type Props = {
   trace: TraceView;
+  // The session's behaviour, read once above and passed down. The drawer
+  // describes what was selected in the Activity reading's own words, so
+  // it cannot disagree with the card the person clicked.
+  episodes: Episode[];
   selection: Selection | null;
   onSelect: (selection: Selection, options?: { detail?: boolean }) => void;
   onAskBart: () => void;
 };
 
-export function DrawerBar({ trace, selection, onSelect, onAskBart, onOpen, beside }: Props & { onOpen: () => void; beside: boolean }) {
+export function DrawerBar({ trace, episodes, selection, onSelect, onAskBart, onOpen, beside }: Props & { onOpen: () => void; beside: boolean }) {
   const stage = selectedStage(trace.stages, selection);
-  const text = describeSelection(trace.stages, trace.callRows, selection);
+  const text = describeSelection(trace.stages, trace.callRows, selection, episodes);
   if (!stage || !text) return null;
   const kind = momentKind(stage);
-  const Icon = STAGE_ICON[stage.stage];
+  const Icon = behaviorIcon(text.badge, stage.stage);
   const related = relatedCall(stage, trace.stages, trace.callRows);
   return (
     <div className="flex h-9 shrink-0 items-center gap-2.5 border-t bg-[#fafafa] pl-[18px] pr-2 text-[13px]">
       <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-sm", kind === "model" ? "bg-foreground text-background" : kind === "observed" ? "border border-dashed border-foreground/40 text-muted-foreground" : "bg-[#e6e6e6] text-muted-foreground")}>
         <Icon className="size-2.5" />
       </span>
-      <span className="shrink-0 font-medium">{text.title}</span>
+      {text.badge && <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{text.badge}</span>}
+      <span className="min-w-0 shrink truncate font-medium">{text.title}</span>
       <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{text.at}</span>
       {text.line && <span className="min-w-0 truncate text-muted-foreground">{text.line}</span>}
       {related && (
@@ -56,7 +62,7 @@ export function DrawerBar({ trace, selection, onSelect, onAskBart, onOpen, besid
   );
 }
 
-export function DrawerBody({ trace, selection, onSelect, onAskBart, onClose }: Props & { onClose: () => void }) {
+export function DrawerBody({ trace, episodes, selection, onSelect, onAskBart, onClose }: Props & { onClose: () => void }) {
   const stage = selectedStage(trace.stages, selection);
   if (!selection || !stage) return null;
   const openCall = (callId: string) => onSelect({ kind: "call", callId, jump: { pane: "overview", focus: null } }, { detail: true });
@@ -67,7 +73,8 @@ export function DrawerBody({ trace, selection, onSelect, onAskBart, onClose }: P
   }
   return (
     <EventDetails
-      key={stage.id}
+      key={`${stage.id}:${selection.episodeId ?? ""}`}
+      episode={selectedEpisode(trace.stages, episodes, selection)}
       stage={stage} stages={trace.stages} calls={trace.callRows} frames={trace.frames}
       select={{ selected: null, onSelect: openCall }} onOpenCall={openCall} onAskBart={onAskBart} onClose={onClose} back={null}
     />

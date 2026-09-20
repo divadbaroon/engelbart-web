@@ -11,6 +11,9 @@ import {
 import { callOwner, callState, liveLine, momentActions, momentKind, relatedCall, relationWord, responseQuotes, shortClock, submitEcho } from "@/lib/trace/moments";
 import { conversation, messageText, promptSections, type Message } from "@/lib/trace/context";
 import type { SemanticIndex } from "@/lib/semantics/lookup";
+import { episodeOf, readSession } from "@/lib/activity/read";
+import { confidenceWord } from "@/lib/activity/taxonomy";
+import type { Episode } from "@/lib/activity/types";
 
 export type TraceModel = {
   events: TraceEvent[];
@@ -20,6 +23,13 @@ export type TraceModel = {
   diagnostics: TraceRow[];
   frames: Map<string, FrameInfo>;
   callRows: Map<string, CallRow>;
+  // What the person was doing, read from the same events the Trace tab
+  // reads them from. Derived here rather than sent with the question:
+  // a selection travels as identities, so the only way Bart can be told
+  // the same sentence the screen shows is to arrive at it again from the
+  // events. That it does is the point — classify is deterministic, so
+  // the browser and the route read one session one way.
+  episodes: Episode[];
 };
 
 // A slice of a run passes the whole run's frame index, so documents named
@@ -30,7 +40,41 @@ export function traceModel(events: TraceEvent[], calls: ModelCall[], frames: Map
   return {
     events, calls: Object.fromEntries(calls.map((c) => [c.callId, c])), rows, stages: grouped.primary, diagnostics: grouped.diagnostics,
     frames, callRows: new Map(rows.filter((r): r is CallRow => r.kind === "call").map((r) => [r.id, r])),
+    episodes: readSession({
+      stages: grouped.primary, frames, events,
+      calls: new Map(calls.map((c) => [c.callId, { model: c.model, latencyMs: c.latencyMs }])),
+      semantics: semantics ?? undefined,
+    }),
   };
+}
+
+// What the Activity reading says about a moment, in one line, for
+// wherever this file names a stage. The wording is the episode's own —
+// the same string the timeline, the canvas card, the drawer and the
+// inspector show — because a second phrasing here would be a second
+// reading. A stage that is two episodes gets both: the composing and the
+// send are one submit stage, and saying only the first would lose the act.
+export const readingsOf = (m: TraceModel, stageId: string): Episode[] => m.episodes.filter((e) => e.stageIds.includes(stageId));
+const readingLine = (e: Episode) => `${e.broadBehavior}/${e.subBehavior}: ${e.description}`;
+
+// The session as what somebody was doing, in order — the same list, in
+// the same words, that the Activity timeline shows.
+//
+// It is a section of its own rather than a note on each moment, because
+// the two are different cuts of one run and do not nest: a stretch of
+// writing can run across several moments, and one submit moment is the
+// writing and then the sending. Folding either into the other repeats
+// it. Each line names the moments it was read from, so a question can go
+// from what somebody was doing to the acts underneath it and back.
+export function activityOutline(m: TraceModel, limit = 60): string {
+  if (!m.episodes.length) return "No activity has been read from this run yet.";
+  const shown = m.episodes.length > limit ? m.episodes.slice(m.episodes.length - limit) : m.episodes;
+  const lines = shown.map((e) => {
+    const from = e.stageIds.length ? e.stageIds.join(", ") : "no moment: nothing was recorded in this stretch";
+    return `${shortClock(e.startedAt)}  ${e.broadBehavior}/${e.subBehavior}  ${e.description}  (${formatMs(e.durationMs)}, confidence ${e.confidence}; activity ${e.id}; read from ${from})`;
+  });
+  const head = m.episodes.length > limit ? `${m.episodes.length} activities; the last ${limit}:\n` : `${m.episodes.length} activit${m.episodes.length === 1 ? "y" : "ies"}:\n`;
+  return head + lines.join("\n");
 }
 
 // ---- bounds: a tool answer is a slice, with where the next one starts
@@ -77,13 +121,27 @@ function tieLine(m: TraceModel, s: Stage): string | null {
 }
 
 // ---- one moment in full, evidence on request
-export function momentReport(m: TraceModel, stageId: string, evidence = false): string | null {
+export function momentReport(m: TraceModel, stageId: string, evidence = false, episodeId: string | null = null): string | null {
   const stage = m.stages.find((s) => s.id === stageId) ?? (stageId.startsWith("mc_") ? callStageOf(m, stageId) : null);
   if (!stage) return null;
   const kind = momentKind(stage);
   const out: string[] = [];
   const dur = ms(stage.endAt) - ms(stage.at);
-  out.push(`Moment ${stage.id}: ${stage.title}, at ${formatClock(stage.at)}${dur > 0 ? ` for ${formatMs(dur)}` : ""}.`);
+  // What the person was doing comes first, because that is the thing
+  // asked about; the stage is how it was read, and follows. Where the
+  // selection named which reading it was — one submit stage is the
+  // writing and then the sending — that one leads and the other is
+  // listed after it, so "this" stays the thing that was clicked.
+  const chosen = kind === "human" ? episodeOf(m.episodes, episodeId, stage.id) : null;
+  const others = chosen ? readingsOf(m, stage.id).filter((e) => e.id !== chosen.id) : [];
+  if (chosen) {
+    out.push(`Activity ${chosen.id}: ${chosen.description}`);
+    out.push(`Read as ${chosen.broadBehavior}/${chosen.subBehavior}, at ${formatClock(chosen.startedAt)} for ${formatMs(chosen.durationMs)}. Confidence ${chosen.confidence} — ${confidenceWord(chosen.confidence)}; ${chosen.because}.`);
+    if (others.length) out.push(`The same stretch of trace also holds ${others.map(readingLine).join(" · ")}`);
+    out.push(`Read from moment ${stage.id}, which the collector called ${q(stage.title)}, at ${formatClock(stage.at)}${dur > 0 ? ` for ${formatMs(dur)}` : ""}. That moment is the evidence; the activity above is the reading of it. Cite it as [[moment:${stage.id}]].`);
+  } else {
+    out.push(`Moment ${stage.id}: ${stage.title}, at ${formatClock(stage.at)}${dur > 0 ? ` for ${formatMs(dur)}` : ""}.`);
+  }
   out.push(kind === "human" ? "Source: the browser bridge recorded these acts (trace)." : kind === "model" ? "Source: the model gateway recorded this call (trace); its content is in inspect_model_call." : "Source: the browser bridge recorded text that appeared in the page (trace).");
   out.push(`Label: ${stage.label}`);
   if (stage.detail) out.push(`Detail: ${stage.detail}`);

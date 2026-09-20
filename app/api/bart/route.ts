@@ -36,9 +36,13 @@ const PANEL_ERROR = (message: string, status: number) => Response.json({ error: 
 
 function selectionRef(v: unknown): SelectionRef | null {
   if (!v || typeof v !== "object") return null;
-  const { stageId, callId } = v as { stageId?: unknown; callId?: unknown };
+  const { stageId, callId, episodeId } = v as { stageId?: unknown; callId?: unknown; episodeId?: unknown };
   const s = typeof stageId === "string" ? stageId : null, c = typeof callId === "string" ? callId : null;
-  return s || c ? { stageId: s, callId: c } : null;
+  // Which reading of that moment was chosen. An identity, like the other
+  // two: it is looked up in the route's own reading of the run's events,
+  // so an unknown one simply does not match and the first reading leads.
+  const e = typeof episodeId === "string" ? episodeId : null;
+  return s || c ? { stageId: s, callId: c, episodeId: e } : null;
 }
 
 export async function POST(req: NextRequest) {
@@ -130,7 +134,7 @@ export async function POST(req: NextRequest) {
     return traceModel(cut.events, cut.calls, full.frames, await index());
   })());
   const ctx: ToolContext = {
-    repo, run: runOk, access: repo ? { repo, run: runOk, redact: await redactor(repo.id) } : null, trace, fullTrace,
+    repo, run: runOk, access: repo ? { repo, run: runOk, redact: await redactor(repo.id) } : null, trace, fullTrace, selection,
     // A note is read under row-level security and then checked against
     // the repository that is open, the same belt-and-braces the run and
     // the recording get: a note of another repository is not this

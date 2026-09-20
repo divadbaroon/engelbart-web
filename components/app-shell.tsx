@@ -14,11 +14,11 @@ import { useScopedTraceView, useTraceView } from "@/hooks/use-trace-view";
 import { useRecordings } from "@/hooks/use-recordings";
 import { useAnnotations } from "@/hooks/use-annotations";
 import { useSemantics } from "@/hooks/use-semantics";
-import { clearMark, recordingStats, windowOf, type Recording, type TraceNav } from "@/lib/trace/recording";
+import { clearMark, hasCanvas, recordingStats, type Recording, type TraceNav, windowOf } from "@/lib/trace/recording";
 import { clockOffset, stageAt } from "@/lib/trace/replay";
 import type { CanvasMark, TraceRecordings } from "@/components/trace/behavior-trace";
 import { useTraceSelection } from "@/hooks/use-trace-selection";
-import { describeSelection, selectedStage } from "@/lib/trace/selection";
+import { describeSelection, selectedEpisode, selectedStage } from "@/lib/trace/selection";
 import type { MessageContext, Ref } from "@/lib/bart/protocol";
 import { askPlaceholder, refLabel, toSelectionRef } from "@/lib/bart/labels";
 import { useBartSession } from "@/hooks/use-bart-session";
@@ -304,7 +304,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   // where it cannot be seen. From the list there is no canvas at all, so a
   // chosen moment always brings one back — from any of the list views.
   const reveal = (target: { stageId?: string; callId?: string }) => {
-    if (traceNav.kind === "list" || traceNav.kind === "annotations" || traceNav.kind === "interface") { setTraceNav({ kind: "full" }); return; }
+    if (!hasCanvas(traceNav)) { setTraceNav({ kind: "full" }); return; }
     if (!openRecording) return;
     const inside = target.stageId ? scopedTrace.stages.some((s) => s.id === target.stageId) : target.callId ? scopedTrace.callRows.has(target.callId) : true;
     if (!inside) setTraceNav({ kind: "full" });
@@ -353,7 +353,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
 
   const bart = useBartSession(projectId);
   const [traceBartOpen, setTraceBartOpen] = useState(false);
-  const selectionText = repo ? describeSelection(scopedTrace.stages, scopedTrace.callRows, picked.selection) : null;
+  const selectionText = repo ? describeSelection(scopedTrace.stages, scopedTrace.callRows, picked.selection, scopedTrace.episodes) : null;
   const bartRecording = openRecording ? { id: openRecording.id, name: openRecording.name } : null;
   // A note the person asked about. A referent like the selected moment:
   // it says what "this" means, and constrains nothing else. It is dropped
@@ -445,7 +445,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
       repo={repo ?? null}
       open={traceBartOpen}
       onOpenChange={setTraceBartOpen}
-      placeholder={askPlaceholder(selectedStage(scopedTrace.stages, picked.selection))}
+      placeholder={askPlaceholder(selectedStage(scopedTrace.stages, picked.selection), selectedEpisode(scopedTrace.stages, scopedTrace.episodes, picked.selection))}
       selectionText={selectionText}
       recording={bartRecording}
       onClearSelection={picked.clear}
