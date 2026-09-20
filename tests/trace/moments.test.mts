@@ -4,7 +4,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { traceRows, traceStages, type CallRow } from "../../lib/trace/timeline";
-import { ECHO_PROVENANCE, callOwner, keyGlyph, liveLine, momentActions, momentKind, momentLines, momentPreview, momentSummary, relatedCall, relationFor, relationWord, responseQuotes, shortClock, submitEcho } from "../../lib/trace/moments";
+import { ECHO_PROVENANCE, callOwner, cardLines, keyGlyph, liveLine, momentActions, momentKind, momentLines, momentPreview, momentSummary, relatedCall, relationFor, relationWord, responseQuotes, shortClock, submitEcho } from "../../lib/trace/moments";
 import { events } from "./fixtures/session";
 
 describe("moments", () => {
@@ -67,6 +67,19 @@ describe("moments", () => {
     assert.equal(momentActions(submit).length, 2, "the acts by name, without the echo");
     assert.equal(responseQuotes(response).length, 2);
     assert.match(shortClock(page.at), /^\d\d:\d\d:\d\d$/);
+  });
+  it("keeps a finished call's numbers off its card, and every other card as it was", () => {
+    assert.deepEqual(cardLines(call, calls), { preview: null, summary: null }, "no timing, status, message count or character count on the spine");
+    assert.deepEqual(momentLines(call, calls), ["status 200", "3 messages sent", "1,209 characters back"], "the same numbers, still in the inspector");
+    for (const stage of [page, game, submit, response]) {
+      assert.deepEqual(cardLines(stage, calls), { preview: momentPreview(stage, calls), summary: momentSummary(stage) }, `${stage.stage} reads as before`);
+    }
+    const row = calls.get(call.callId as string) as CallRow;
+    const open = { ...call, rows: [{ ...row, call: null, result: null }] };
+    assert.deepEqual(cardLines(open, calls), { preview: "streaming…", summary: null }, "a call still going says so");
+    const result = row.result as NonNullable<CallRow["result"]>;
+    const failed = { ...call, rows: [{ ...row, result: { ...result, kind: "model.error", data: { ...result.data, error: { type: "rate_limit_error" } } } }] };
+    assert.equal(cardLines(failed, calls).preview, "rate_limit_error", "and a call that went wrong says what went wrong");
   });
   it("says where a call stands while it is open, and updates the same moment once it ends", () => {
     const row = calls.get(call.callId as string) as CallRow;

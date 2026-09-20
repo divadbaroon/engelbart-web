@@ -12,8 +12,9 @@ import type { MomentKind } from "@/lib/trace/moments";
 // words do. On the line: what a person did is a light card with a
 // pointer, a model call is the one dark card, what appeared on screen is
 // a dashed card with an eye. Beside a selected call: a context card is
-// plain, the output is gray and monospace. Nothing can be dragged or
-// wired; the handles exist only so edges know where to end, and are
+// plain, the output is gray and monospace. A card can be picked up and
+// put somewhere else, and nothing else: none of them can be wired or
+// edited, and the handles exist only so edges know where to end, and are
 // invisible.
 
 export type MomentNode = FlowNode<{ stage: Stage; kind: MomentKind; preview: string | null; summary: string | null; selected: boolean; related: boolean; call: CallRow | null }, "moment">;
@@ -26,15 +27,15 @@ export const HEADER_H = 26;   // a card's header strip; the line meets a card at
 const HANDLE = "!pointer-events-none !opacity-0 !h-px !w-px !min-h-0 !min-w-0 !border-0 !bg-transparent";
 
 type Ring = "none" | "weak" | "strong";
-type FrameProps = { title: string; meta: string | null; icon?: LucideIcon; children: React.ReactNode; ring?: Ring; dark?: boolean; gray?: boolean; dashed?: boolean; spinning?: boolean };
+type FrameProps = { title: string; meta: string | null; icon?: LucideIcon; children: React.ReactNode; ring?: Ring; dark?: boolean; gray?: boolean; dashed?: boolean; spinning?: boolean; strongTitle?: boolean };
 
 // A card: a header strip saying what it is, then a short body.
-function Frame({ title, meta, icon: Icon, children, ring = "none", dark = false, gray = false, dashed = false, spinning = false }: FrameProps) {
+function Frame({ title, meta, icon: Icon, children, ring = "none", dark = false, gray = false, dashed = false, spinning = false, strongTitle = false }: FrameProps) {
   return (
     <div className={cn("w-full cursor-pointer rounded-md border bg-background text-left text-[12px] leading-[1.5] transition-[border-color,box-shadow,background-color] hover:border-foreground/40", dark && "border-foreground/50 shadow-[0_1px_3px_rgba(0,0,0,0.08)]", gray && "bg-[#fbfbfb]", dashed && "border-dashed border-foreground/40 bg-[#fcfcfc]", ring === "strong" && "border-foreground/60 ring-2 ring-foreground/70 ring-offset-2", ring === "strong" && !dark && "bg-[#f7f7f7]", ring === "weak" && "ring-1 ring-foreground/30 ring-offset-1")}>
       <div style={{ height: HEADER_H }} className={cn("flex items-center gap-1.5 rounded-t-[5px] border-b px-3", dark && "border-foreground/50 bg-foreground text-background")}>
         {Icon && <Icon className={cn("size-3 shrink-0", dark ? "text-background/70" : "text-muted-foreground")} />}
-        <span className={cn("shrink-0 whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide", dark ? "text-background/80" : "text-muted-foreground")}>{title}</span>
+        <span className={cn("shrink-0 whitespace-nowrap text-[10px] font-semibold uppercase tracking-wide", dark ? "text-background/80" : strongTitle ? "text-foreground" : "text-muted-foreground")}>{title}</span>
         {meta && <span className={cn("ml-auto min-w-0 truncate text-[10px]", dark ? "text-background/70" : "text-muted-foreground")}>{meta}</span>}
         {spinning && <Loader2 className={cn("size-3 shrink-0 animate-spin", dark ? "text-background/70" : "text-muted-foreground")} />}
       </div>
@@ -79,7 +80,7 @@ function MomentView({ data }: NodeProps<MomentNode>) {
 function CardView({ data }: NodeProps<CardNode>) {
   const { card } = data;
   return (
-    <Frame title={card.title} meta={card.meta}>
+    <Frame title={card.title} meta={card.meta} strongTitle>
       <span className={cn("line-clamp-2", !card.kept && "text-muted-foreground")}>{card.summary}</span>
       <Handle type="source" position={Position.Right} className={HANDLE} />
     </Frame>

@@ -102,6 +102,21 @@ export function momentSummary(stage: Stage): string | null {
   }
 }
 
+// What a card on the canvas says under its title, which is not what the
+// live strip says. A card is read beside every other card on one line,
+// and a finished model call's timing, status, message count and
+// character count are four numbers repeated down that line — evidence to
+// be compared in the inspector rather than skimmed on the spine. So a
+// model card keeps only where the call stands while it is still going or
+// went wrong, and says nothing once it is done; the model's name and the
+// clock are already in its header. Every other kind reads as before.
+export function cardLines(stage: Stage, calls: Map<string, CallRow>): { preview: string | null; summary: string | null } {
+  if (stage.stage !== "call") return { preview: momentPreview(stage, calls), summary: momentSummary(stage) };
+  const row = callRowOf(stage);
+  const s = row ? summarizeCall(row) : null;
+  return { preview: s && s.state !== "done" ? callState(s) : null, summary: null };
+}
+
 // What a live item says under its title: what the person did, what the
 // page echoed, where the call stands, what appeared.
 export function liveLine(stage: Stage, calls: Map<string, CallRow>): string | null {
