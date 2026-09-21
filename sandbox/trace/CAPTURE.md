@@ -44,8 +44,8 @@ delivers it: `NODE_OPTIONS=--require=…` plus the marker, and nothing else.
 Twelve of twelve run and are captured. Three things in that table are worth
 saying out loud, because each was a failure at some point in building it:
 
-**One transport does not cover Node.** Four of the twelve are carried by
-`fetch`, seven by `http`/`https`, one by the undici dispatcher, and which
+**One transport does not cover Node.** Five of the twelve are carried by
+`fetch`, six by `http`/`https`, one by the undici dispatcher, and which
 one a client uses is not a property of the client. The same OpenAI 4.61.0
 in the same Next application takes `http` under both launchers, while
 OpenAI 5 in a bare process takes `fetch`. A capture built on any single
@@ -196,7 +196,7 @@ request — taking the interaction from its own row, not from the claim.
 The provider never saw either id.
 
 **Activity drew it as one thing that happened.** From the same rows,
-through the same functions the Trace tab and the canvas call:
+through the same functions the Visualizer and the canvas call:
 `ACTING/SUBMIT_RESPONSE — Submitted the response.` → the model node for
 `mc_34JgM5yAFO-p` → `The tutor answered — "Great question! Start by
 focusing on the initial setup of the game…"`. Nine stages, ten canvas

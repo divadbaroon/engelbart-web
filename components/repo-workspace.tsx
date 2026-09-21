@@ -234,7 +234,7 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
         : run.status === "no_service"
           ? [CUBES.unavailable, "Nothing to serve in " + repo.fullName, plainError(run.error) || "The pipeline found no web application of its own to run.", again]
         : run.status === "failed"
-          ? [CUBES.failed, "Could not run " + repo.fullName, plainError(run.error) || "The run failed. See the Terminal for details.", again]
+          ? [CUBES.failed, "Could not run " + repo.fullName, plainError(run.error) || "The run failed. See Setup’s Logs for what the tools printed.", again]
           : isRunCloned(run)
             ? [CUBES.idle, "Live preview", "Your running project will appear here.", { label: "Start", onClick: () => onLaunch(run.id), primary: true, icon: <Play className="size-3 fill-current" /> }]
             : [CUBES.stopped, STATUS_LABEL[run.status], plainError(run.error) || "Prepare the repository again to start over.", again];
@@ -299,7 +299,7 @@ function UsablePreview({ repo, run, events, patch, onShowPatch, onOpenTerminal, 
       <div className="flex shrink-0 items-start justify-between gap-4 px-[22px] pt-[18px] pb-3.5">
         <div className="flex min-w-0 flex-col gap-1">
           <span className="text-[13px] text-foreground">{usage?.blocker ? `Set up, but blocked by ${usage.blocker.kind === "secret" ? "a missing key" : usage.blocker.kind === "service" ? "a missing service" : usage.blocker.kind === "hardware" ? "hardware it needs" : usage.blocker.kind === "data" ? "data it needs" : "the code as published"}: ${repo.fullName}` : `Set up and ready to use: ${repo.fullName}`}</span>
-          <span className="text-xs leading-normal text-muted-foreground/70">{usage?.blocker ? usage.blocker.what : usage?.summary || "No page to show; the repository is installed and its check passed. The shell is in the Terminal, in the panel on the right."}</span>
+          <span className="text-xs leading-normal text-muted-foreground/70">{usage?.blocker ? usage.blocker.what : usage?.summary || "No page to show; the repository is installed and its check passed. The shell is in Setup, under Terminal."}</span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {replayed && <Button variant="ghost" size="sm" onClick={async () => { await onStop(run.id); onStartOver(); }} title="Analyze and set up from scratch, ignoring the saved command list" className="font-normal text-muted-foreground">Start over</Button>}

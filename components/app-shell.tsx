@@ -54,7 +54,7 @@ type Remembered = {
   center: Center;
   tab: string;
   repoTabs: Record<string, MiddleTab>;
-  panelTabs: Record<string, PanelTab>;   // which of Bart, the Terminal and the Trace is in front, per repository
+  panelTabs: Record<string, PanelTab>;   // which of the five companion tools is in front, per repository
   openPaperIds: string[];
 };
 

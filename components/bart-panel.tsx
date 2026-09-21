@@ -8,8 +8,9 @@ import type { BartSession } from "@/hooks/use-bart-session";
 import { BartConversation } from "@/components/bart/conversation";
 import { BartComposer } from "@/components/bart/composer";
 
-// Bart in the right panel, where it is one of three fixed tabs beside
-// the Terminal and the Trace (lib/workspace-slots): the conversation
+// Bart in the right panel, where it is the first of five fixed tabs,
+// beside the Visualizer, Replay, Annotations and Activity
+// (lib/workspace-slots): the conversation
 // about the work, at full size. It is
 // told which repository and run are open and which moment of the trace is
 // selected, so "this" in a question means that moment; the selection is a

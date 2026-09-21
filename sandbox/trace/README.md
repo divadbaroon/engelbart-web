@@ -116,7 +116,10 @@ the repair rung, where an agent would edit the repository.
 
 The run says which of these happened. `capability.modelCapture` carries
 `available` (armed, gateway answered), `active` (something was actually
-carried, with which transports), `unsupported_runtime`,
+carried, with which transports), `partial` (the pre-launch scan found
+paths that declare the Next edge runtime or are Next middleware, naming
+up to twenty of them — or the scan could not finish, in which case
+whether anything bypasses capture is unknown), `unsupported_runtime`,
 `unsupported_launcher` (bun, deno, docker, python, a shell script — named
 before launch), `instrumentation_failed` or `unavailable`. A trace with
 no model calls and a trace where capture was impossible are different
@@ -133,21 +136,34 @@ service, the same Host/Origin/Referer rewriting, the same WebSocket
 pass-through. On top of that:
 
 - every `text/html` document it serves (top page or iframe alike) gets
+  `<script src="/__engelbart/recorder.js">` and then
   `<script src="/__engelbart/bridge.js" data-frame="f_…">` right after
-  `<head>` (after `<html>` or the doctype when there is no head), streamed,
+  `<head>` (after `<html>` or the doctype when there is no head) — the
+  recorder first, and only when the image carries one, so the bridge can
+  test for it rather than race it; both are classic scripts, so they run in
+  that order, and neither records anything of its own accord. Whether a
+  recorder was there is on `frame.served`. Streamed,
   with `accept-encoding: identity` asked of the application so the document
   arrives uncompressed; a compressed document is decompressed first;
 - a document whose Content-Security-Policy would refuse a same-origin
   script is served as it is and reported as `bridge.blocked` (a nonce in the
   policy is reused instead); the policy is never weakened;
-- `/__engelbart/events` takes the bridge's batches (checked for shape and
-  size, rate limited, browser clock converted with the batch's offset) and
-  `/__engelbart/bridge.js` serves the bridge; `/__engelbart/health` answers;
+- the gateway answers four paths of its own: `/__engelbart/events` takes
+  the bridge's batches (checked for shape and size, rate limited, browser
+  clock converted with the batch's offset), `/__engelbart/bridge.js` serves
+  the bridge (`no-cache`, with an etag), `/__engelbart/recorder.js` serves
+  the vendored rrweb recorder (`immutable` for a year, because it is pinned
+  and identical on every sandbox built from the image, or a 404 when the
+  image carries none) and `/__engelbart/health` answers with counters;
 - requests that are not assets (scripts, styles, images, fonts, the dev
   server's own traffic) become `network.request` and `network.response` or
-  `network.error` lines: method, path (query values omitted), category
-  (`document`, `api`, `action`, `prefetch`), status, timings, sizes, a header
-  allowlist. Bodies are never read. The interaction header is forwarded to
+  `network.error` lines: method, path (query stripped off it), `has_query`
+  and a `query` object beside it — up to eight parameters, names cut to 32
+  characters, each value kept as it is unless the name matches
+  `token|key|secret|auth|password|passwd|session|sig|credential|cookie|bearer`
+  or the value runs past 48 characters, when it becomes `[omitted]` —
+  category (`document`, `api`, `action`, `prefetch`), status, timings,
+  sizes, a header allowlist. Bodies are never read. The interaction header is forwarded to
   the application unchanged.
 
 ## bridge.js
@@ -158,25 +174,42 @@ A plain browser script. It records, as DOM facts, never as meaning:
 |------|------|-----------------|
 | `ui.click` | a click | target and the interactive control around it |
 | `ui.submit` | a form submit | form, submitter, field names and types (never values) |
-| `ui.input` | a control's committed change | selected option text, on/off, a slider's value; for text only its length |
+| `ui.input` | typing in a field, folded over 900 ms of quiet (or blur, or the focus moving on) | `editing`, an edit count, the target and its kind, and the value's length — never for a password field, which reports neither contents nor length |
+| `ui.input` | a control's committed change | `commit`, with the selected option text, on/off, a slider, date or colour value, a file count; for text only its length |
 | `ui.key` | a keydown that passes the keyboard policy | key name or class, count (repeats and quick identical presses fold), target |
+| `ui.wheel` | wheeling or pinching over one thing, folded over 900 ms | target, count, axis, direction (`in`/`out` with ctrl held, which is how a browser reports a pinch), a magnitude bucket (small under 120px, medium under 600, else large), duration |
+| `ui.drag` | a press, a move and a release on one thing, once the pointer has travelled 8px | target, move count, duration, a distance bucket (short under 40px, medium under 240, else long), direction, button |
 | `ui.focus` | focus arriving in an embedded document | what has focus |
 | `ui.route` | pushState/replaceState/popstate/hashchange | from, to, how |
 | `ui.change` | the DOM went quiet (700 ms) after mutating following an interaction | mutation counts, small samples of visible text that appeared and disappeared, the smallest container, timing since the interaction. Text removed and put back in the same burst (a rerender) is counted as `rerendered`, not quoted. Mutations inside a text-entry surface are never recorded: a framework mirroring the draft into a textarea's text node would otherwise leak it |
-| `frame.loaded` | the document is parsed | url (query values omitted), title, whether embedded, an inventory of surfaces (canvas, video, form, iframe, …) |
+| `frame.loaded` | the document is parsed | url with its search replaced by `?…`, the parameters beside it under the same secret-name and length rules, title, whether embedded, an inventory of surfaces (canvas, video, form, iframe, …) |
 | `frame.attached` | an embedded document and its parent found each other | parent frame, selector in the parent, name, depth, whether it observes itself or its parent observes it |
 | `frame.discovered` | an iframe the bridge cannot reach | selector, reason (`cross-origin`, `sandboxed`, `no-window`), source url |
 | `frame.removed` | an iframe left the DOM | the child's frame id |
+| `frame.record` | replay capture opened or closed | `start` with the canvas rate, or `stop` — and no `stop` when capture ended by running out of its byte budget |
 
 Every element is described the same way: tag, id, name, type, role, visible
 text (capped), aria label, title, placeholder, test id, stable classes, a CSS
 selector, bounding rect, href or form action (same-origin path only, query
 omitted), and the frame's route. Never coordinates alone, never a value.
 
-Not recorded, on purpose: mouse movement and hover, scrolling, printable
-keystrokes on any text-entry surface, field values, DOM snapshots, canvas
-draw calls or pixels, application state. What a canvas game did is visible
-only through the keys and clicks that reached it and any DOM that changed.
+Not recorded, on purpose: hover, bare pointer movement with no button
+held, the path or coordinates of any gesture, printable keystrokes on any
+text-entry surface, field values, and application state. Wheeling and
+dragging are recorded, but only ever as the summaries above — a count, a
+bucket, a direction and a duration, never a track.
+
+DOM snapshots and canvas pixels are not on the trace either, and are not
+nothing: while a recording is open the bridge drives a vendored rrweb
+recorder (`recordCanvas`, 12 pictures a second, `image/webp` at 0.6, a
+whole-page checkout every 30 s) and itself photographs the canvases in
+same-origin child documents that the recorder's single-window manager
+cannot reach. That stream leaves over the annotate channel to the
+workspace, in parts, under a 32 MB budget — never through the events
+endpoint, and never when no recording is open. The always-on trace
+carries no snapshot, no draw call and no pixel, so what a canvas game did
+is visible there only through the keys and clicks that reached it and any
+DOM that changed.
 
 ### Keyboard policy
 
@@ -222,7 +255,13 @@ id and the helpers the tests use. The application's own traffic and
 behaviour are otherwise unchanged. Tuning rides on the script tag as
 `data-config` (JSON of known keys).
 
-One more, and only while the workspace asks for it: see **Annotate mode**.
+Two more, and only while the workspace asks for them. The picker is one:
+see **Annotate mode**. Replay capture is the other — a `record` message
+starts the rrweb recorder in the document, plus an interval photographing
+the canvases of same-origin frames and a queue posting parts back up the
+same channel. It is started and stopped by the workspace's Record button,
+independently of the picker, and it is the only one of the two that
+leaves anything on the trace, as `frame.record`.
 
 ### Annotate mode
 
@@ -289,13 +328,20 @@ marker: a marker on a guess would be a lie about where the note belongs.
 
 ### The survey
 
-The same channel carries one other question, and it is the quietest thing
-the workspace does to a page: `survey` asks a document what it holds, and
-the document answers with `surveyed` and is otherwise unchanged. Nothing
-is turned on, no listener is added, no overlay appears, no cursor moves
-and no trace event is recorded — the down-message handling was never
-gated on the picker being on, which is what makes this possible without a
-second channel.
+The same channel carries two more messages besides the picker's `mode`,
+`show` and `flash`. `survey` is the quietest thing the workspace does to
+a page: it asks a document what it holds, and the document answers with
+`surveyed` and is otherwise unchanged. Nothing is turned on, no listener
+is added, no overlay appears, no cursor moves and no trace event is
+recorded — the down-message handling was never gated on the picker being
+on, which is what makes this possible without a second channel.
+
+`record` is the other, and it is deliberately not silent: it starts or
+stops replay capture and emits an ordinary `frame.record` at both ends,
+so the browser's rrweb clock and the sandbox's clock have a pin between
+them. It is also the one down-message not passed to child frames — the
+recorder walks same-origin frames from the top document, so a child
+starting its own would photograph the same screen twice.
 
 What comes back is the reduced page: every element `meaningfulElement`
 accepts, minus Engelbart's own and minus anything the document says is
@@ -330,19 +376,24 @@ frame path and route.
 | variable | process | meaning |
 |----------|---------|---------|
 | `ENGELBART_TRACE_TOKEN` | model gateway | required; part of the gateway's URL |
-| `ENGELBART_TRACE_CAPTURE` | both gateways | `full` (default) or `metadata` |
+| `ENGELBART_TRACE_CAPTURE` | model gateway | `full` (default) or `metadata`. The runtime sets it on the preview gateway too, which ignores it: that one never reads bodies in either mode |
 | `ENGELBART_MODEL_GATEWAY_PORT`, `_BIND` | model gateway | default 43200 on 127.0.0.1 |
 | `ENGELBART_MODEL_UPSTREAMS` | model gateway | extra hosts to read as model endpoints (does not gate relaying) |
 | `ENGELBART_MODEL_DENY` | model gateway | hosts to refuse outright; empty by default |
 | `ENGELBART_MODEL_CAPTURE` | preload | the gateway's URL; its presence is what arms the preload |
 | `ENGELBART_MODEL_CAPTURE_LOCAL` | preload | local hosts to capture anyway (a fixture upstream in a test) |
-| `ENGELBART_PRELOAD` | hc wrapper | where the preload lives; `/opt/engelbart/trace/preload.cjs` by default |
+| `ENGELBART_TRACE` | hc wrapper | must be exactly `1`, or neither instrumentation nor model capture is attempted |
+| `ENGELBART_MODEL_GATEWAY_URL` | hc wrapper | the gateway: it becomes the `ENGELBART_MODEL_CAPTURE` launch marker that arms the preload, and is where capability states are posted |
+| `ENGELBART_INSTRUMENTATION` | hc wrapper | `off`/`none`/`0` skips the repository's registered sandbox-only patch and reports `instrument.none` |
+| `ENGELBART_INSTRUMENTATION_DIR` | hc wrapper | the registry; `/opt/engelbart/instrumentation` by default |
+| `ENGELBART_PRELOAD` | hc wrapper | where the preload lives; `/opt/engelbart/trace/preload.cjs` by default, and a missing file is reported as `instrumentation_failed` |
 | `ENGELBART_REDACT_FILE` | both gateways | JSON of values to redact; deleted once read |
 | `ENGELBART_PREVIEW_BIND` | preview gateway | default 0.0.0.0 (the public port) |
 | `ENGELBART_BRIDGE_FILE`, `ENGELBART_BRIDGE_CONFIG` | preview gateway | the bridge to serve; tuning for it |
+| `ENGELBART_RECORDER_FILE` | preview gateway | the replay recorder served at `/__engelbart/recorder.js`; `rrweb-record.js` beside the gateway by default. Optional: with no readable file the gateway says so, answers 404 there, leaves the script out of the injection and reports `recorder: false`, so an older image still serves a working bridge |
 | `ENGELBART_WORKSPACE_ORIGIN` | the app | the origin allowed to turn annotate mode on in a preview; defaults to `https://$VERCEL_URL` or `http://localhost:3000`, and is passed to the preview gateway as `ENGELBART_BRIDGE_CONFIG`'s `parentOrigin` |
 
-## The Trace tab
+## The Visualizer
 
 `lib/trace/timeline.ts` turns the rows into what the tab shows. Rows: one
 per interaction with the requests tied to it, the model calls joined
@@ -358,22 +409,36 @@ appeared after the call, attributed to the same act, are "Response
 appeared". Each stage names the model call it is about, if any: its own,
 the first tied to the submit, the last before the response. Gateway
 startup, documents and frames, requests no interaction claimed and
-rerenders (text removed and put back, no text changed) sit under
-diagnostics.
+rerenders (text removed and put back, no text changed) are grouped as
+diagnostics. They are still derived and still reach Bart's tools;
+nothing draws them any more — the fold-out Diagnostics bar along the
+bottom of the canvas was removed (`behavior-trace.tsx`), so capture
+mode, the gateways, the bridge, the instrumentation diff and the rows no
+stage claimed are facts on the wire rather than a panel.
 
-The canvas takes the tab, with only the drawer bar and the collapsed
-diagnostics under it; the zoom and fit controls sit in the bottom-left
-corner and Bart's small window in the bottom-right, floating over the
-canvas rather than taking height from it. Choosing a card opens its
-details beside the canvas, in a panel down the right of the trace, and
-the canvas keeps its full height.
+Above the canvas are the run banners (`components/trace/run-header.tsx`)
+and, if there is one, the error line. Over it: two boxes pinned to the
+top right — the Human/Agent side switches, and Clear canvas, which
+becomes "Showing from <clock>" with "Show all" beside it once a mark is
+set (on a narrow column `flex-wrap` drops the second box under the
+first, and the clock span itself is hidden below `sm`) — the zoom and
+fit controls in the bottom left, and Bart's small window in the bottom
+right. All of them float, taking no height from the canvas. Under it,
+and only while a moment's details are open, is the drawer.
 
 The tab is one canvas (`components/trace/trace-canvas.tsx`, drawn with
-React Flow as a read-only renderer: nothing can be dragged, wired or
-edited; positions come from `lib/trace/layout.ts`). Every stage is a
-card on one line, left to right in time order, all one width, joined by
-a line that says only "then"; a pause longer than half a second is
-written on it. What a person did is a light card with a pointer
+React Flow; positions come from `lib/trace/layout.ts`). Nothing can be
+wired or edited and a card is not selectable as React Flow means it, but
+cards can be dragged: one that a person picks up overrules the layout
+for itself alone, and a "Put the cards back where the layout had them"
+control appears in the corner toolbar once any has been moved. The line
+is drawn from the activity graph (`lib/activity/graph.ts`, `graphOf`)
+rather than from the stage list, so the two do not correspond one to
+one: a submit becomes two cards, the composing and the send; a response
+stage becomes a card per named channel; an episode with nothing to show
+becomes none. Cards sit left to right in time order, all one width,
+joined by a line that says only "then"; a pause longer than half a
+second is written on it. What a person did is a light card with a pointer
 ("Human"), a model call is the one dark card ("Model"), what appeared on
 screen is a dashed card with an eye ("Observed"). Compact, a card says
 its short title and one thing more (`lib/trace/moments.ts`): how long
@@ -381,28 +446,29 @@ the exploring took, the text the page echoed after a submit, a call's
 latency and whether it streamed, or that it is still streaming. The
 selected card is ringed and says one line more (the keys as glyphs with
 counts, a call's status and sizes, the first text that appeared);
-nothing else on the line moves, and there is no hover tooltip beyond the
-browser's own on a cut-short title. Everything else about a moment is
-read in the drawer under the canvas. The latest model call is selected
-until a card is chosen.
+nothing else on the line moves. Every card also carries a native
+`title` (`components/trace/nodes.tsx`): on a person's card the Activity
+reading and where it came from, on a model or observed card the stage
+label. Everything else about a moment is read in the drawer under the
+canvas. The latest model call is selected until a card is chosen.
 
 The selected moment's details are `event-details.tsx` for a human or
 observed moment and `model-call-inspector.tsx` for a call, wrapped by
-`DrawerBody` (`components/trace/trace-drawer.tsx`). Where they stand
-follows where the trace is (`behavior-trace.tsx` takes the `slot`): in
-the middle they are a panel down the right of the trace, opened by
-clicking a card, and the canvas keeps its full height; on the side,
-where there is no width to give away, they are the drawer under the
-canvas, and a card click there only selects. Closed, the drawer is one
-bar for the selected moment: its icon, title and clock, one line, the
-call it is tied to with the correlation tag, "Ask Bart" (which opens the
-window in the corner of the canvas with the cursor in it) and "Details",
-which opens them wherever they belong. A card's context or output node
-opens them at the matching pane either way, and the call's panes scroll
-sideways rather than wrap, because the panel beside the canvas can be
-dragged narrow. The trace
-is read once, by `hooks/use-trace-view.ts` in the shell, for the canvas,
-the preview's strip and Bart alike; the selection lives in
+`DrawerBody` (`components/trace/trace-drawer.tsx`). The trace stands in
+the right-hand panel, where there is no width to give away, so they are
+a resizable drawer under the canvas rather than a column beside it.
+There is no closed state and no bar: choosing a card selects it and
+opens its details in the one action, and the drawer is in the tree only
+while it is open, closed from inside itself. A card's context or output
+node opens it at the matching pane, and a call's panes scroll sideways
+rather than wrap, because the panel can be dragged narrow. Its header
+carries "Ask Bart", which opens the window in the corner of the canvas
+with the cursor in it; the same header is the model-call inspector's
+(`event-details.tsx` exports it to both). The trace
+is read once, by `hooks/use-trace-view.ts` in the shell, and that one
+read feeds the canvas, Activity, Setup's **Events** and Bart alike —
+Replay is not among them, because it plays a recording's rrweb stream
+rather than reading the trace; the selection lives in
 `hooks/use-trace-selection.ts` (`lib/trace/selection.ts`: a stage id, or
 a call id with a pane) and resets when the run changes.
 
@@ -420,38 +486,78 @@ a call id with a pane) and resets when the run changes.
   status; provider and path, first byte and first token, usage, chunks,
   capture mode, ids and the headers wait under "Technical details". The
   Context, Messages, Tools, Output and Raw panes are unchanged.
-- The Live preview keeps a strip along its bottom
-  (`components/trace/live-strip.tsx`): the last moment's clock, title
-  and one line, the count of moments, and "Open trace". It unfolds into
-  the list of moments (`live-trace.tsx`: the same stages as the canvas,
-  growing while the run is used; an in-flight call says "streaming…" or
-  "in flight…" and the same item says its latency once it ends; nothing
-  raw is listed). Clicking an item opens the Trace tab with the drawer
-  on that moment; "‹ Live preview" on the canvas goes back. The preview
-  stays mounted under the trace, so the run is never disturbed.
+- The Live preview is the running application and nothing else. It kept
+  a strip along its bottom naming the last moment, with the list of them
+  folded behind it, and that is gone: the trace is the Visualizer, and
+  the two now stand side by side rather than one inside the other.
+  `components/trace/live-strip.tsx` was deleted; `live-trace.tsx` is
+  still in the tree and nothing imports it.
 - "Ask Bart" on a moment brings Bart's input into focus with that moment
   as what "this" means: a "Looking at" line above the input, removable.
   It hands the moment over; it asks nothing and analyzes nothing by
   itself.
-- Any tab but the Live preview and the Terminal can be sent to the side
-  (`lib/workspace-slots.ts`, pure and tested; the button at the end of
-  the tab bar in `components/repo-tabs.tsx`): it then becomes the second
-  tab of the right panel, beside Bart (`components/center-panel.tsx`),
-  and the middle falls back to the Live preview, so the trace can be
-  watched growing while the application is used. The panel shows one of
-  its two tabs at a time and comes forward on the arriving one; only
-  that tab is mounted, because a hidden panel measures zero and the
-  canvas reads its own size to keep the camera. A tab is in one place at
-  a time; the one on the side is marked in the middle bar, and choosing
-  it there brings it back; the panel header moves it back or closes it.
-  The preview stays in the middle because moving its iframe would reload
-  the application, and the terminal because moving it would drop the
-  shell; the button says so. On the side the trace has no "‹ Live
-  preview" button, the preview shows no "Open trace", and a moment's
-  details open under the canvas rather than beside it; picking a moment
-  in the strip selects it there. The whole panel puts away to a
-  rail. Which tab is on the side is remembered per repository with the
-  middle tab.
+- There are two tab bars and a surface belongs to one of them for good
+  (`lib/workspace-slots.ts`, pure and tested). The middle holds the work
+  — the README, the Code, the Live preview and Setup; the right-hand
+  panel (`components/center-panel.tsx`) holds five companion tools with
+  one job each, in this order — Bart, the Visualizer, Replay,
+  Annotations and Activity. None of them nests another. Nothing moves
+  between them, so the trace can always be watched growing while the
+  application is used beside it.
+
+  The Terminal is not among them. A shell is not a companion to the work
+  the way the other five are — they are readings of a run, made after the
+  fact and beside whatever you are doing, and typing into the sandbox is
+  doing something to the machine — so it is a section of Setup, in the
+  middle bar, with the other controls over the sandbox. What the run
+  printed is Setup's **Logs** rather than the shell's scrollback, for the
+  same reason in reverse: reading a build that failed is looking
+  something up about the past, and the two shared a narrow column badly.
+
+  Setup (`components/setup-panel.tsx`) is five sections in one row, with
+  a rule falling before Build. To the left of it are the things you do to
+  the machine: **Environment**, what the repository is given to run with
+  (`components/env-panel.tsx`; with no list to show it says only that the
+  variables have not been read yet, because a repository whose scan has
+  not run is not a repository that reads nothing), and **Terminal**, a
+  prompt in the sandbox. To the right are the things you read about it,
+  one question — why is the application in the state it is in — at three
+  removes. **Build** is what the pipeline did, the same step list the
+  Live preview shows while preparing. **Logs** is the same thing in the
+  words the tools themselves used, which is where a step that says only
+  "failed" has to be read (`components/run-log.tsx`). **Events** is what
+  somebody did to it once it was up: every act on the page in order, each
+  leading with what the semantic layer called the element and keeping
+  what the page actually held in the parenthesis, so a label that is
+  wrong is obvious rather than convincing
+  (`components/interface-history.tsx`). `interface-readings.tsx` is no
+  longer drawn anywhere — the readings themselves still run, and still
+  name the elements in Events and on the canvas; only the list of them is
+  gone.
+
+  The Visualizer's tab key is `trace`: it draws the behavior trace, which
+  is what everything under `lib/trace` is called, and renaming the key
+  would only move the mismatch into every remembered layout.
+
+  The panel shows one of its five at a time. The ones behind are hidden
+  rather than unmounted, because most of them lose something real when
+  their subtree goes: the Visualizer would forget its camera and its
+  selection, and Replay would come back at the start with its stream to
+  fetch again. Hidden is `display: none`, which was measured rather than
+  assumed — React Flow declines to measure a container that fails
+  `checkVisibility()` and keeps the size it had. The middle hides its
+  surfaces the same way, and the same measurement covers the shell:
+  xterm's fit addon does nothing on a box of no size, so cols, rows and
+  scrollback survive the round trip. A pane is mounted the first time it
+  is asked for and never while the panel is closed, because a first mount
+  in a hidden subtree has no box to measure. The middle mounts its
+  surfaces up front except Setup, which waits, because mounting the shell
+  opens one in the sandbox and opening a repository is not asking for
+  that. The whole panel puts away to a rail, and closing it hides the
+  panes rather than dropping them. Which of the five is in front is
+  remembered per repository alongside the middle tab; a remembered Trace
+  is read forward into the panel, and a remembered Terminal or
+  Environment into Setup, rather than being lost.
 
 - A selected model call also shows its branches: cards for what the
   captured request carried (`lib/trace/context.ts`), stacked above and
@@ -480,8 +586,12 @@ a call id with a pane) and resets when the run changes.
   characters are never recorded. The inspector says so under the quote
   ("Observed in the page after the submit · typed text is never
   recorded").
-- Pan by dragging or scrolling, zoom by pinching; the corner controls
-  zoom, fit the whole trace, or return to the selected moment. The camera
+- Pan by dragging or scrolling, zoom by pinching; the controls in the
+  bottom-left corner zoom in and out, fit the whole trace, return to the
+  selected moment, toggle following (which keeps the newest moment in
+  frame as it arrives, and switches itself off on any hand pan or pinch),
+  and, once a card has been dragged, put the cards back where the layout
+  had them. The camera
   moves on its own only when the selected moment and its graph are out of
   view, or when the canvas itself changes size: it slides just far enough,
   or, if they cannot fit at the current zoom, pulls back just enough. A
@@ -492,7 +602,9 @@ a call id with a pane) and resets when the run changes.
   panes hold the literal payload, which stays the source of truth.
 - What the run recorded and in what mode, the gateways and the bridge,
   the instrumentation applied in the sandbox with its diff, and the rows
-  no stage claims all sit under the collapsed Diagnostics bar.
+  no stage claims are all still derived, and none of them is drawn: the
+  Diagnostics bar under the canvas was removed. They reach a person
+  through Bart's tools, which read the same grouped trace.
 
 How things are tied together, and what the tab says about it:
 
@@ -518,9 +630,12 @@ placeholder.
 
 A recording is a slice of a run's trace between two clock readings, saved
 on purpose. It is one row (`engelbart_recordings`: run, project, name,
-status, `started_at`, `stopped_at`; migration
-`20260920120000_recordings.sql`) and nothing else: no trace event and no
-model call is copied, and none carries a recording id. The trace is
+status, `started_at`, `stopped_at`, `created_at`, `replay_path`;
+migrations `20260920120000_recordings.sql` and
+`20260923100000_recording_replay.sql`) and, in the trace, nothing else:
+no trace event and no model call is copied, and none carries a recording
+id. The pictures rrweb took are a file under `replay_path`, which is the
+one thing a recording does hold beyond its boundaries. The trace is
 captured whether or not anything is being recorded; a recording only
 marks where a stretch of it begins and ends.
 
@@ -528,22 +643,47 @@ marks where a stretch of it begins and ends.
 (`components/trace/record-control.tsx`). Pressing it writes the row and
 starts the clock on the button; "Stop" writes the other boundary and
 leaves one line above the preview saying what was saved, with a way to
-open it. Neither touches the sandbox, the run or the page in the frame.
+open it. Neither touches the sandbox or the run. They do reach the page
+in the frame: Record posts `{type:"record", on:true}` into the preview
+over the origin-pinned channel — twice, in case the bridge is not
+listening yet — and the bridge streams rrweb parts back; Stop posts
+`{on:false}`. That is capture of the pictures, not of the trace, which
+runs whether or not anything is being recorded.
 One recording is open at a time per run: a partial unique index enforces
 it in the database, the hook returns the open one rather than starting a
 second, and a reload finds it again instead of duplicating it
 (`hooks/use-recordings.ts`, `app/workspace/[workspaceId]/recording-actions.ts`).
-Stop is also on the recording's row in the list and in the Trace tab's
-header, because the Live preview's button goes away when the run ends and
-a recording must never be left with no way to close it. The write
+Stop is also on the recording's row in the Replay list, because the Live
+preview's button goes away when the run ends and a recording must never
+be left with no way to close it. The write
 policies bind a recording to its run's own project, so the one-at-a-time
 slot on a run cannot be taken from another project.
 
-Inside the Trace tab, a header chooses between "Full trace",
-"Recordings" and "Annotations"; the list names each recording, what it
-holds and when it was made, and renames or deletes it. Deleting removes the boundaries
-only. Opening one shows the same canvas, the same drawer, the same
-inspector and the same selection, with only the data scope changed:
+Recordings are the Replay tab (`components/trace/replay-panel.tsx`).
+One row shape for every recording the repository has, grouped by run:
+newest run first, the recordings inside a run in the order they were
+made, each run said once at the head of its group as its start time
+alone with a count of its recordings beside it. What became of the run
+is not said there: its status was, for a while, and it is the same word
+in a smaller place — a group headed "Failed" reads as a group of failed
+recordings. That belongs to the run, and is in Build, on the step it
+happened on. The row under it says only what is true of a recording:
+what it is called and how long it lasted, and its own state only when
+there is nothing to watch ("No replay saved"). There used to be
+two shapes — a card for the open run's recordings carrying what each
+holds, a line for the rest — and that split was not emphasis but a
+confession, because the counts can only be derived against the trace of
+the run being read and the other runs' recordings could never have them.
+So the row says only what is true of all of them; the counts live where
+they can be had, in the line the Live preview shows when a recording is
+saved. Renaming and
+deleting are the open run's own actions and are offered on its rows only;
+deleting removes the boundaries, never the trace under them. Opening one
+plays its rrweb stream there (`replay-surface.tsx`) and cuts Activity and
+the Visualizer to the same minutes — they say so in a line above the
+canvas, with the way back to the whole run. Nothing else changes: the
+same canvas, the same drawer, the same inspector and the same selection,
+with only the data scope moved:
 `lib/trace/recording.ts` cuts the run's events and calls to the window
 and `useScopedTraceView` re-derives rows, stages and calls from them with
 the existing functions, passing the whole run's frame index so documents
@@ -552,17 +692,18 @@ recording by when it started, and comes whole even if it was still
 answering at Stop, because every event carrying its id follows it; an
 event that happened after Stop does not. A call that began before Record
 is not in it at all. The counts in the list are derived the same way, not
-stored. A moment chosen from outside the open recording (the preview's
-strip, a reference in one of Bart's answers) drops back to the full
-trace rather than being ringed where it cannot be seen; chosen while the
-list is showing, it opens the full trace, since the list has no canvas.
-Diagnostics keep describing the run whatever the canvas is cut to, and
-name the open recording on a line of their own: the gateways and the
-instrumentation are facts about the run, and a recording that starts
-after they came up has not stopped them happening.
+stored, and they are shown in the "Recording saved" line above the Live
+preview rather than in the list — the only place they can be had, since
+they are derived against the trace of the run being read. A moment
+chosen from outside the open recording — now only a reference in one of
+Bart's answers, the preview's strip being gone — closes the recording
+and shows the whole run, rather than being ringed where it cannot be
+seen. What the canvas is cut to is said by a banner above it
+(`RunBanners`, `components/trace/run-header.tsx`): "Cut to “<name>”, the
+recording open in Replay", with a "Whole run" button that clears it.
 
-Over the full trace the header also carries "Clear canvas"
-(`components/trace/behavior-trace.tsx`). It hides what came before and
+Over the full trace the corner box on the canvas also carries "Clear
+canvas" (`components/trace/behavior-trace.tsx`). It hides what came before and
 deletes nothing: the mark it takes is a reading of the trace's own clock
 (`clearMark` in `lib/trace/recording.ts` — the latest `at` of the rows,
 a millisecond on, because events carry the sandbox's clock and the
@@ -570,8 +711,9 @@ browser's is a different one, and because a window includes its start)
 and it is shown through the same `scopeTrace` window a recording is,
 rather than a second way of cutting the canvas down. Collection carries
 on, the rows stay, every saved recording still holds what it held, and
-the notes are untouched; the header says "Showing from …" with "Show all"
-beside it, and the canvas gets a new key so it frames what it now holds
+the notes are untouched; that same box swaps the button for "Showing
+from …" with "Show all" beside it — on a narrow panel the clock is
+dropped and only "Show all" is left — and the canvas gets a new key so it frames what it now holds
 instead of keeping a camera pointed at moments that are no longer drawn.
 The selection is dropped with the clear, so "this" in the conversation
 is never a moment that has left the canvas. The mark belongs to the run:
@@ -683,12 +825,15 @@ served document and is gone on the next reload.
 
 ### Where it shows
 
-The Trace tab's **Interface** view lists every reading with its
-signature, and, for the session, whether each document's answer came from
-the database or from a model and what moved when it did not. Each name is
-listed with the raw descriptors under it, and **Read again** asks the
-page for a fresh survey and re-reads it — which is the knob for the
-policy above.
+Nowhere, as a list. The readings are drawn into the things they name —
+the chips on a trace row, the cards on the canvas, the acts in Setup's
+**Events** — and the list of them with their signatures and their
+provenance, which was a view inside the old Trace tab, is not mounted
+anywhere at HEAD. `components/trace/interface-readings.tsx` is still in
+the tree, with its **Read again** control, and nothing imports it.
+Whether a document's answer came from the database or from a model, and
+what moved when it did not, is therefore a thing the code knows and the
+interface does not say.
 
 Bart gets `inspect_ui_semantics`, and is told plainly that this is the
 one source that is not evidence: a reading of a page, to be used for the
@@ -696,9 +841,9 @@ application's own words and never as proof that something happened.
 
 ## Bart
 
-Bart is a tab of the right panel, which it shares with whichever tab
-was sent over from the middle, and a small window in the corner of the
-trace canvas (`components/trace/trace-bart.tsx`). Both are views of one
+Bart is the first tab of the right panel, which it shares with the
+Visualizer, Replay, Annotations and Activity, and a small window in the
+corner of the Visualizer's canvas (`components/trace/trace-bart.tsx`). Both are views of one
 conversation: `hooks/use-bart-session.ts` holds it for the workspace, so
 a question asked beside the evidence is in the panel when you get there
 and a half-typed one survives the walk between them. Bart is not in the
@@ -713,19 +858,28 @@ smaller from its top-left corner (arrow keys too, once the grip has
 focus); it is pinned to the bottom-right, never grows past the canvas,
 and the size it was left at is remembered in the browser. It offers
 what the selection is ("Ask Bart about this model call…", from
-`askPlaceholder` in `lib/bart/labels.ts`), and "Ask Bart about this" in
-the drawer bar or the inspector opens it with the cursor in it. Its
-panel button hands the same thread to the right panel. What
-travels with a question is identity only: the run, the repository, the
-selected stage or call, the open recording and the open note. It answers
+`askPlaceholder` in `lib/bart/labels.ts`), and "Ask Bart" — in the
+drawer's header, which the model-call inspector shares — opens it with
+the cursor in it. Its panel button hands the same thread to the right
+panel. What travels with a question is identity, and two things that are
+not: the run, the repository, the selected stage or call, the open
+recording and the open note, plus the answering options set in the
+composer (effort, temperature, the token ceiling) and any attached text
+files. `lib/bart/options.ts` holds both, pure and tested, and the route
+clamps what it is given rather than trusting it; attachments are capped
+at five files, 60,000 characters each and 150,000 in all, and are folded
+into the message body on the server. It answers
 from four sources through tools, never from a dump of them: the trace,
 the captured model calls, the repository, and the notes a researcher
 wrote on the running interface. `app/api/bart/route.ts` takes
 a question with what is in the middle named by id (project, repository,
 run, selected moment), writes a short situation (`lib/bart/prompt.ts`:
-the repository, the run and its capture mode, the selected moment, and
-one line per moment of the run with its id and the tie the trace
-recorded) and lets the model fetch with `lib/bart/tools.ts`:
+the repository and where its source can be read, the run and its capture
+mode, a line naming the open recording and saying that the moments and
+the trace tools are scoped to it, a line naming the open note and
+pointing at `inspect_annotation`, the selected moment, one line per
+moment of the run with its id and the tie the trace recorded, and, over
+the same stretch, the reading of what the person was doing) and lets the model fetch with `lib/bart/tools.ts`:
 `run_overview`, `inspect_moment`, `inspect_model_call` (a part at a
 time: summary, the system prompt in the sections it marks, messages,
 tools, output, settings, raw bodies; long parts are cut with an offset
@@ -768,9 +922,11 @@ An answer cites with tokens (`lib/bart/protocol.ts`):
 `[[moment:<stage id>]]`, `[[call:<call id>:<pane>]]`,
 `[[file:<path>#L<from>-L<to>]]`, `[[readme]]`, `[[annotation:<id>]]`. The panel renders them as
 chips (`components/bart-markdown.tsx`) labelled from the trace
-(`lib/bart/labels.ts`); a chip opens the moment or the call in the
-Trace tab with the drawer on it, the file in the Code tab, or the
-README. The provenance categories (trace, captured request, source,
+(`lib/bart/labels.ts`, except an annotation chip, which is labelled from
+the note's own words cut to forty characters); a chip opens the moment
+or the call in the Visualizer with the drawer on it, the file in the
+Code tab, the README, or — for a note — the Live preview, with the note
+in focus where it was written. The provenance categories (trace, captured request, source,
 inferred) live in the tool text and the references; Bart is asked to
 write naturally, to say "the trace shows" or "I would infer" where it
 matters, and never to present a temporal tie as a cause.
@@ -783,26 +939,34 @@ so a thread can later span runs). `lib/bart/store.ts` reads and writes
 them, `bart-actions.ts` loads the latest thread on arrival and starts a
 new one on Clear, `hooks/use-bart.ts` streams a turn. The models Bart
 can use are one list, `lib/bart/models.ts`, shown in the panel's picker
-and checked by the route; the server reads `ANTHROPIC_API_KEY`. The
-line under the input says what is sent to Anthropic.
+and checked by the route; the server reads `ANTHROPIC_API_KEY`. Under
+the input there is only the toolbar: attach, the answering options, the
+model, and Send — Stop while a turn is streaming.
 
 ## Tests
 
-`npm test` runs everything under `tests/trace/`: the gateways against
-fixture upstreams, the bridge in jsdom, annotate mode in a framed jsdom
-document served on its own origin (the origin is the whole question, and
-jsdom gives a blank frame an opaque one), the collector against a fake
-database, the timeline model. Annotations themselves are under
-`tests/annotations/` and `tests/bart/annotations.test.mts`, and the
-semantic layer under `tests/semantics/` — the vocabulary and the two
+`npm test` is `node --import tsx --test 'tests/**/*.test.*'`: everything
+under `tests/`, not only the trace. Of that, `tests/trace/` is the
+gateways against fixture upstreams, the bridge in jsdom, annotate mode in
+a framed jsdom document served on its own origin (the origin is the whole
+question, and jsdom gives a blank frame an opaque one), the collector
+against a fake database, and the timeline model. Annotations themselves
+are under `tests/annotations/` and `tests/bart/annotations.test.mts`, and
+the semantic layer under `tests/semantics/` — the vocabulary and the two
 untrusted boundaries (a survey from a page, a reading from a model), the
 lookup ladder, the signature policy, what the model is shown, and what a
-trace row says with and without a reading. Model capture has two suites of its own:
-`tests/trace/preload.test.mjs` runs each hook in a real child process
-under the real preload, and `tests/sandbox/hc-instrumentation.test.mjs`
-drives hc's capability module through `python3` — which launchers may
-take a preload, which are refused, and that a repository can neither
-choose the path nor reach the marker.
+trace row says with and without a reading. `tests/activity/` holds the
+reading of what a person was doing, and `tests/workspace/` the pure parts
+of the shell the trace is read in: the slot algebra of the two tab bars,
+the environment's pending values, the run's steps, the code file list and
+the sidebar's width. Model capture has five suites: `tests/trace/preload.test.mjs`
+runs each hook in a real child process under the real preload, and
+`tests/sandbox/` holds three — `hc-instrumentation.test.mjs` drives hc's
+capability module through `python3` (which launchers may take a preload,
+which are refused, and that a repository can neither choose the path nor
+reach the marker), `instrumentation-registry.test.mjs` holds the registry
+of sandbox-only edits and why it is now empty, and
+`edge-detection.test.mjs` what the wrapper makes of middleware.
 
 What `npm test` cannot do is run a real page or a real artifact.
 `npm run semantics:verify -- <file-or-url>` does the first, and with

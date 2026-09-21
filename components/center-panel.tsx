@@ -59,19 +59,20 @@ const EAGER: MiddleTab[] = MIDDLE_TABS.filter((t) => !KEPT.includes(t));
 // cards, the middle and the right panel, with the same gap between them
 // as beside the sidebar. The resize handle is that gap.
 //
-// The right panel holds the companion tools — Bart, the Terminal,
-// Activity, the Visualizer and Replay — and holds them for good. One
-// shows at a time, but the ones behind are not unmounted, only hidden,
-// because most of them lose something real when their subtree goes: the
-// shell is killed with it (components/sandbox-shell.tsx), the Visualizer
-// would come back having forgotten its camera and its selection, and the
-// replay would come back at the start with its stream to fetch again.
+// The right panel holds the companion tools — Bart, the Visualizer,
+// Replay, Annotations and Activity (lib/workspace-slots.ts) — and holds
+// them for good. One shows at a time, but the ones behind are not
+// unmounted, only hidden, because most of them lose something real when
+// their subtree goes: the Visualizer would come back having forgotten
+// its camera and its selection, and Replay would come back at the start
+// with its stream to fetch again.
 //
-// Hidden is `display: none`, which is safe for both of them and was
-// measured rather than assumed: React Flow declines to measure a
-// container that fails `checkVisibility()` and keeps the last size it
-// had, and xterm's fit addon does nothing on a box of no size, so cols,
-// rows and scrollback all survive the round trip.
+// Hidden is `display: none`, and that it is safe was measured rather
+// than assumed — for the panel and for the middle, which hides its
+// surfaces the same way. React Flow declines to measure a container that
+// fails `checkVisibility()` and keeps the last size it had, so the
+// canvas keeps its camera; xterm's fit addon does nothing on a box of no
+// size, so the shell in Setup keeps its cols, rows and scrollback.
 export function CenterPanel({ tabs, middle, middleTab, children, panes, tab, onTabChange, focus, repoId }: CenterPanelProps) {
   const column = usePanelRef();
   const [open, setOpen] = useState(true);
@@ -98,9 +99,10 @@ export function CenterPanel({ tabs, middle, middleTab, children, panes, tab, onT
   const showing = panes[tab] ? tab : "bart";
 
   // A pane is mounted the first time it is shown and never unmounted
-  // until the repository changes. Not all three at once: mounting the
-  // Terminal opens a shell in the sandbox, and opening a repository is
-  // not asking for one. Keyed off what is actually shown rather than off
+  // until the repository changes. Not all five at once: Replay would
+  // fetch a stream and the Visualizer would build a graph for somebody
+  // who opened the repository to read the README. Keyed off what is
+  // actually shown rather than off
   // what was asked for, so the fallback above cannot leave the panel
   // holding a pane it is not drawing and nothing else.
   //
@@ -141,12 +143,13 @@ export function CenterPanel({ tabs, middle, middleTab, children, panes, tab, onT
           <ResizablePanel
             panelRef={column}
             defaultSize="35"
-            // Four tab names measure 241px and the header needs about 289
-            // with the close button and its padding; 25% of an ordinary
-            // workspace row is around 283, which is just short. 28 is the
-            // first that clears it. Measured, not guessed — it was 32 when
-            // the Terminal made five — and the row below scrolls anyway if
-            // a narrow window makes even this too little.
+            // Measured when the bar held four names: they came to 241px
+            // and the header needs about 289 with the close button and its
+            // padding; 25% of an ordinary workspace row is around 283,
+            // which is just short, and 28 is the first that clears it. The
+            // bar holds five now and has not been re-measured, so 28 may
+            // no longer clear it — the row below scrolls when it does not,
+            // which is the same fallback a narrow window gets.
             minSize="28"
             maxSize="55"
             collapsible
