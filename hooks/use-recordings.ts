@@ -2,14 +2,19 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { SandboxRun } from "@/lib/sandbox";
-import type { Recording } from "@/lib/trace/recording";
-import { deleteRecording, listRecordings, renameRecording, startRecording, stopRecording } from "@/app/workspace/[workspaceId]/recording-actions";
+import type { Recording, RecordingOnRun } from "@/lib/trace/recording";
+import { deleteRecording, listEarlierRecordings, listRecordings, renameRecording, startRecording, stopRecording } from "@/app/workspace/[workspaceId]/recording-actions";
 
 // The recordings of the run in the middle: loaded when the run appears,
 // so an open recording is found again after a reload rather than started
 // twice; changed here as the person records, stops, renames and deletes.
 export type Recordings = {
   list: Recording[];
+  // The same repository's recordings from its earlier runs. Never merged
+  // into `list`: they are windows over a different run's trace and can
+  // only be read by going to that run. They are here so that a relaunch
+  // stops looking like a loss.
+  earlier: RecordingOnRun[];
   active: Recording | null;          // the one open on the run, if any
   loaded: boolean;
   busy: boolean;
@@ -30,13 +35,14 @@ export function useRecordings(run: SandboxRun | undefined): Recordings {
   const runId = run?.id;
   const traced = !!run && run.trace !== "off";
   const [list, setList] = useState<Recording[]>([]);
+  const [earlier, setEarlier] = useState<RecordingOnRun[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastStopped, setLastStopped] = useState<Recording | null>(null);
 
   useEffect(() => {
-    setList([]); setLoaded(false); setError(null); setLastStopped(null);
+    setList([]); setEarlier([]); setLoaded(false); setError(null); setLastStopped(null);
     if (!runId || !traced) { setLoaded(true); return; }
     let stale = false;
     listRecordings(runId).then((r) => {
@@ -44,6 +50,9 @@ export function useRecordings(run: SandboxRun | undefined): Recordings {
       if (r.ok) setList(r.recordings); else setError(r.error);
       setLoaded(true);
     });
+    // Separately, and allowed to be slower: the list is usable without
+    // it, and it must never be the reason the list shows an error.
+    listEarlierRecordings(runId).then((e) => { if (!stale) setEarlier(e); }).catch(() => {});
     return () => { stale = true; };
   }, [runId, traced]);
 
@@ -88,5 +97,5 @@ export function useRecordings(run: SandboxRun | undefined): Recordings {
     if (r.ok) setError(null); else { setList(before); setError(r.error); }
   }, [list]);
 
-  return { list, active, loaded, busy, error, dismissError: () => setError(null), lastStopped, dismissStopped: () => setLastStopped(null), start, stop, rename, remove };
+  return { list, earlier, active, loaded, busy, error, dismissError: () => setError(null), lastStopped, dismissStopped: () => setLastStopped(null), start, stop, rename, remove };
 }

@@ -1,7 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { RECORDING_COLUMNS, REPLAYS_BUCKET, defaultName, toRecording, type Recording, type RecordingRow } from "@/lib/trace/recording";
+import { RECORDING_COLUMNS, REPLAYS_BUCKET, byRunThenMade, defaultName, toRecording, type Recording, type RecordingOnRun, type RecordingRow } from "@/lib/trace/recording";
+import type { RunStatus } from "@/lib/sandbox";
 
 // Recordings of a run, as the signed-in member: list, start, stop, rename,
 // delete. A recording is a name and two clock readings over the run's
@@ -16,6 +17,40 @@ export async function listRecordings(runId: string): Promise<{ ok: true; recordi
   const { data, error } = await supabase.from("engelbart_recordings").select(RECORDING_COLUMNS).eq("run_id", runId).order("started_at");
   if (error) return { ok: false, error: describe(error.message) };
   return { ok: true, recordings: (data as RecordingRow[]).map(toRecording) };
+}
+
+// The same repository's recordings from every run but this one.
+//
+// Recordings belong to a run and are read against that run's trace, so
+// this is not the open run's list and is never merged into it. It is the
+// answer to the question the empty list used to raise: a relaunch made
+// four recordings disappear, and nothing anywhere said they were still
+// there, on the run they were made on.
+//
+// Failures are quiet on purpose. This is context beside the real list,
+// and the real list surviving is worth more than a banner about the
+// context.
+export async function listEarlierRecordings(runId: string): Promise<RecordingOnRun[]> {
+  const supabase = await createClient();
+  const { data: run } = await supabase.from("engelbart_sandbox_runs").select("repo_id").eq("id", runId).maybeSingle();
+  if (!run) return [];
+  const { data: runs } = await supabase
+    .from("engelbart_sandbox_runs")
+    .select("id, status, started_at, commit_sha")
+    .eq("repo_id", (run as { repo_id: string }).repo_id)
+    .neq("id", runId)
+    .order("started_at", { ascending: false });
+  const earlier = (runs ?? []) as { id: string; status: RunStatus; started_at: string; commit_sha: string | null }[];
+  if (!earlier.length) return [];
+  const { data } = await supabase.from("engelbart_recordings").select(RECORDING_COLUMNS).in("run_id", earlier.map((r) => r.id));
+  const byRun = new Map(earlier.map((r) => [r.id, r]));
+  return ((data ?? []) as RecordingRow[])
+    .map((row) => {
+      const on = byRun.get(row.run_id);
+      return on ? { recording: toRecording(row), run: { id: on.id, status: on.status, startedAt: on.started_at, commit: on.commit_sha } } : null;
+    })
+    .filter((r): r is RecordingOnRun => r !== null)
+    .sort(byRunThenMade);
 }
 
 // One recording at a time: if one is open on the run already, it is the

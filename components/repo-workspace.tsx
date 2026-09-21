@@ -21,6 +21,7 @@ import { EnvPanel } from "@/components/env-panel";
 import { PatchView } from "@/components/patch-view";
 import { patchFromEvents, type RepoPatch } from "@/lib/patch";
 import { BehaviorTrace, type CanvasMark, type TraceRecordings } from "@/components/trace/behavior-trace";
+import type { RunHistory } from "@/hooks/use-run-history";
 import { RecordButton, RecordingSaved } from "@/components/trace/record-control";
 import { ReplaySurface } from "@/components/trace/replay-surface";
 import { useCapture } from "@/hooks/use-capture";
@@ -85,6 +86,7 @@ type RepoContentProps = RunControls & {
   traceAside: boolean;                   // the trace is on the side: no "Open trace", no way back
   scopedTrace: TraceView;                // what the Trace tab shows: the run, or the open recording's slice of it
   recording: TraceRecordings;            // the run's recordings, the Record button's state, where the Trace tab is
+  history: RunHistory;                   // which run of this repository the Trace tab is reading
   canvasMark: CanvasMark;                // where the Trace tab's canvas starts from, when a clean one was asked for
   annotations: Annotations;              // the notes written on this repository's interface
   onAskAboutAnnotation: (id: string) => void;   // ask Bart about one of them
@@ -111,7 +113,7 @@ export type ReplayControls = {
 // The trace's selection callbacks, shared by the preview's strip and the Trace tab.
 export type TraceControls = { trace: TraceView; selection: Selection | null; onSelect: RepoContentProps["onSelect"]; onOpenTrace: () => void; traceAside: boolean; recording: TraceRecordings; annotations: Annotations; onAskAboutAnnotation: (id: string) => void; semantics: Semantics; replay: ReplayControls | null; registerStop: RepoContentProps["registerStop"] };
 
-export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, trace, selection, detail, onSelect, onDetail, onAskBart, onOpenTrace, onOpenPreview, codeOpen, slot, traceAside, scopedTrace, recording, canvasMark, annotations, onAskAboutAnnotation, semantics, traceBart, replay, registerStop, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
+export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, trace, selection, detail, onSelect, onDetail, onAskBart, onOpenTrace, onOpenPreview, codeOpen, slot, traceAside, scopedTrace, recording, history, canvasMark, annotations, onAskAboutAnnotation, semantics, traceBart, replay, registerStop, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
   // The environment scan and any repair edits from this run's log if it
   // has them, else the last ones saved on the repository.
   const envReport = (run && environmentFromEvents(events, run.id)) ?? repo.envReport;
@@ -135,7 +137,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
   // application is never reloaded; only the wrapper's class changes.
   // On the side the trace stands alone: the preview is in the middle.
   if (tab === "preview" || tab === "trace") {
-    const canvas = tab === "trace" ? <BehaviorTrace repo={repo} run={run} runTrace={trace} trace={scopedTrace} selection={selection} detail={detail} onSelect={onSelect} onDetail={onDetail} onAskBart={onAskBart} slot={slot} onBack={slot === "middle" ? onOpenPreview : null} recordings={recording} notes={{ annotations, onOpen: (id) => { annotations.focusOn(id); onOpenPreview(); }, onAskBart: onAskAboutAnnotation }} semantics={semantics} canvas={canvasMark} bart={traceBart} /> : null;
+    const canvas = tab === "trace" ? <BehaviorTrace repo={repo} run={run} runTrace={trace} trace={scopedTrace} selection={selection} detail={detail} onSelect={onSelect} onDetail={onDetail} onAskBart={onAskBart} slot={slot} onBack={slot === "middle" ? onOpenPreview : null} recordings={recording} history={history} notes={{ annotations, onOpen: (id) => { annotations.focusOn(id); onOpenPreview(); }, onAskBart: onAskAboutAnnotation }} semantics={semantics} canvas={canvasMark} bart={traceBart} /> : null;
     if (tab === "trace" && slot === "side") return canvas;
     return (
       <>
@@ -564,7 +566,10 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
         {events.some((e) => e.data?.phase === "trail" && (e.data?.status === "own" || e.data?.status === "shared")) && (
           <Button variant="ghost" size="sm" onClick={async () => { await onStop(run.id); onStartOver(); }} title="Stop, then analyze from scratch ignoring the saved trail" className="h-6 px-2 font-normal text-muted-foreground">Start over</Button>
         )}
-        {traced && <RecordButton active={rec.active} busy={rec.busy || saving} onStart={() => void rec.start()} onStop={() => void stopRecording()} />}
+        {/* Reading an earlier run: there is nothing to record. The
+            preview is always the live run, and a recording is a window
+            over the trace of the run being read. */}
+        {traced && <RecordButton active={rec.active} busy={rec.busy || saving} past={controls.recording.past} onStart={() => void rec.start()} onStop={() => void stopRecording()} />}
         {traced && service.embeddable && <AnnotateControl active={picker.active} count={notes.list.length} onStart={picker.start} onStop={picker.stop} />}
         {traced && !controls.traceAside && <Button variant="ghost" size="sm" onClick={controls.onOpenTrace} className="h-6 px-2 font-normal text-muted-foreground">Open trace</Button>}
         <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="h-6 px-2 font-normal text-muted-foreground">Stop</Button>
@@ -606,7 +611,11 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
           onClose={() => setOpenNote(null)}
         />
       )}
-      {traced && <LiveStrip trace={controls.trace} live selectedId={selectedStage(controls.trace.stages, controls.selection)?.id ?? null} onPick={pickMoment} onOpenTrace={controls.traceAside ? null : controls.onOpenTrace} />}
+      {/* The strip is the trace being read, which is the live run unless
+          an earlier one was chosen in the Trace tab. It keeps showing
+          that run's moments either way — it just stops saying they are
+          arriving now, because they are not. */}
+      {traced && <LiveStrip trace={controls.trace} live={!controls.recording.past} selectedId={selectedStage(controls.trace.stages, controls.selection)?.id ?? null} onPick={pickMoment} onOpenTrace={controls.traceAside ? null : controls.onOpenTrace} />}
     </section>
     </>
   );

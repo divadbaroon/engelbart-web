@@ -5,6 +5,7 @@
 // that happened after the stop does not. Pure: no DOM, no network.
 import type { ModelCall, TraceEvent } from "@/lib/trace/types";
 import { traceRows, traceStages, type FrameInfo } from "@/lib/trace/timeline";
+import type { RunStatus } from "@/lib/sandbox";
 
 export type RecordingStatus = "recording" | "complete";
 export type Recording = { id: string; runId: string; projectId: string; name: string; status: RecordingStatus; startedAt: string; stoppedAt: string | null; createdAt: string; replayPath: string | null };
@@ -12,6 +13,23 @@ export type RecordingRow = { id: string; run_id: string; project_id: string; nam
 export const RECORDING_COLUMNS = "id, run_id, project_id, name, status, started_at, stopped_at, created_at, replay_path";
 export const toRecording = (r: RecordingRow): Recording => ({ id: r.id, runId: r.run_id, projectId: r.project_id, name: r.name, status: r.status, startedAt: r.started_at, stoppedAt: r.stopped_at, createdAt: r.created_at, replayPath: r.replay_path ?? null });
 export const defaultName = (n: number) => `Recording ${n}`;
+
+// A recording and the run it was made on.
+//
+// A recording is a window over one run's trace, so it can only ever be
+// read against that run — but the workspace opens the newest run of a
+// repository and nothing else, and every relaunch therefore hid every
+// recording made before it. They were never lost; they were unreachable,
+// which reads the same from the outside. So the list asks for the
+// repository's recordings rather than the open run's, and each one says
+// which run it belongs to, so it can be opened by going there.
+export type RecordingOnRun = { recording: Recording; run: { id: string; status: RunStatus; startedAt: string; commit: string | null } };
+
+// Newest run first, and inside a run the order the recordings were made —
+// which is the order the open run's own list is in, so the two halves of
+// the recordings view read the same way down the page.
+export const byRunThenMade = (a: RecordingOnRun, b: RecordingOnRun) =>
+  Date.parse(b.run.startedAt) - Date.parse(a.run.startedAt) || Date.parse(a.recording.startedAt) - Date.parse(b.recording.startedAt);
 
 // Where a recording's replay is kept. The project id is the first folder
 // because that is what the storage policies read to decide who may have

@@ -9,6 +9,8 @@ import { hasCanvas, statsLine, type Recording, type RecordingStats, type TraceNa
 import { InterfaceReadings } from "@/components/trace/interface-readings";
 import type { Semantics } from "@/hooks/use-semantics";
 import { RecordingsList } from "@/components/trace/recordings-list";
+import { PastRunBanner, RunPicker } from "@/components/trace/run-picker";
+import type { RunHistory } from "@/hooks/use-run-history";
 import { AnnotationsList } from "@/components/trace/annotations-list";
 import type { Annotations } from "@/hooks/use-annotations";
 import type { Repo } from "@/lib/repos";
@@ -38,6 +40,11 @@ type Props = {
   slot: "middle" | "side";                // in the middle the details stand beside the canvas; on the side, under it
   onBack: (() => void) | null;            // to the Live preview; none when the trace is beside it
   recordings: TraceRecordings;
+  // Which run of this repository the trace is being read from. The tab
+  // opens on the latest and can go back to any earlier one; the Live
+  // preview and the terminal are not affected, because they can only
+  // ever mean the run that is actually running.
+  history: RunHistory;
   notes: TraceAnnotations;                // the repository's interface annotations, as a third view
   semantics: Semantics;                   // what has been read about this application's interfaces, as a fourth
   canvas: CanvasMark;                     // where the canvas starts from, when a clean one was asked for
@@ -80,6 +87,15 @@ export type TraceRecordings = {
   // capture of what the preview looked like. They all come through this,
   // so a recording stopped from the trace keeps its replay too.
   stop: () => void;
+  // A recording made on an earlier run: go to that run and open it
+  // there. A recording cannot be read against any other run's trace, so
+  // this is the only way to open one.
+  openEarlier: (runId: string, recordingId: string) => void;
+  // An earlier run is being read. Everything here is then about a run
+  // that has already happened, so nothing may be started on it: a
+  // recording records what the preview is doing now, and the preview is
+  // never showing a past run.
+  past: boolean;
 };
 
 // The behavior trace of a run: a canvas with every moment of the session
@@ -97,7 +113,7 @@ export type TraceRecordings = {
 // choice between the whole run and its recordings: a recording opens on
 // this same canvas, cut to its window by the parent (`trace` is then the
 // scoped view); the list is the other view.
-export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, onSelect, onDetail, onAskBart, slot, onBack, recordings, notes, semantics, canvas, bart }: Props) {
+export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, onSelect, onDetail, onAskBart, slot, onBack, recordings, history, notes, semantics, canvas, bart }: Props) {
   const { stages, diagnostics, callRows, error, loading } = trace;
   const { nav, onNav } = recordings;
   const rec = recordings.recordings;
@@ -207,6 +223,14 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
           </>
         ) : (
           <>
+            <RunPicker
+              runs={history.runs}
+              run={history.run}
+              live={history.live}
+              recordings={(runId) => (runId === run?.id ? rec.list.length : rec.earlier.filter((e) => e.run.id === runId).length)}
+              onView={history.view}
+            />
+            {history.runs.length > 1 && <span className="mx-1 h-4 w-px bg-border" />}
             <div role="tablist" aria-label="Trace view" className="flex items-center gap-0.5 rounded-md bg-muted/60 p-0.5">
               <NavTab active={nav.kind === "activity"} onClick={() => onNav({ kind: "activity" })}>Activity</NavTab>
               <NavTab active={nav.kind === "full"} onClick={() => onNav({ kind: "full" })}>Full trace</NavTab>
@@ -236,6 +260,7 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
           </>
         )}
       </header>
+      {history.past && history.run && <PastRunBanner run={history.run} onLatest={() => history.view(null)} />}
       {error && <p role="alert" className="shrink-0 border-b px-[22px] py-2 text-xs text-destructive">{error}</p>}
       {nav.kind === "activity" ? (
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -265,6 +290,8 @@ export function BehaviorTrace({ repo, run, trace, runTrace, selection, detail, o
         <div className="min-h-0 flex-1 overflow-y-auto">
           <RecordingsList
             recordings={rec.list}
+            earlier={rec.earlier}
+            onOpenEarlier={recordings.openEarlier}
             stats={recordings.stats}
             loaded={rec.loaded}
             error={rec.error}

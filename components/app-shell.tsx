@@ -13,6 +13,7 @@ import { useSandboxRuns } from "@/hooks/use-sandbox-run";
 import { useScopedTraceView, useTraceView } from "@/hooks/use-trace-view";
 import { useArtifactProfile } from "@/hooks/use-artifact-profile";
 import { useRecordings } from "@/hooks/use-recordings";
+import { useRunHistory } from "@/hooks/use-run-history";
 import { useAnnotations } from "@/hooks/use-annotations";
 import { useSemantics } from "@/hooks/use-semantics";
 import { clearMark, hasCanvas, recordingStats, type Recording, type TraceNav, windowOf } from "@/lib/trace/recording";
@@ -261,9 +262,18 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   }
 
   const repo = center.kind === "repo" ? repos.find((r) => r.id === center.id) : undefined;
-  // The trace of the run in the middle, read by the Trace tab, the
-  // preview's strip and Bart alike, and the moment selected in it.
-  const run = repo ? sandbox.runs[repo.id] : undefined;
+  // Which run of this repository is being read, by the Trace tab, the
+  // preview's strip and Bart alike. The newest is the one the
+  // workspace opens — and until now the only one it could reach, so a
+  // relaunch put the session before it, with its recordings, out of sight
+  // rather than out of existence. An earlier run chosen here is read by
+  // everything on the trace side: the canvas, the activity, the
+  // recordings, the profile and what Bart is answering about. The Live
+  // preview and the terminal are untouched and keep the live run, which
+  // they take from `sandbox.runs` themselves — they can only ever mean
+  // the run that is actually running.
+  const history = useRunHistory(repo, repo ? sandbox.runs[repo.id] : undefined);
+  const run = history.run;
   // What this application's interfaces are for, read once per interface
   // and kept. It is asked for in the Live preview, and the answer names
   // rows in the trace; without it every label is what the page said,
@@ -295,7 +305,16 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   // everything. It belongs to the run, so it survives moving between
   // tabs and goes when the run does.
   const [clearedAt, setClearedAt] = useState<string | null>(null);
-  useEffect(() => { setTraceNav({ kind: "full" }); setClearedAt(null); }, [run?.id]);
+  // Moving to another run starts on the whole trace of it — unless the
+  // move was made in order to open one of its recordings, which is what
+  // `pendingRecording` carries across. Without it the recording asked for
+  // would be set and then immediately cleared by this.
+  const pendingRecording = useRef<string | null>(null);
+  useEffect(() => {
+    setTraceNav(pendingRecording.current ? { kind: "recording", id: pendingRecording.current } : { kind: "full" });
+    pendingRecording.current = null;
+    setClearedAt(null);
+  }, [run?.id]);
   const openRecording = traceNav.kind === "recording" ? recordings.list.find((r) => r.id === traceNav.id) ?? null : null;
   useEffect(() => { if (traceNav.kind === "recording" && recordings.loaded && !openRecording) setTraceNav({ kind: "list" }); }, [traceNav.kind, recordings.loaded, openRecording]);
   const scopedTrace = useScopedTraceView(trace, openRecording ? windowOf(openRecording) : clearedAt ? { start: clearedAt, end: null } : null);
@@ -472,6 +491,14 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   const traceRecordings: TraceRecordings | null = repo ? {
     recordings, nav: traceNav, onNav: setTraceNav, stats, reveal,
     stop: () => { void (stopWithReplay.current ? stopWithReplay.current() : recordings.stop()); },
+    // A recording of an earlier run is read against that run and no
+    // other, so opening one is a move: go to the run, then open it there.
+    openEarlier: (runId: string, recordingId: string) => {
+      if (runId === run?.id) { setTraceNav({ kind: "recording", id: recordingId }); return; }
+      pendingRecording.current = recordingId;
+      history.view(runId);
+    },
+    past: history.past,
     // Opening a recording is what puts the workspace into replay: the
     // middle stops being the running application and plays the recording
     // back, and the trace moves beside it, cut to the same window. They
@@ -490,6 +517,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
       slot={slot}
       traceAside={sideTab === "trace"}
       scopedTrace={scopedTrace}
+      history={history}
       recording={traceRecordings}
       canvasMark={traceCanvasMark}
       registerStop={stopWithReplay}

@@ -11,11 +11,11 @@ import { formatElapsed, statsLine, type Recording, type RecordingStats } from "@
 // time with a stop square while one is open. Neither touches the run: the
 // trace is captured regardless; a recording only marks where a slice of
 // it starts and stops.
-export function RecordButton({ active, busy, onStart, onStop }: { active: Recording | null; busy: boolean; onStart: () => void; onStop: () => void }) {
+export function RecordButton({ active, busy, past = false, onStart, onStop }: { active: Recording | null; busy: boolean; past?: boolean; onStart: () => void; onStop: () => void }) {
   const elapsed = useElapsed(active);
   if (!active) {
     return (
-      <Button variant="ghost" size="sm" onClick={onStart} disabled={busy} aria-label="Record" title="Save a slice of this run's trace from now until Stop" className="h-6 gap-1.5 px-2 font-normal text-muted-foreground">
+      <Button variant="ghost" size="sm" onClick={onStart} disabled={busy || past} aria-label="Record" title={past ? "The trace is showing an earlier run. Go back to the latest run to record." : "Save a slice of this run's trace from now until Stop"} className="h-6 gap-1.5 px-2 font-normal text-muted-foreground">
         <Circle className="size-2.5" /> Record
       </Button>
     );

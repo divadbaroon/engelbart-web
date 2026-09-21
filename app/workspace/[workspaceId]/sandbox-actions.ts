@@ -71,6 +71,30 @@ export async function stopRun(runId: string): Promise<RunSnapshot | { error: str
   return snapshot(runId, "The run could not be read back.");
 }
 
+// Every run of a repository, newest first.
+//
+// The workspace opens the newest run of a repository and has never had a
+// way to reach any other, so a relaunch put the previous session's trace,
+// its recordings and its activity out of reach — all still there, none of
+// it findable. This is what a run picker reads. Fifty is a bound, not a
+// page: a repository with more than fifty runs has older ones worth
+// finding by other means.
+//
+// Whole runs rather than a summary, because choosing one has to hand the
+// rest of the workspace exactly what it would have had if that run were
+// the open one, and that is a SandboxRun.
+export async function listRepoRuns(repoId: string): Promise<SandboxRun[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("engelbart_sandbox_runs")
+    .select(RUN_COLUMNS)
+    .eq("repo_id", repoId)
+    .order("started_at", { ascending: false })
+    .limit(50);
+  if (error) return [];
+  return (data as RunRow[]).map(toRun);
+}
+
 export async function getRun(runId: string): Promise<RunSnapshot | { error: string }> {
   return snapshot(runId, "That run does not exist.");
 }
