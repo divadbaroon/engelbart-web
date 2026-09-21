@@ -404,18 +404,45 @@ function instrumentationFor(repo: Repo): Instrumentation | null {
 // wait for it to announce itself. Best effort: if it does not come up, it
 // is stopped and the plain proxy serves the run, which is then traced on
 // the model side only.
-// The one origin allowed to turn annotate mode on inside a served
-// document. The bridge only observes until it is told to, and it is told
-// only by the window that embeds the preview, and only when that window's
-// origin is this one. With nothing here the control channel never opens
-// and the run is traced exactly as it was before annotations existed.
-function workspaceOrigin(): string | null {
-  const raw = process.env.ENGELBART_WORKSPACE_ORIGIN ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-  try { return new URL(raw).origin; } catch { return null; }
+// The origins allowed to turn annotate mode on inside a served document,
+// and to start a replay recording — both ride the same channel. The
+// bridge only observes until it is told to, and it is told only by the
+// window that embeds the preview, and only when that window's origin is
+// one of these. With nothing here the control channel never opens and the
+// run is traced exactly as it was before annotations existed.
+//
+// A list, because one workspace is served from more than one origin and
+// this is decided by the process that launches the sandbox — the worker,
+// which is not the web app. A worker on somebody's machine has no
+// VERCEL_URL, so it pinned every sandbox it launched to localhost, and
+// the same run opened from the deployment got a preview that refused the
+// picker and saved no pictures, silently, because both messages are
+// dropped by the same test. ENGELBART_WORKSPACE_ORIGIN takes a
+// comma-separated list for exactly that case.
+//
+// The fallback is unchanged in shape — one origin, guessed — except that
+// Vercel's production domain is preferred over the per-deployment URL,
+// which is what VERCEL_URL actually is and which nobody browses.
+export function workspaceOrigins(): string[] {
+  const set = process.env.ENGELBART_WORKSPACE_ORIGIN;
+  const host = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
+  // Set-but-empty rather than falsy, because an explicitly blank value is
+  // the only way to spell the off-state: unset already means the guess
+  // below. Blank splits to one empty entry, which the trim drops, and the
+  // caller sends no config at all — the same as " ", and the same as it
+  // did before this took a list.
+  const raw = set != null ? set.split(",") : [host ? `https://${host}` : "http://localhost:3000"];
+  const out: string[] = [];
+  for (const one of raw) {
+    const text = one.trim();
+    if (!text) continue;
+    try { const o = new URL(text).origin; if (!out.includes(o)) out.push(o); } catch { /* not an origin: left out rather than guessed at */ }
+  }
+  return out;
 }
 
 async function startPreviewGateway(sandbox: Sandbox, specs: string, trace: NonNullable<LaunchOptions["trace"]>, env: Record<string, string>, record: Recorder): Promise<boolean> {
-  const origin = workspaceOrigin();
+  const origins = workspaceOrigins();
   const lines = new LineReader();
   lines.onLine = (line) => { if (!trace.collector.line(line)) record.event("stdout", line + "\n"); };
   try {
@@ -427,7 +454,11 @@ async function startPreviewGateway(sandbox: Sandbox, specs: string, trace: NonNu
       timeoutMs: RUN_SANDBOX_TIMEOUT_MS,
       envs: {
         ENGELBART_TRACE_CAPTURE: trace.capture, ENGELBART_REDACT_FILE: PREVIEW_REDACT_FILE,
-        ...(origin ? { ENGELBART_BRIDGE_CONFIG: JSON.stringify({ parentOrigin: origin }) } : {}),
+        // Both shapes: `parentOrigins` is what a current bridge reads and
+        // `parentOrigin` is what one from an image built before this
+        // reads, so a sandbox on an older template keeps the behaviour it
+        // had rather than losing the channel altogether.
+        ...(origins.length ? { ENGELBART_BRIDGE_CONFIG: JSON.stringify({ parentOrigin: origins[0], parentOrigins: origins }) } : {}),
       },
       onStdout: (d) => lines.push(d),
       onStderr: (d) => record.event("stderr", d),

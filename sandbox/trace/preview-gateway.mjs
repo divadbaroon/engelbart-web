@@ -238,6 +238,14 @@ export function createPreviewGateway({ listenPort, targetPort, targetAddress = "
   const bridgeEtag = `"${crypto.createHash("sha1").update(bridge).digest("hex").slice(0, 16)}"`;
   const recorderEtag = recorder ? `"${crypto.createHash("sha1").update(recorder).digest("hex").slice(0, 16)}"` : null;
   const configAttr = bridgeConfig ? ` data-config="${escapeAttr(JSON.stringify(bridgeConfig))}"` : "";
+  // The origins the injected bridge will take a picker or a record
+  // message from, in the order the config gives them, for the health
+  // endpoint to report. Both shapes, because the single-origin one is
+  // what an older worker sends.
+  const workspaceOrigins = [
+    ...(Array.isArray(bridgeConfig?.parentOrigins) ? bridgeConfig.parentOrigins : []),
+    ...(typeof bridgeConfig?.parentOrigin === "string" && bridgeConfig.parentOrigin ? [bridgeConfig.parentOrigin] : []),
+  ].filter((o, i, all) => typeof o === "string" && o && all.indexOf(o) === i);
   const stats = { requests: 0, documents: 0, injected: 0, blocked: 0, batches: 0, events: 0, rejected: 0, dropped: 0 };
   let complained = 0;
 
@@ -392,7 +400,14 @@ export function createPreviewGateway({ listenPort, targetPort, targetAddress = "
     // no answer from a document, these say whether the bridge was injected
     // at all. Nothing here is not already public to whoever holds the
     // preview URL, which is how the events endpoint is reachable too.
-    if (pathname === HEALTH_PATH) { res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*" }); return res.end(JSON.stringify({ ok: true, gateway: "preview", target: targetHost, ...stats })); }
+    // `workspaceOrigins` is here so that a workspace whose picker got no
+    // answer can tell the two silences apart: a bridge too old to have a
+    // picker, and a current bridge that refuses this origin because the
+    // run was launched for another one. Without it the second reads as
+    // the first and sends somebody to rebuild a template that is fine.
+    // It names origins, never a secret, and this endpoint is already
+    // public to whoever holds the preview URL.
+    if (pathname === HEALTH_PATH) { res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*" }); return res.end(JSON.stringify({ ok: true, gateway: "preview", target: targetHost, workspaceOrigins, ...stats })); }
     relay(req, res);
   });
   server.on("upgrade", (req, socket, head) => {

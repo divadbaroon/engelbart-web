@@ -154,7 +154,9 @@ pass-through. On top of that:
   the bridge (`no-cache`, with an etag), `/__engelbart/recorder.js` serves
   the vendored rrweb recorder (`immutable` for a year, because it is pinned
   and identical on every sandbox built from the image, or a 404 when the
-  image carries none) and `/__engelbart/health` answers with counters;
+  image carries none) and `/__engelbart/health` answers with counters and
+  with the origins the injected bridge will obey, which is how a workspace
+  tells "it refused you" apart from "it has no picker in it";
 - requests that are not assets (scripts, styles, images, fonts, the dev
   server's own traffic) become `network.request` and `network.response` or
   `network.error` lines: method, path (query stripped off it), `has_query`
@@ -271,9 +273,12 @@ note about it. The picker lives in the bridge; the note does not.
 The bridge only observes until it is told otherwise. The workspace turns
 the picker on by posting into the preview's frame, and the bridge accepts
 that message only from the window that embeds the document and only when
-that window's origin is `config.parentOrigin`, which the gateway sets per
-run from `ENGELBART_BRIDGE_CONFIG`. With no `parentOrigin` the channel
-never opens. Whoever turned it on is who results go back to, so an
+that window's origin is one of `config.parentOrigins`, or the older single
+`config.parentOrigin`, which the gateway sets per run from
+`ENGELBART_BRIDGE_CONFIG`. With neither of them the channel never opens.
+It is a list because one workspace is served from more than one origin —
+a dev server and a deployment — and a sandbox pinned to whichever of them
+launched it refuses the other in silence. Whoever turned it on is who results go back to, so an
 embedded document is told by its parent and answers its parent: a pick
 made three frames down arrives at the workspace with each frame's offset
 added to the rect and each frame's selector added to the path. A frame
@@ -391,7 +396,7 @@ frame path and route.
 | `ENGELBART_PREVIEW_BIND` | preview gateway | default 0.0.0.0 (the public port) |
 | `ENGELBART_BRIDGE_FILE`, `ENGELBART_BRIDGE_CONFIG` | preview gateway | the bridge to serve; tuning for it |
 | `ENGELBART_RECORDER_FILE` | preview gateway | the replay recorder served at `/__engelbart/recorder.js`; `rrweb-record.js` beside the gateway by default. Optional: with no readable file the gateway says so, answers 404 there, leaves the script out of the injection and reports `recorder: false`, so an older image still serves a working bridge |
-| `ENGELBART_WORKSPACE_ORIGIN` | the app | the origin allowed to turn annotate mode on in a preview; defaults to `https://$VERCEL_URL` or `http://localhost:3000`, and is passed to the preview gateway as `ENGELBART_BRIDGE_CONFIG`'s `parentOrigin` |
+| `ENGELBART_WORKSPACE_ORIGIN` | the worker | the origins allowed to turn annotate mode on in a preview and to start a recording there — both ride the one channel. One origin or a comma-separated list, most-used first, because a sandbox from an older image reads only the first. Defaults to `https://$VERCEL_PROJECT_PRODUCTION_URL`, else `https://$VERCEL_URL`, else `http://localhost:3000`. Passed to the preview gateway as `ENGELBART_BRIDGE_CONFIG`'s `parentOrigins`, with `parentOrigin` beside it for an older bridge. An entry that is not a URL is left out; explicitly blank is how you spell no channel at all |
 
 ## The Visualizer
 

@@ -60,11 +60,20 @@
     canvasQuality: 0.6,            // ...at this quality
     canvasDocs: 50,                // how far a page of frames is followed looking for them
     checkoutMs: 30000,             // a whole picture this often, so seeking stays cheap
-    // The one origin allowed to turn annotate mode on in this document.
+    // The origins allowed to turn annotate mode on in this document.
     // Empty — the default — means the control channel never opens and the
-    // bridge only observes, as it always has. The gateway sets it per run
-    // from ENGELBART_BRIDGE_CONFIG.
+    // bridge only observes, as it always has. The gateway sets these per
+    // run from ENGELBART_BRIDGE_CONFIG.
+    //
+    // Two of them because one workspace is served from more than one
+    // origin: the same run is opened from a dev server on localhost and
+    // from the deployment, and a sandbox pinned to whichever of them
+    // launched it refuses the other in silence — the picker never answers
+    // and a recording saves no pictures, because both ride this channel.
+    // `parentOrigin` is the older single-origin form and is still read, so
+    // a sandbox launched by an older worker keeps working.
     parentOrigin: "",
+    parentOrigins: [],
   };
 
   function debug() {
@@ -1144,8 +1153,8 @@
   // on the sandbox's host, and a researcher's words do not belong on it.
   //
   // Who may turn it on: the window that embeds this document, and only
-  // when its origin is the one the gateway was configured with. With no
-  // config.parentOrigin the channel never opens. Whoever turned it on is
+  // when its origin is one the gateway was configured with. With neither
+  // config.parentOrigin nor config.parentOrigins the channel never opens. Whoever turned it on is
   // who results go back to, so an embedded document is told by its parent
   // and answers its parent, and a pick made three frames down arrives at
   // the workspace with each frame's offset and selector added on the way.
@@ -1596,7 +1605,14 @@
     var showing = false;        // markers are up in this document
 
     function sameOrigin(origin) { return origin === loc.origin || origin === "null" || loc.origin === "null"; }
-    function downOk(origin) { return sameOrigin(origin) || (!!config.parentOrigin && origin === config.parentOrigin); }
+    function allowedParent(origin) {
+      if (config.parentOrigin && origin === config.parentOrigin) return true;
+      var list = config.parentOrigins;
+      if (!list || !list.length) return false;
+      for (var i = 0; i < list.length; i++) if (list[i] && origin === list[i]) return true;
+      return false;
+    }
+    function downOk(origin) { return sameOrigin(origin) || allowedParent(origin); }
     function targetOriginFor(origin) { return origin === "null" ? "*" : origin; }
     function post(target, origin, msg) {
       try { target.postMessage(msg, origin); } catch (err) { debug("annotate: could not post:", err && err.message); }
