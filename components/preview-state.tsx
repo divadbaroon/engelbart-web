@@ -32,7 +32,15 @@ type Props = {
   image?: string | null;
   title: string;
   description?: ReactNode;
+  // A few facts between the sentence and the buttons: what the pane
+  // knows that the one sentence had no room for. Its own slot rather
+  // than `children`, because the order is the point — orientation is
+  // read before the decision it informs, so it cannot hang below the
+  // buttons where `children` does.
+  facts?: ReactNode;
   actions?: (PreviewAction | null | false | undefined)[];
+  // One quiet line under the buttons saying what is behind them.
+  note?: ReactNode;
   children?: ReactNode; // anything that hangs under the actions
   className?: string;
 };
@@ -79,7 +87,7 @@ export const CUBES = {
 // The one the two "nothing has gone wrong yet" panes draw.
 export const SANDBOX_CUBE = CUBES.idle;
 
-export function PreviewState({ image, title, description, actions, children, className }: Props) {
+export function PreviewState({ image, title, description, facts, actions, note, children, className }: Props) {
   const shown = (actions ?? []).filter((a): a is PreviewAction => !!a);
   return (
     // Two spacers rather than `justify-center` and a bottom padding.
@@ -115,6 +123,8 @@ export function PreviewState({ image, title, description, actions, children, cla
         <p className="mt-1 max-w-[340px] text-[13px] leading-[1.5] text-pretty text-muted-foreground">{description}</p>
       )}
 
+      {facts && <div className="mt-3">{facts}</div>}
+
       {shown.length > 0 && (
         <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
           {shown.map((a) => (
@@ -131,6 +141,8 @@ export function PreviewState({ image, title, description, actions, children, cla
           ))}
         </div>
       )}
+
+      {note && <p className="mt-2.5 max-w-[340px] text-xs leading-[1.5] text-pretty text-muted-foreground/70">{note}</p>}
 
       {children}
       <span aria-hidden className="min-h-0 flex-[3] shrink" />

@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Play, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
 import { RunTimeline } from "@/components/run-timeline";
-import { formatDay, runSteps, type StepId } from "@/lib/run-steps";
+import { formatDay, formatDuration, runDuration, runSteps, type StepId } from "@/lib/run-steps";
+import { useNow } from "@/hooks/use-now";
+import type { EnvReport } from "@/lib/environment";
 import { getSharedTrail, type SharedTrail } from "@/app/workspace/[workspaceId]/trail-actions";
 import { environmentFromEvents, isRunActive, isRunCloned, isRunRunning, isRunUsable, isSandboxLive, plainError, STATUS_LABEL, type PreviewService, type SandboxEvent, type SandboxRun } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
@@ -133,7 +135,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, previewVers
     return <ReplayPanel run={run} recordings={recording} clock={replayClock} />;
   }
   if (tab === "preview") {
-    return <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, onAskBart, recording, annotations, onAskAboutAnnotation, semantics, registerStop }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenBuild={onOpenBuild} onOpenTerminal={onOpenTerminal} onOpenLogs={onOpenLogs} onRunWithoutPatch={onRunWithoutPatch} />;
+    return <Preview repo={repo} run={run} error={error} events={events} report={envReport} version={previewVersion} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, onAskBart, recording, annotations, onAskAboutAnnotation, semantics, registerStop }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenBuild={onOpenBuild} onOpenTerminal={onOpenTerminal} onOpenLogs={onOpenLogs} onRunWithoutPatch={onRunWithoutPatch} />;
   }
 
   if (tab === "readme") {
@@ -159,12 +161,44 @@ export function RepoContent({ repo, tab, run, events, error, readme, previewVers
   return null;
 }
 
+// A few named facts, centred under the sentence that names the state.
+//
+// A list and not a dashboard: no boxes, no rules, no figures set larger
+// than the words around them. Every one of these is also on the Build
+// tab, at length and with the rest of the run around it; this is the
+// three that answer "is it getting anywhere" without leaving the pane,
+// and the button under them is how you get the rest.
+//
+// `<dl>`, because that is what a list of names and values is, and it is
+// what the three places in the Visualizer that draw one already use.
+//
+// Two columns rather than three centred lines. Centring each row on its
+// own puts every name and every value at a different offset, and three
+// of those under a centred heading read as ragged rather than as a
+// list. The grid is as wide as its widest pair and centred whole, so the
+// names end together and the values begin together — and because the
+// pairs are named in a fixed order, a row that has nothing to say and
+// drops out does not move the two that remain. The value is tabular, so
+// a duration ticking up does not shift the row under it.
+function BuildFacts({ rows }: { rows: [string, string][] }) {
+  return (
+    <dl className="mx-auto grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 text-xs leading-[1.5]">
+      {rows.map(([name, value]) => (
+        <Fragment key={name}>
+          <dt className="text-right text-muted-foreground/70">{name}</dt>
+          <dd className="text-left tabular-nums text-muted-foreground">{value}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+}
+
 // The preview never launches again in place: that is the Environment
 // tab's answer to a value saved while a run is up, and it belongs where
 // the values are.
-type PreviewProps = Omit<RunControls, "onRelaunch"> & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; events: SandboxEvent[]; version: number; patch: RepoPatch | null; controls: TraceControls };
+type PreviewProps = Omit<RunControls, "onRelaunch"> & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; events: SandboxEvent[]; report: EnvReport | null; version: number; patch: RepoPatch | null; controls: TraceControls };
 
-function Preview({ repo, run, error, events, version, patch, controls, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenBuild, onOpenTerminal, onOpenLogs, onRunWithoutPatch }: PreviewProps) {
+function Preview({ repo, run, error, events, report, version, patch, controls, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenBuild, onOpenTerminal, onOpenLogs, onRunWithoutPatch }: PreviewProps) {
   const [showPatch, setShowPatch] = useState(false);
   // Restart, as asked for rather than as confirmed.
   //
@@ -182,6 +216,20 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
   useEffect(() => {
     if (restarting && (error || (run && isRunActive(run)))) setRestarting(false);
   }, [restarting, error, run]);
+  // The same reading of the log the Build tab does, computed once up
+  // here because two things below want it — the step the run is in, and
+  // how long it has been going — and because `useNow` is a hook and the
+  // early returns further down would sit above it. Null unless a run is
+  // actually coming up, so a running application pays nothing for it.
+  const steps = useMemo(
+    () => (run && isRunActive(run) ? runSteps(run, events, repo.fullName) : null),
+    [run, events, repo.fullName],
+  );
+  // One clock, shared with the Build timeline, ticking only while a step
+  // is open (hooks/use-now.ts). Not new polling: the run's own
+  // subscription is what brings news of the build; this only redraws a
+  // number that is already changing.
+  const now = useNow(!!steps?.some((s) => s.since));
   // Restart and Start over are the same two steps — throw the sandbox
   // away, then put the repository together again — differing only in
   // whether the saved command list is replayed or ignored. The sandbox
@@ -229,7 +277,7 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
   //
   // A run with nothing in its log yet has no active step, and falls back
   // to the status label, which is what is on the screen today.
-  const step = run && isRunActive(run) ? runSteps(run, events, repo.fullName).find((s) => s.state === "active") : undefined;
+  const step = steps?.find((s) => s.state === "active");
   // A summary that already opens with its step's name is the whole line.
   // The sandbox step is called "Sandbox" and its summary opens "Sandbox
   // running", so prefixing the title gave "Sandbox · Sandbox running ·
@@ -291,6 +339,47 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
             ? [CUBES.idle, "Live preview", "Your running project will appear here.", { label: "Start", onClick: () => onLaunch(run.id), primary: true, icon: <Play className="size-3 fill-current" /> }]
             : [CUBES.stopped, STATUS_LABEL[run.status], plainError(run.error) || "Prepare the repository again to start over.", again];
 
+  // While it is coming up, the thing to do is not Restart.
+  //
+  // Both buttons used to be outline here, on the reasoning that the
+  // thing to do while a build is building is wait — true, but it left
+  // the row with no answer on it at all, and the two read as equals: a
+  // way to throw the run away sitting beside a way to see what it is
+  // doing, neither of them looking like the one to press. Everything
+  // somebody standing here wants is behind the second one — which step,
+  // how long, what the environment scan found, what the tools printed —
+  // so it goes first and it is filled. Restart keeps the outline, and
+  // stays where it was in the row; it is still there for a build that is
+  // stuck, which is what that reasoning was really protecting.
+  //
+  // Only while it is coming up. On every state that has stopped, Restart
+  // is the one thing to do and keeps the weight it has now.
+  const preparing = !restarting && !error && !!run && isRunActive(run);
+  const build = run ? { label: "View build details", onClick: onOpenBuild } : null;
+  const actions = preparing ? [{ ...build!, primary: true }, action] : [action, build];
+
+  // Three facts the one sentence has no room for, between it and the
+  // buttons: which step, how long, and whether the environment scan came
+  // up short. Read from the same `runSteps`/`runDuration` the Build tab
+  // is drawn from and the same `EnvReport` the Environment tab lists, so
+  // there is no second opinion about any of them here — and cut to three
+  // lines, because the whole list drawn a second time is what this pane
+  // had before and what the note below says was taken out on purpose.
+  //
+  // Each row appears only where there is something true to put in it. A
+  // run with nothing in its log yet has no active step; a run that has
+  // not started a step has no duration; a repository with nothing
+  // missing has no third row rather than a reassuring zero.
+  const elapsed = steps && now !== null ? runDuration(steps, now) : null;
+  const missing = report?.missing.length ?? 0;
+  const facts: [string, string][] = preparing
+    ? [
+        ...(step ? ([["Current step", step.title]] as [string, string][]) : []),
+        ...(elapsed !== null ? ([["Elapsed", formatDuration(elapsed)]] as [string, string][]) : []),
+        ...(missing ? ([["Environment", `${missing} missing`]] as [string, string][]) : []),
+      ]
+    : [];
+
   const patchBox = run?.status === "failed" && patch && (
     <div className="flex max-w-[420px] flex-col items-start gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
       <span>The pipeline edited {patch.files.length} file{patch.files.length === 1 ? "" : "s"} in the sandbox copy to try to make it run, but it still did not start.</span>
@@ -319,6 +408,12 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
   // question. So: what state it is in, one sentence, and three things to
   // press. While it is building the sentence is the step it is on, which
   // with the cube above it is the whole of what this tab knows.
+  //
+  // Three named facts under it while it is building, which is the one
+  // state where "what it is doing" is a question with more than one
+  // answer. Still not the list: three lines with no timings, no
+  // per-step states and no log, and they are gone the moment the run
+  // settles.
   return (
     <PreviewState
       image={image}
@@ -326,14 +421,17 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
       description={detail}
       /* The same row whatever the run is doing, building included: a
          build that is stuck is exactly when somebody wants the way out
-         of it.
+         of it. What changes with the state is which of the two is the
+         answer — see `preparing` above.
 
          Two buttons, not three. "Ask Bart for help" was the third, and
          Bart is a tab of its own and a button in the corner of the
          Visualizer; a third way in, on the pane that is trying to show
          an application, made the row a menu. What is left is the thing
          to do and the place to see why. */
-      actions={[action, run && { label: "Open Build", onClick: onOpenBuild }]}
+      facts={facts.length > 0 && <BuildFacts rows={facts} />}
+      actions={actions}
+      note={preparing && "Track setup progress, timings, environment status, and logs."}
     >
       {!run && <TrailInsight repo={repo} />}
       {patchBox && (
