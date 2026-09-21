@@ -1,0 +1,35 @@
+# What never reaches the build context.
+#
+# `.env*` first and for its own reason: the image is pushed to a
+# registry and the runner's four secrets are handed to it by the
+# platform at run time. A .env file that got copied in would sit in a
+# layer, readable by anyone who can pull the image, and would keep
+# working after the key was rotated.
+.env
+.env.*
+!.env.example
+
+node_modules
+.next
+.git
+.gitignore
+.vercel
+
+# Everything the worker's graph does not reach. Listed rather than left
+# out, because the Dockerfile copies named directories and a reader
+# should be able to see that the omissions are deliberate: the worker
+# renders nothing (components, hooks, public), builds no templates
+# (sandbox — that is a local step against the E2B API), and runs no
+# tests or benchmarks of its own.
+components
+hooks
+public
+sandbox
+tests
+bench
+scripts
+supabase
+scratchpad
+*.md
+Dockerfile
+.dockerignore
