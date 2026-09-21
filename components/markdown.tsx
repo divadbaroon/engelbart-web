@@ -71,11 +71,24 @@ export const Markdown = memo(function Markdown({ source, owner, name, branch }: 
             // time, not something next/image can be given a loader for.
             // Held to the column's width, because a README banner is
             // often twice it.
+            //
+            // Eager, which is the default and is written out here so that
+            // nobody adds `loading="lazy"` back as an obvious improvement.
+            // The README pane is mounted the moment a repository is
+            // opened, and sits behind `display: none` whenever another
+            // middle tab is in front of it (components/center-panel.tsx)
+            // — a tab restored from the last visit, or Code and Live
+            // preview after a switch. An image that is display:none has
+            // no box, so it never intersects the viewport and a lazy one
+            // does not begin to load until the tab is shown. The markdown
+            // is already fetched when the repository reaches the middle;
+            // the pictures in it were the one part still waiting for the
+            // click, which is the single moment they are being waited on.
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={resolve(typeof src === "string" ? src : undefined, at, "img")}
               alt={alt ?? ""}
-              loading="lazy"
+              loading="eager"
               className="mb-4 h-auto max-w-full rounded"
             />
           ),
