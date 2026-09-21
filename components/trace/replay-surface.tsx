@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 // The replayer's own stylesheet: it positions its wrapper and draws the
 // cursor it reconstructs. rrweb does not inject it.
 import "@rrweb/replay/dist/style.css";
-import { ArrowLeft, Circle, Loader2, Pause, Play } from "lucide-react";
+import { ArrowLeft, Loader2, Pause, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { formatElapsed, formatWhen, type Recording } from "@/lib/trace/recording";
@@ -194,7 +194,11 @@ export function ReplaySurface({ recording, run, offset, onBack, onMoment, seekTo
           <ArrowLeft className="size-3.5" /> Recordings
         </Button>
         <span className="h-4 w-px shrink-0 bg-border" />
-        <span title="A recording of the application, not the application" className="flex shrink-0 items-center"><Circle className="size-2 fill-red-500 text-red-500" /></span>
+        {/* No red dot before the name. It meant "a recording of the
+            application, not the application" — which is what the row
+            around it says in words, and what the Back button beside it
+            offers to undo. Red is this interface's colour for something
+            wrong, and there is nothing wrong with watching a recording. */}
         {/* What is being watched gets the slack; the date gives way before
             it does, and the state of the replay itself is only said while
             it is something you cannot see — the picture being there is

@@ -20,6 +20,7 @@ import { BehaviorTrace, type CanvasMark } from "@/components/trace/behavior-trac
 import { ActivityPanel } from "@/components/trace/activity-panel";
 import { AnnotationsPanel } from "@/components/trace/annotations-panel";
 import { ReplayPanel, type ReplayClock, type TraceRecordings } from "@/components/trace/replay-panel";
+import { ReplaySurface } from "@/components/trace/replay-surface";
 import type { RunScope } from "@/components/trace/run-header";
 import { RecordButton, RecordingSaved } from "@/components/trace/record-control";
 import { useCapture } from "@/hooks/use-capture";
@@ -131,10 +132,14 @@ export function RepoContent({ repo, tab, run, events, error, readme, previewVers
     return <BehaviorTrace repo={repo} run={run} trace={scopedTrace} selection={selection} detail={detail} onSelect={onSelect} onDetail={onDetail} onAskBart={onAskBart} scope={scope} recordings={recording} canvas={canvasMark} bart={traceBart} />;
   }
   if (tab === "replay") {
-    return <ReplayPanel run={run} recordings={recording} clock={replayClock} />;
+    return <ReplayPanel run={run} recordings={recording} />;
   }
   if (tab === "preview") {
-    return <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, onAskBart, recording, annotations, onAskAboutAnnotation, semantics, registerStop }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenBuild={onOpenBuild} onOpenTerminal={onOpenTerminal} onOpenLogs={onOpenLogs} onRunWithoutPatch={onRunWithoutPatch} />;
+    return (
+      <PreviewWithReplay recording={recording} clock={replayClock} run={run}>
+        <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, onAskBart, recording, annotations, onAskAboutAnnotation, semantics, registerStop }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenBuild={onOpenBuild} onOpenTerminal={onOpenTerminal} onOpenLogs={onOpenLogs} onRunWithoutPatch={onRunWithoutPatch} />
+      </PreviewWithReplay>
+    );
   }
 
   if (tab === "readme") {
@@ -158,6 +163,61 @@ export function RepoContent({ repo, tab, run, events, error, readme, previewVers
   }
 
   return null;
+}
+
+// The Live preview, with a recording played over it when one is open.
+//
+// Over rather than instead of: the preview below is never unmounted, so
+// the application goes on running behind the player and coming back is
+// the frame after the click, not a reload. The whole point of the move
+// is room — a recording is a picture of a window, and it was being
+// scaled into a column a third of a window wide.
+//
+// The backdrop closes it, and so does Escape. The listener is hung on
+// the window, which is safe here only because it is gated on a
+// recording being open: the preview pane stays mounted behind
+// `display: none` when another middle tab is in front
+// (components/center-panel.tsx), so an ungated key handler here would
+// answer for the Code tab and the Terminal as well. Opening a recording
+// brings this tab to the front, so whenever the gate is on, this is what
+// is being looked at.
+function PreviewWithReplay({ recording, clock, run, children }: { recording: TraceRecordings; clock: ReplayClock; run: SandboxRun | undefined; children: ReactNode }) {
+  const open = recording.open;
+  const onClose = recording.onClose;
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  return (
+    <div className="relative h-full min-h-0">
+      {children}
+      {open && (
+        <div
+          className="absolute inset-0 z-30 flex items-center justify-center bg-neutral-900/40 p-4"
+          onClick={onClose}
+        >
+          {/* The click that lands on the player is not a click outside
+              it. Everything the player does with a click of its own —
+              play, pause, scrub — happens under here. */}
+          <div
+            className="flex h-full w-full min-h-0 flex-col overflow-hidden rounded-lg border bg-background shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ReplaySurface
+              recording={open}
+              run={run}
+              offset={clock.offset}
+              seekTo={clock.seekTo}
+              onMoment={clock.onMoment}
+              onBack={onClose}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // A few named facts, centred under the sentence that names the state.
@@ -722,7 +782,7 @@ function RunningPreview({ repo, run, events, version, controls, onStop, onStartO
         )}
         <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="h-6 px-2 font-sans font-normal text-muted-foreground">Stop</Button>
       </div>
-      {rec.lastStopped && <RecordingSaved recording={rec.lastStopped} stats={controls.recording.stats(rec.lastStopped)} onOpen={() => { controls.recording.onOpen(rec.lastStopped!.id); rec.dismissStopped(); }} onDismiss={rec.dismissStopped} />}
+      {rec.lastStopped && <RecordingSaved onOpen={() => { controls.recording.onOpen(rec.lastStopped!.id); rec.dismissStopped(); }} onDismiss={rec.dismissStopped} />}
       {rec.error && <p role="alert" className="shrink-0 border-b px-3 py-1.5 text-xs text-destructive">{rec.error}</p>}
       {notes.error && <p role="alert" className="shrink-0 border-b px-3 py-1.5 text-xs text-destructive">{notes.error}</p>}
       {/* Whether anything is actually being recorded.

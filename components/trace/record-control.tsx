@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Circle, Square, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { formatElapsed, statsLine, type Recording, type RecordingStats } from "@/lib/trace/recording";
+import { formatElapsed, type Recording } from "@/lib/trace/recording";
 
 // The Record control in the Live preview's header, kept quiet: an
 // outlined dot among the other ghost buttons when idle, and the elapsed
@@ -29,14 +29,22 @@ export function RecordButton({ active, busy, past = false, onStart, onStop }: { 
   );
 }
 
-// After Stop: one line with what was saved and a way to open it. The
-// preview goes on underneath.
-export function RecordingSaved({ recording, stats, onOpen, onDismiss, className }: { recording: Recording; stats: RecordingStats; onOpen: () => void; onDismiss: () => void; className?: string }) {
+// After Stop: that it was saved, and a way to open it. The preview goes
+// on underneath.
+//
+// Four things stood here — a red dot, "Recording saved", the recording's
+// name, and its length, moments and model calls — to say one. The dot
+// was the mark for a recording in progress, on a line that exists
+// because one just stopped. The name is the name the next recording will
+// have with the number moved on by one, and it is on the recording the
+// button opens. And the counts are a reading of the trace, which is what
+// the recording is for looking at: offering them here asks somebody to
+// judge what they have before they have seen it, in the one place they
+// cannot yet check. The button is two words away.
+export function RecordingSaved({ onOpen, onDismiss, className }: { onOpen: () => void; onDismiss: () => void; className?: string }) {
   return (
     <div role="status" className={cn("flex h-8 shrink-0 items-center gap-2 border-b bg-muted/40 px-3 text-xs", className)}>
-      <Circle className="size-2 fill-red-500 text-red-500" />
       <span className="font-medium">Recording saved</span>
-      <span className="min-w-0 truncate text-muted-foreground">{recording.name} · {statsLine(stats)}</span>
       <Button variant="outline" size="sm" onClick={onOpen} className="ml-auto h-6 shrink-0 px-2 font-normal">Open recording</Button>
       <Button variant="ghost" size="icon" aria-label="Dismiss" onClick={onDismiss} className="size-6 shrink-0 text-muted-foreground">
         <X className="size-3" />
