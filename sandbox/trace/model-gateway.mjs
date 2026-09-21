@@ -49,6 +49,7 @@ import {
   makeEmitter, makeLogger, newId, pickHeaders, stripHopByHop, timingSafeEqual,
 } from "./common.mjs";
 import * as openaiChat from "./providers/openai-chat.mjs";
+import * as openaiResponses from "./providers/openai-responses.mjs";
 
 // Hosts read as model endpoints unless the run says otherwise. This is a
 // recognition list, not a permission list: a host that is not on it is
@@ -110,7 +111,7 @@ export function createGateway(options) {
   const {
     token, capture = "full", modelHosts = DEFAULT_MODEL_HOSTS, denyHosts = [],
     redactor = new Redactor(), emit, log = () => {}, maxContent = MAX_CONTENT, maxRaw = MAX_RAW,
-    providers = [openaiChat],
+    providers = [openaiChat, openaiResponses],
   } = options;
   if (!token || typeof token !== "string") throw new Error("model gateway needs a token");
   if (typeof emit !== "function") throw new Error("model gateway needs an emitter");

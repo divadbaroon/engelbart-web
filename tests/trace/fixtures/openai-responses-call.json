@@ -1,0 +1,86 @@
+{
+  "note": "A real call recorded by the model gateway on run 06c6dab1 (cocoa-canvas, 2026-09-21), kept as the shape the Responses API actually sends. It was stored with no provider to read it; this is what a reader has to make sense of.",
+  "request": {
+    "model": "gpt-4.1",
+    "input": [
+      {
+        "role": "user",
+        "content": "You are an expert planning assistant. A user wants help with the following task:\n\n<task>\nhci research \n</task>\n\nCreate a thoughtful, actionable notebook plan to complete this task. The plan should have 3-5 focused steps.\n\nFor each step, decide whether it should be completed by the AI agent or the human user:\n- Assign steps to \"agent\" when they involve research, analysis, writing, coding, or synthesis\n- Assign steps to \"user\" when they require personal input, decisions, access to private information, or hands-on actions the agent can't perform\n\nRespond with ONLY valid JSON in this exact format:\n{\n  \"title\": \"A concise, descriptive title for this task\",\n  \"steps\": [\n    { \"description\": \"Clear description of what this step involves\", \"assignment\": \"agent\" },\n    { \"description\": \"Clear description of what this step involves\", \"assignment\": \"user\" }\n  ]\n}"
+      }
+    ]
+  },
+  "response": {
+    "id": "resp_07ce15189d496b97006ab08eb2673487d0b597b8485b8dd4ff",
+    "object": "response",
+    "created_at": 1789955762,
+    "status": "completed",
+    "background": false,
+    "billing": {
+      "payer": "developer"
+    },
+    "completed_at": 1789955764,
+    "error": null,
+    "frequency_penalty": 0.0,
+    "incomplete_details": null,
+    "instructions": null,
+    "max_output_tokens": null,
+    "max_tool_calls": null,
+    "model": "gpt-4.1-2025-04-14",
+    "moderation": null,
+    "output": [
+      {
+        "id": "msg_07ce15189d496b97006ab08eb3279087d0866779b55e0bd995",
+        "type": "message",
+        "status": "completed",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "output_text",
+            "annotations": [],
+            "logprobs": [],
+            "text": "{\n  \"title\": \"Planning and Launching HCI Research\",\n  \"steps\": [\n    { \"description\": \"Survey recent Human-Computer Interaction (HCI) literature to identify current research trends and open questions.\", \"assignment\": \"agent\" },\n    { \"description\": \"Select a specific HCI topic or research question based on personal interests and relevance.\", \"assignment\": \"user\" },\n    { \"description\": \"Compile a detailed summary of key findings, studies, and methodologies related to the chosen topic.\", \"assignment\": \"agent\" },\n    { \"description\": \"Review the summary, prioritize interesting directions, and determine next actions for your research (e.g., designing a study, gathering data).\", \"assignment\": \"user\" }\n  ]\n}"
+          }
+        ]
+      }
+    ],
+    "parallel_tool_calls": true,
+    "presence_penalty": 0.0,
+    "previous_response_id": null,
+    "prompt_cache_key": null,
+    "prompt_cache_retention": "in_memory",
+    "reasoning": {
+      "context": null,
+      "effort": null,
+      "summary": null
+    },
+    "safety_identifier": null,
+    "service_tier": "default",
+    "store": true,
+    "temperature": 1.0,
+    "text": {
+      "format": {
+        "type": "text"
+      },
+      "verbosity": "medium"
+    },
+    "tool_choice": "auto",
+    "tools": [],
+    "top_logprobs": 0,
+    "top_p": 1.0,
+    "truncation": "disabled",
+    "usage": {
+      "input_tokens": 200,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0
+      },
+      "output_tokens": 156,
+      "output_tokens_details": {
+        "reasoning_tokens": 0
+      },
+      "total_tokens": 356
+    },
+    "user": null,
+    "metadata": {}
+  }
+}
