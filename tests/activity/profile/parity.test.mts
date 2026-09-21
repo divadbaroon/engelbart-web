@@ -63,12 +63,10 @@ describe("the ROPE profile, compiled, reads the frozen session as the handwritte
   });
 });
 
-describe("the one way this application reads a session takes a taxonomy, and still defaults to today's", () => {
-  it("reads the same session the same way when it is given nothing", () => {
-    // Every existing caller passes no taxonomy. The seam is only worth
-    // opening if opening it changed nothing for them.
+describe("the one way this application reads a session takes a taxonomy, and names nothing without one", () => {
+  it("reads ROPE as ROPE when it is told the session is ROPE's", () => {
     const hand = classify({ stages, frames, events, taxonomy: ROPE_TAXONOMY, surfaceOf: ropeSurface, calls: callInfo, segmentation: DEFAULT_SEGMENTATION });
-    const through = readSession({ stages, frames, events, calls: callInfo });
+    const through = readSession({ stages, frames, events, calls: callInfo, taxonomy: ROPE_TAXONOMY, surfaceOf: ropeSurface });
     assert.deepEqual(through.map((e) => [e.subBehavior, e.description, e.because]), hand.map((e) => [e.subBehavior, e.description, e.because]));
   });
 
@@ -76,6 +74,27 @@ describe("the one way this application reads a session takes a taxonomy, and sti
     const through = readSession({ stages, frames, events, calls: callInfo, taxonomy: compiled.taxonomy, surfaceOf: compiled.surfaceOf });
     const direct = classify({ stages, frames, events, taxonomy: compiled.taxonomy, surfaceOf: compiled.surfaceOf, calls: callInfo });
     assert.deepEqual(through.map((e) => e.description), direct.map((e) => e.description));
+  });
+
+  it("says nothing about any artifact when it is given nothing", () => {
+    // The default used to be ROPE, so an artifact nobody had read was
+    // described in ROPE's words. This is the guard against that coming
+    // back: given no taxonomy, not one noun of this artifact may appear.
+    const blind = readSession({ stages, frames, events, calls: callInfo });
+    const said = blind.flatMap((e) => [e.description, e.because]).join(" ").toLowerCase();
+    for (const word of ["tutor", "tutoring", "reference game", "their canvas", "requirements", "message box"]) {
+      assert.ok(!said.includes(word), `the blind reading said "${word}"`);
+    }
+    assert.deepEqual([...new Set(blind.map((e) => e.evidence.surface.role))], ["other"]);
+    // A document is called what the trace called it — its own key — and
+    // never what another artifact's taxonomy would have called it.
+    const labels = new Set(blind.map((e) => e.evidence.surface.label));
+    const keys = new Set(blind.map((e) => e.evidence.surface.key));
+    assert.deepEqual([...labels].sort(), [...keys].sort(), "a blind label is the key itself");
+    // And it is still a reading: the facts that hold in any artifact.
+    const subs = new Set(blind.map((e) => e.subBehavior));
+    assert.ok(subs.size > 1, `the blind reading collapsed everything into ${[...subs].join(", ")}`);
+    for (const sub of subs) assert.ok(["WAIT_FOR_MODEL_CALL", "SUBMIT", "TYPE_INTO_FIELD", "IDLE_OR_UNCLEAR"].includes(sub), `unexpected ${sub}`);
   });
 
   it("does not name another artifact's documents with this one's words", () => {

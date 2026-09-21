@@ -37,7 +37,7 @@ You are given a timeline that has already been worked out: a sequence of episode
 Write:
 - One to three sentences, plain past tense, starting with "The participant".
 - The shape of the session: what they started with, what they turned to, where they got to. Name the subject matter — what they asked about, proposed, tried, or were given feedback on — in the words that were on screen.
-- Compress. Four messages to a tutor are "worked through the requirements with the tutor", not four clauses. A reader who wants the detail has the timeline under you.
+- Compress. Four messages on one subject are a single clause naming that subject, not four clauses. A reader who wants the detail has the timeline under you.
 - Say what the exchange was ABOUT. Do not walk through the replies one by one; what the guidance concerned is a clause, not a sentence each.
 - Two short sentences beat one long one. Keep each under about twenty-five words, and do not chain clauses with "and then ... and then". This is read at a glance, above the timeline it summarises.
 

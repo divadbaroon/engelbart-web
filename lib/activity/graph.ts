@@ -125,7 +125,7 @@ export function graphOf(episodes: Episode[], stages: Stage[], taxonomy: Taxonomy
         at: stage.at, endAt: stage.endAt, stageId: stage.id,
         // "the tutor" → "The tutor answered". A channel the taxonomy does
         // not name falls back to what the stage already called itself.
-        label: channel ? sentence(channel.label, channel.id) : stage.title,
+        label: channel ? sentence(channel.label, channel.verb) : stage.title,
         text: text ? clip(text, 120) : null,
       });
     }
@@ -163,13 +163,15 @@ export function graphOf(episodes: Episode[], stages: Stage[], taxonomy: Taxonomy
 }
 
 // "the tutor" → "The tutor answered"; "the requirements document" → "The
-// requirements document was added to". The verb belongs to the channel
-// and comes from the taxonomy's own id, so a taxonomy that names no such
-// channel simply gets the plain form.
-function sentence(label: string, id: string): string {
+// requirements document was added to". The verb is the channel's own, and
+// a channel that does not give one is spoken about in the plain form.
+//
+// This used to test for the id `requirements`, which is a channel of one
+// artifact — the last place in the drawing layer that knew the name of
+// something in somebody's application.
+function sentence(label: string, verb: string | undefined): string {
   const head = label.charAt(0).toUpperCase() + label.slice(1);
-  if (id === "requirements") return `${head} was added to`;
-  return `${head} answered`;
+  return `${head} ${verb || "answered"}`;
 }
 
 // The stage a node leads back to, for a canvas that only knows node ids.

@@ -10,10 +10,11 @@ import { classify } from "../../lib/activity/classify.ts";
 import { ROPE_TAXONOMY, ropeSurface } from "../../lib/activity/rope.ts";
 import { DEFAULT_SEGMENTATION } from "../../lib/activity/segment.ts";
 import { activityExport, activityJson, ACTIVITY_FORMAT } from "../../lib/activity/export.ts";
+import { builtInStamp } from "../../lib/activity/profile/stamp.ts";
 import { events, frames, stages, callInfo } from "./session.mts";
 
 const episodes = classify({ stages, frames, events, taxonomy: ROPE_TAXONOMY, surfaceOf: ropeSurface, calls: callInfo, segmentation: DEFAULT_SEGMENTATION });
-const made = activityExport({ episodes, taxonomy: ROPE_TAXONOMY.name, segmentation: DEFAULT_SEGMENTATION, runId: "run", now: new Date("2026-09-20T00:00:00.000Z") });
+const made = activityExport({ episodes, profile: builtInStamp(ROPE_TAXONOMY.name, { artifact: { name: "ROPE Training System" } }), segmentation: DEFAULT_SEGMENTATION, runId: "run", now: new Date("2026-09-20T00:00:00.000Z") });
 
 describe("the Activity export", () => {
   it("says what it is, and under what thresholds it was read", () => {

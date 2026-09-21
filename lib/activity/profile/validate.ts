@@ -353,10 +353,17 @@ export function validateProfile(input: unknown): ValidationResult {
     c.err("provenance.by", "profile.provenance", 'a profile has to say where it came from: "handwritten" or "generated"');
   }
 
+  // A list left out entirely is forgiven and filled in, because a
+  // generated profile with nothing to put in one tends to omit it, and
+  // refusing a whole profile over an absent empty list would be a poor
+  // trade. It is still said, and the profile that comes back out carries
+  // the list, so nothing downstream has to wonder whether it is there.
+  const missing: string[] = [];
   const list = (key: string): unknown[] => {
     const v = p[key];
     if (Array.isArray(v)) return v;
     if (v !== undefined) c.err(key, "profile.shape", `${key} must be a list`);
+    else { missing.push(key); c.warn(key, "profile.absent", `${key} was left out and is read as empty`); }
     return [];
   };
   const surfaces = list("surfaces"), channels = list("channels"), controls = list("controls"), rules = list("rules");
@@ -408,6 +415,11 @@ export function validateProfile(input: unknown): ValidationResult {
       c.anchorStrength(`${path}.container`, ch.container as Anchor, "channel");
     }
     if (ch.text !== undefined) c.stringTest(`${path}.text`, ch.text);
+    // Optional, and a phrase rather than a sentence: it is dropped into
+    // "The log <verb>" and nothing capitalises or punctuates it.
+    if (ch.verb !== undefined && (!isStr(ch.verb) || !ch.verb.trim() || ch.verb.length > 40)) {
+      c.err(`${path}.verb`, "channel.verb", "a channel's verb is a short past-tense phrase, like \"answered\" or \"was added to\"");
+    }
     c.provenance(`${path}.generation`, ch.generation, "channel");
   });
 
@@ -481,7 +493,14 @@ export function validateProfile(input: unknown): ValidationResult {
   }
 
   const errors = c.issues.filter((i) => i.severity === "error");
-  return errors.length ? { ok: false, issues: c.issues } : { ok: true, profile: input as ArtifactProfile, issues: c.issues };
+  if (errors.length) return { ok: false, issues: c.issues };
+  // What comes back is what went in, except that a list nobody wrote is
+  // now a list nobody wrote rather than an absence the compiler would
+  // trip over.
+  const profile = (missing.length
+    ? { ...(input as ArtifactProfile), ...Object.fromEntries(missing.map((k) => [k, []])) }
+    : input) as ArtifactProfile;
+  return { ok: true, profile, issues: c.issues };
 }
 
 // The issues as lines somebody reads in a terminal.

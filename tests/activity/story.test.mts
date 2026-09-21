@@ -14,7 +14,7 @@ import { bucket, readStory, renderStory, storyKey, storyOf } from "../../lib/act
 import { events, frames, stages, callInfo } from "./session.mts";
 
 const episodes = classify({ stages, frames, events, taxonomy: ROPE_TAXONOMY, surfaceOf: ropeSurface, calls: callInfo });
-const story = storyOf(episodes, ROPE_TAXONOMY.name);
+const story = storyOf(episodes, ROPE_TAXONOMY);
 
 describe("the story a session is reduced to", () => {
   it("is one entry per episode, in order, numbered from one", () => {
@@ -69,7 +69,7 @@ describe("when is a timeline the same timeline", () => {
   const key = storyKey(story);
 
   it("is the same when nothing about the reading changed", () => {
-    assert.equal(storyKey(storyOf(episodes, ROPE_TAXONOMY.name)).key, key.key);
+    assert.equal(storyKey(storyOf(episodes, ROPE_TAXONOMY)).key, key.key);
   });
 
   it("is not the same when a behaviour changes", () => {

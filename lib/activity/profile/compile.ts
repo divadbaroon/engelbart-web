@@ -308,7 +308,7 @@ export function compileProfile(profile: ArtifactProfile): CompiledProfile {
       return (a.within ?? []).some((t) => container(t));
     };
     return {
-      id: c.id, label: c.label, from: c.from,
+      id: c.id, label: c.label, from: c.from, verb: c.verb,
       is: (a: Appearance) => where(a) && (!text || text(a.text)),
     };
   });

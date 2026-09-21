@@ -19,6 +19,7 @@
 // Pure, and deliberately runnable in the browser: the page decides
 // whether the timeline has changed enough to be worth asking about, and
 // that decision must not cost a round trip.
+import type { Taxonomy } from "@/lib/activity/taxonomy";
 import type { Broad, Episode } from "@/lib/activity/types";
 
 // What one episode contributes. A row of the timeline with its mechanics
@@ -70,13 +71,19 @@ export const clip = (s: string, max: number): string => {
 
 const ms = (iso: string) => Date.parse(iso);
 
-export function storyOf(episodes: Episode[], taxonomy: string): Story {
+export function storyOf(episodes: Episode[], taxonomy: Taxonomy): Story {
+  // Whose words are the person's own, asked of the taxonomy rather than
+  // assumed. This module used to hold the id of one artifact's channel
+  // and treat it as the name every artifact uses; `from: "person"` is
+  // what the profile language actually says, and it is the question being
+  // asked.
+  const mine = new Set(taxonomy.channels.filter((c) => c.from === "person").map((c) => c.id));
   const kept = episodes.length > MAX_EPISODES ? [...episodes.slice(0, MAX_EPISODES - 10), ...episodes.slice(-10)] : episodes;
   const first = episodes[0], last = episodes[episodes.length - 1];
   const spanMs = first && last ? Math.max(0, ms(last.endedAt) - ms(first.startedAt)) : 0;
   const unclear = episodes.filter((e) => e.broadBehavior === "UNCLEAR").reduce((n, e) => n + e.durationMs, 0);
   return {
-    taxonomy: clip(taxonomy, LIMIT.taxonomy),
+    taxonomy: clip(taxonomy.name, LIMIT.taxonomy),
     spanMs,
     episodeCount: episodes.length,
     unclearShare: spanMs > 0 ? Math.min(1, unclear / spanMs) : 0,
@@ -93,17 +100,12 @@ export function storyOf(episodes: Episode[], taxonomy: string): Story {
       // coming back: an interface that repaints a conversation replays
       // all of it, and the echo of what they sent is already `wrote`.
       said: e.evidence.appeared
-        .filter((a) => a.fresh && a.channel && a.channel !== PARTICIPANT)
+        .filter((a) => a.fresh && a.channel && !mine.has(a.channel))
         .slice(0, MAX_SAID)
         .map((a) => ({ channel: clip(a.channel as string, LIMIT.channel), text: clip(a.text, LIMIT.said) })),
     })),
   };
 }
-
-// The one channel id this module knows, because it is the one thing it
-// has to tell apart: a person's own words from the application's. Every
-// taxonomy that carries a `from: "person"` channel calls it this.
-const PARTICIPANT = "participant";
 
 // Rebuilding a story that arrived from somewhere else.
 //

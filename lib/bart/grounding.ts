@@ -13,6 +13,7 @@ import { conversation, messageText, promptSections, type Message } from "@/lib/t
 import type { SemanticIndex } from "@/lib/semantics/lookup";
 import { episodeOf, readSession } from "@/lib/activity/read";
 import { confidenceWord } from "@/lib/activity/taxonomy";
+import { BLIND_READING, type Reading } from "@/lib/activity/reading";
 import type { Episode } from "@/lib/activity/types";
 
 export type TraceModel = {
@@ -34,7 +35,13 @@ export type TraceModel = {
 
 // A slice of a run passes the whole run's frame index, so documents named
 // before the slice began keep their names inside it.
-export function traceModel(events: TraceEvent[], calls: ModelCall[], frames: Map<string, FrameInfo> = frameIndex(events), semantics: SemanticIndex | null = null): TraceModel {
+//
+// `reading` is how the artifact is read: the profile written for it,
+// compiled. Left out, the session is read blind — it names what holds in
+// any artifact and nothing else. The caller looks the profile up rather
+// than choosing it, so what Bart is told and what the screen shows are
+// the same words, arrived at twice from the same events.
+export function traceModel(events: TraceEvent[], calls: ModelCall[], frames: Map<string, FrameInfo> = frameIndex(events), semantics: SemanticIndex | null = null, reading: Reading = BLIND_READING): TraceModel {
   const rows = traceRows(events, calls, frames, semantics);
   const grouped = traceStages(rows);
   return {
@@ -44,6 +51,7 @@ export function traceModel(events: TraceEvent[], calls: ModelCall[], frames: Map
       stages: grouped.primary, frames, events,
       calls: new Map(calls.map((c) => [c.callId, { model: c.model, latencyMs: c.latencyMs }])),
       semantics: semantics ?? undefined,
+      taxonomy: reading.taxonomy, surfaceOf: reading.surfaceOf,
     }),
   };
 }

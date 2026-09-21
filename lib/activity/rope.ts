@@ -66,6 +66,8 @@ const CHANNELS: Taxonomy["channels"] = [
     id: "requirements",
     label: "the requirements document",
     from: "system",
+    // It fills in rather than replies, and the canvas says so.
+    verb: "was added to",
     // The document fills in a word at a time as the tutor accepts what
     // was written, and those mutations land on the page container itself.
     is: (a) => a.container?.tag === "main" || /^main > div:nth-of-type\(3\)/.test(a.container?.selector ?? ""),

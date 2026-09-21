@@ -289,6 +289,12 @@ export type ChannelSpec = {
   // Whose words these are. It matters because what somebody submitted is
   // only ever recoverable as text the application echoed back.
   from: "system" | "person";
+  // How this channel is spoken about when something arrived on it: one
+  // channel *answered*, another *printed*, another *was added to*. A
+  // past-tense verb phrase, and the artifact's own — only the artifact
+  // knows whether a channel of its is somebody replying or a document
+  // filling in. Left out, the plain form ("answered") is used.
+  verb?: string;
   container?: Anchor;
   text?: StringTest;
   generation?: ElementProvenance;

@@ -39,7 +39,7 @@ const episodes = classify({
   calls: new Map(calls.map((c) => [c.callId, { model: c.model, latencyMs: c.latencyMs }])),
 });
 
-const story = storyOf(episodes, ROPE_TAXONOMY.name);
+const story = storyOf(episodes, ROPE_TAXONOMY);
 const id = storyKey(story);
 
 console.log(`run ${RUN}`);

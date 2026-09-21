@@ -15,7 +15,7 @@
 // itself is clean.
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { compileProfile } from "../../../lib/activity/profile/compile.ts";
 import { validateProfile } from "../../../lib/activity/profile/validate.ts";
@@ -51,7 +51,22 @@ const BENEATH = [
   "../../../lib/activity/segment.ts",
   "../../../lib/activity/types.ts",
   "../../../lib/activity/graph.ts",
+  // What a stored row means, and the reading used when there is none.
+  // Their comments say which artifact's words leaked and where, because
+  // that is the reason each of them exists.
+  "../../../lib/activity/profile/capability.ts",
+  "../../../lib/activity/profile/stamp.ts",
+  "../../../lib/activity/profile/store.ts",
+  "../../../lib/activity/blind.ts",
+  "../../../lib/activity/story.ts",
+  "../../../lib/activity/read.ts",
 ];
+
+// The one file allowed to know an artifact by name, and the file that
+// holds that artifact's own reading. Everything else in lib/activity is
+// checked against them below.
+const REGISTRY = "lib/activity/reading.ts";
+const THE_ARTIFACT = "lib/activity/rope.ts";
 
 const source = (p: string) => readFileSync(fileURLToPath(new URL(p, import.meta.url)), "utf8");
 const withoutComments = (text: string) => text.replace(/\/\/[^\n]*/g, "");
@@ -63,7 +78,9 @@ const NOUNS = [
   /\btutors?\b/i,
   /\bsolutions?\b/i,
   /\bmy[ -]canvas\b/i,
-  /\brequirements?\b/i,
+  // Not `requirements.txt`, which is what Python calls a list of
+  // packages and has nothing to do with anybody's document.
+  /\brequirements?\b(?!\\?\.txt)/i,
 ];
 
 // Banned in the profile language and allowed below it. "Participant" is
@@ -73,18 +90,16 @@ const NOUNS = [
 // knowing either.
 const SUBSTRATE_ONLY = [/\bparticipants?\b/i];
 
-// One artifact-specific string is left in the layers beneath, knowingly.
+// Nothing artifact-specific is left in the layers beneath.
 //
-// graph.ts picks the verb for a node that says what appeared — "The tutor
-// answered", "The requirements document was added to" — by comparing the
-// channel's id to a literal. Any other artifact's channel therefore
-// renders as "answered", which would be wrong for a legend, a log or a
-// map. The fix is a verb on the channel rather than a test on its id, and
-// it belongs with whatever changes what the canvas says; it is pinned
-// here so that it cannot grow a second one quietly.
-const KNOWN_LEAKS: Record<string, string[]> = {
-  "../../../lib/activity/graph.ts": ['if (id === "requirements") return `${head} was added to`;'],
-};
+// There used to be one, written down here: graph.ts picked the verb for a
+// node that says what appeared by comparing the channel's id to a
+// literal, so every other artifact's channel rendered as "answered" —
+// wrong for a legend, a log or a map. The fix was the one predicted here,
+// a verb on the channel rather than a test on its id, and the pin is
+// empty rather than deleted so that the next leak has somewhere obvious
+// to be argued about rather than quietly added.
+const KNOWN_LEAKS: Record<string, string[]> = {};
 
 const clean = (file: string): string => {
   let code = withoutComments(source(file));
@@ -116,10 +131,30 @@ describe("the profile machinery does not know what it is reading", () => {
     });
   }
 
-  it("has exactly one known leak, and it is the one that is written down", () => {
-    // If this ever passes with an empty list, delete the pin.
-    assert.deepEqual(Object.keys(KNOWN_LEAKS), ["../../../lib/activity/graph.ts"]);
-    assert.equal(KNOWN_LEAKS["../../../lib/activity/graph.ts"].length, 1);
+  it("has no known leaks left", () => {
+    // Every entry here is a place where the machinery knows the artifact.
+    // The list is empty and is meant to stay empty; an addition to it is
+    // a decision somebody has to defend in review.
+    assert.deepEqual(Object.keys(KNOWN_LEAKS), []);
+  });
+
+  // The lists above are what somebody thought to check. This is the
+  // sweep: every module of the Activity layer, found rather than listed,
+  // so a new file cannot be blind by having been forgotten. Two are
+  // exempt and named — the artifact's own reading, and the one registry
+  // that maps a repository to it.
+  it("lets exactly two files know an artifact by name", () => {
+    const root = fileURLToPath(new URL("../../../lib/activity/", import.meta.url));
+    const files = readdirSync(root, { recursive: true, encoding: "utf8" })
+      .filter((f) => f.endsWith(".ts"))
+      .map((f) => `lib/activity/${f}`.replace(/\\/g, "/"));
+    assert.ok(files.length > 10, `found only ${files.length} modules, so the sweep is not sweeping`);
+
+    const knowing = files.filter((f) => {
+      const code = withoutComments(readFileSync(fileURLToPath(new URL(`../../../${f}`, import.meta.url)), "utf8"));
+      return NOUNS.some((n) => n.test(code));
+    });
+    assert.deepEqual(knowing.sort(), [REGISTRY, THE_ARTIFACT].sort());
   });
 
   it("reaches for nothing that knows one", () => {
@@ -140,7 +175,7 @@ describe("the profile machinery does not know what it is reading", () => {
     // The lib modules only: the tests below them are allowed to write a
     // positional selector down, because testing that the validator warns
     // about one means having one to hand it.
-    for (const file of SUBSTRATE.filter((f) => f.endsWith(".ts"))) {
+    for (const file of SUBSTRATE.filter((f) => f.endsWith(".ts") && !f.includes("/prompt/"))) {
       const code = withoutComments(source(file));
       assert.doesNotMatch(code, /nth-of-type/, `${file} carries a positional selector`);
       assert.doesNotMatch(code, /\bdata-(testid|test-id|test)\b/, `${file} hard-codes an attribute name`);

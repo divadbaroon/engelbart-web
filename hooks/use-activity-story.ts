@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { storyKey, storyOf, type Story } from "@/lib/activity/story";
+import type { Taxonomy } from "@/lib/activity/taxonomy";
 import type { Episode } from "@/lib/activity/types";
 import { summariseActivity } from "@/app/workspace/[workspaceId]/activity-actions";
 
@@ -40,7 +41,7 @@ export type SessionStory = {
   story: Story;
 };
 
-export function useActivityStory(episodes: Episode[], taxonomy: string): SessionStory {
+export function useActivityStory(episodes: Episode[], taxonomy: Taxonomy): SessionStory {
   const story = useMemo(() => storyOf(episodes, taxonomy), [episodes, taxonomy]);
   const id = useMemo(() => storyKey(story), [story]);
   const [summary, setSummary] = useState<string | null>(null);

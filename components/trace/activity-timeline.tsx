@@ -4,10 +4,9 @@ import { useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TraceView } from "@/hooks/use-trace-view";
-import { ROPE_TAXONOMY } from "@/lib/activity/rope";
 import { DEFAULT_SEGMENTATION } from "@/lib/activity/segment";
 import { activityExport, activityJson, exportEpisode, type ExportedEvent } from "@/lib/activity/export";
-import { confidenceWord } from "@/lib/activity/taxonomy";
+import { confidenceWord, type Taxonomy } from "@/lib/activity/taxonomy";
 import { BROAD_MEANING, type Episode } from "@/lib/activity/types";
 import { formatClock } from "@/lib/trace/timeline";
 import { useActivityStory } from "@/hooks/use-activity-story";
@@ -46,7 +45,10 @@ export function ActivityTimeline({ trace, episodes, onOpenMoment }: Props) {
   // Asked once, when this view is opened, from the episodes above and
   // never from the trace. It costs one small model call per distinct
   // timeline and nothing at all when the timeline has not changed.
-  const session = useActivityStory(episodes, ROPE_TAXONOMY.name);
+  const session = useActivityStory(episodes, trace.reading.taxonomy);
+  // What this artifact's own channels are called, from the profile the
+  // session was read with. Above the early returns because it is a hook.
+  const says = useMemo(() => saysOf(trace.reading.taxonomy), [trace.reading.taxonomy]);
 
   if (trace.loading && !episodes.length) return <p className="p-8 text-center text-[13px] text-muted-foreground">Reading the trace…</p>;
   if (!episodes.length) {
@@ -66,7 +68,7 @@ export function ActivityTimeline({ trace, episodes, onOpenMoment }: Props) {
   // second copy of the trace in memory until the button is pressed.
   const whole = () => activityJson(activityExport({
     episodes,
-    taxonomy: ROPE_TAXONOMY.name,
+    profile: trace.reading.stamp,
     segmentation: DEFAULT_SEGMENTATION,
     runId: trace.run?.id ?? null,
   }));
@@ -76,9 +78,14 @@ export function ActivityTimeline({ trace, episodes, onOpenMoment }: Props) {
         <SectionTitle>Timeline</SectionTitle>
         <CopyJson text={whole} label="Copy JSON" title="The whole timeline: every episode, the evidence it was read from, and the raw events under it" />
       </div>
+      {/* Whose words these rows are in. It is one quiet line and it is
+          always there, because the alternative — saying nothing — is how
+          a reading written for one artifact came to be printed over
+          another's session with nothing to mark it. */}
+      <p className="mb-2 text-[11px] leading-4 text-muted-foreground">{trace.reading.detail}</p>
       <ol aria-label="Activity timeline" className="flex flex-col">
         {episodes.map((e) => (
-          <Row key={e.id} episode={e} start={start} open={open === e.id} onToggle={() => setOpen(open === e.id ? null : e.id)} onOpenMoment={onOpenMoment} />
+          <Row key={e.id} episode={e} start={start} says={says} open={open === e.id} onToggle={() => setOpen(open === e.id ? null : e.id)} onOpenMoment={onOpenMoment} />
         ))}
       </ol>
       {/* What the session was, in a sentence or three, under the rows it
@@ -118,7 +125,7 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
 // the column.
 const dim = (e: Episode) => e.broadBehavior === "UNCLEAR";
 
-function Row({ episode: e, start, open, onToggle, onOpenMoment }: { episode: Episode; start: number; open: boolean; onToggle: () => void; onOpenMoment: (stageId: string, episodeId: string) => void }) {
+function Row({ episode: e, start, says, open, onToggle, onOpenMoment }: { episode: Episode; start: number; says: Map<string, string>; open: boolean; onToggle: () => void; onOpenMoment: (stageId: string, episodeId: string) => void }) {
   return (
     <li className={cn("border-l-2 pl-3", dim(e) ? "border-transparent" : "border-foreground/15")}>
       <button
@@ -132,7 +139,7 @@ function Row({ episode: e, start, open, onToggle, onOpenMoment }: { episode: Epi
         <span className={cn("min-w-0 flex-1 truncate", dim(e) && "text-muted-foreground")}>{e.description}</span>
         <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{elapsed(e.durationMs)}</span>
       </button>
-      {open && <Detail episode={e} onOpenMoment={onOpenMoment} />}
+      {open && <Detail episode={e} says={says} onOpenMoment={onOpenMoment} />}
     </li>
   );
 }
@@ -141,12 +148,16 @@ function Row({ episode: e, start, open, onToggle, onOpenMoment }: { episode: Epi
 // names it. The person's own channel is left out: what they sent is
 // already shown as what they sent, and printing it twice under two
 // labels reads as two different things having happened.
-const SAYS = new Map(ROPE_TAXONOMY.channels.filter((c) => c.from === "system").map((c) => [c.id, c.label]));
+//
+// Built from the taxonomy this session was read with, never from a
+// constant: the labels belong to the artifact, not to this component.
+const saysOf = (taxonomy: Taxonomy) =>
+  new Map(taxonomy.channels.filter((c) => c.from === "system").map((c) => [c.id, c.label]));
 
-function Detail({ episode: e, onOpenMoment }: { episode: Episode; onOpenMoment: (stageId: string, episodeId: string) => void }) {
+function Detail({ episode: e, says, onOpenMoment }: { episode: Episode; says: Map<string, string>; onOpenMoment: (stageId: string, episodeId: string) => void }) {
   const v = e.evidence;
   const exported = useMemo(() => exportEpisode(e), [e]);
-  const heard = v.appeared.filter((a) => a.fresh && a.channel && SAYS.has(a.channel));
+  const heard = v.appeared.filter((a) => a.fresh && a.channel && says.has(a.channel));
   return (
     <div className="mb-2 ml-[42px] flex flex-col gap-2.5 rounded-md border bg-[#fbfbfb] px-3.5 py-3 text-[12px] leading-[1.6]">
       <div className="flex items-start justify-between gap-3">
@@ -170,7 +181,7 @@ function Detail({ episode: e, onOpenMoment }: { episode: Episode; onOpenMoment: 
       </Facts>
 
       {v.entered && <Quote who="Sent">{v.entered}</Quote>}
-      {heard.map((a, i) => <Quote key={i} who={`${SAYS.get(a.channel!)} said`}>{a.text}</Quote>)}
+      {heard.map((a, i) => <Quote key={i} who={`${says.get(a.channel!)} said`}>{a.text}</Quote>)}
 
       {v.call && (
         <p className="text-muted-foreground">

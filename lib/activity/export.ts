@@ -16,6 +16,7 @@
 import type { Stage } from "@/lib/trace/timeline";
 import { targetOf, type ElementTarget, type TraceEvent } from "@/lib/trace/types";
 import type { Segmentation } from "@/lib/activity/segment";
+import type { ProfileStamp } from "@/lib/activity/profile/stamp";
 import type { Episode } from "@/lib/activity/types";
 
 export const ACTIVITY_FORMAT = "engelbart.activity/1";
@@ -43,7 +44,14 @@ export type ActivityExport = {
   format: typeof ACTIVITY_FORMAT;
   runId: string | null;
   recordingId: string | null;
+  // The vocabulary every claim below is made in, by name. Kept where it
+  // has always been, so a reader of an older export still finds it.
   taxonomy: string;
+  // And where that vocabulary came from: shipped with this application,
+  // written for this artifact by a model, or no reading at all. Without
+  // it a name is a name, and "ROPE" over a canvas application looked
+  // exactly like "ROPE" over ROPE.
+  profile: ProfileStamp;
   segmentation: Segmentation;
   exportedAt: string;
   episodeCount: number;
@@ -104,7 +112,7 @@ export function exportEpisode(episode: Episode): ExportedEpisode {
 
 export function activityExport(input: {
   episodes: Episode[];
-  taxonomy: string;
+  profile: ProfileStamp;
   segmentation: Segmentation;
   runId?: string | null;
   recordingId?: string | null;
@@ -115,7 +123,8 @@ export function activityExport(input: {
     format: ACTIVITY_FORMAT,
     runId: input.runId ?? null,
     recordingId: input.recordingId ?? null,
-    taxonomy: input.taxonomy,
+    taxonomy: input.profile.name,
+    profile: input.profile,
     segmentation: input.segmentation,
     exportedAt: (input.now ?? new Date()).toISOString(),
     episodeCount: episodes.length,

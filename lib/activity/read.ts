@@ -14,7 +14,7 @@ import type { FrameInfo, Stage } from "@/lib/trace/timeline";
 import type { TraceEvent } from "@/lib/trace/types";
 import type { SemanticIndex } from "@/lib/semantics/lookup";
 import { classify } from "@/lib/activity/classify";
-import { ROPE_TAXONOMY, ropeSurface } from "@/lib/activity/rope";
+import { BLIND_TAXONOMY, blindSurface } from "@/lib/activity/blind";
 import { DEFAULT_SEGMENTATION, type Segmentation } from "@/lib/activity/segment";
 import type { Taxonomy } from "@/lib/activity/taxonomy";
 import type { Episode, SurfaceRole } from "@/lib/activity/types";
@@ -25,22 +25,27 @@ export type SessionInput = {
   events: TraceEvent[];
   calls?: Map<string, { model: string | null; latencyMs: number | null }>;
   semantics?: SemanticIndex;
-  // How to read it. Left out, this is ROPE, read the way every existing
-  // caller reads it — which is the whole of the promise this file makes,
-  // and the reason the parameter is optional rather than required.
+  // How to read it: the artifact's own profile, compiled. Left out, the
+  // reading is artifact-blind — it names nothing, because nothing here
+  // knows what the artifact is.
+  //
+  // This default used to be ROPE's taxonomy, and that was a bug with a
+  // vocabulary: an artifact with no profile was described in another
+  // artifact's words, confidently, with nothing on the page to say so.
+  // ROPE is now reached the way any artifact is reached, by being named.
   //
   // A caller that brings its own taxonomy brings its own way of naming
-  // surfaces with it: falling back to ROPE's would answer questions about
-  // one artifact with another artifact's vocabulary. So `surfaceOf`
-  // defaults to ROPE's only when the taxonomy does too, and otherwise to
-  // the classifier's own table lookup.
+  // surfaces with it: falling back to another's would answer questions
+  // about one artifact with a second artifact's vocabulary. So
+  // `surfaceOf` defaults to the blind namer only when the taxonomy does
+  // too, and otherwise to the classifier's own table lookup.
   taxonomy?: Taxonomy;
   surfaceOf?: (key: string) => { label: string; role: SurfaceRole };
   segmentation?: Segmentation;
 };
 
 export function readSession(input: SessionInput): Episode[] {
-  const taxonomy = input.taxonomy ?? ROPE_TAXONOMY;
+  const taxonomy = input.taxonomy ?? BLIND_TAXONOMY;
   return classify({
     stages: input.stages,
     frames: input.frames,
@@ -48,7 +53,7 @@ export function readSession(input: SessionInput): Episode[] {
     calls: input.calls,
     semantics: input.semantics,
     taxonomy,
-    surfaceOf: input.surfaceOf ?? (input.taxonomy ? undefined : ropeSurface),
+    surfaceOf: input.surfaceOf ?? (input.taxonomy ? undefined : blindSurface),
     segmentation: input.segmentation ?? DEFAULT_SEGMENTATION,
   });
 }

@@ -52,7 +52,13 @@ export type Taxonomy = {
   // back — `ui.input` carries a length and never a value — so the one
   // way to tell their message from the answer to it is which part of the
   // conversation it was written into.
-  channels: { id: string; label: string; from: "system" | "person"; is: (a: Appearance) => boolean }[];
+  //
+  // `verb` is how this channel is spoken about when something arrived on
+  // it: "the tutor" *answered*, "the requirements document" *was added
+  // to*. It belongs to the artifact because only the artifact knows
+  // whether its channel is somebody talking or a document filling in.
+  // Left out, the plain form is used.
+  channels: { id: string; label: string; from: "system" | "person"; verb?: string; is: (a: Appearance) => boolean }[];
   // Controls worth naming when they are clicked, so that a transition
   // into an episode can explain it.
   //
