@@ -236,7 +236,7 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
     : !run
       ? [CUBES.idle, "Live preview", "Your running project will appear here.", started]
       : isRunActive(run)
-        ? [CUBES.idle, run.status === "launching" ? `Starting ${repo.fullName}…` : `Preparing ${repo.fullName}…`, doing, waiting]
+        ? [CUBES.starting, run.status === "launching" ? `Starting ${repo.fullName}…` : `Preparing ${repo.fullName}…`, doing, waiting]
         : run.status === "no_service"
           ? [CUBES.unavailable, "Nothing to serve in " + repo.fullName, plainError(run.error) || "The pipeline found no web application of its own to run.", again]
         : run.status === "failed"
