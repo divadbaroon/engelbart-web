@@ -276,7 +276,17 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
         : run.status === "no_service"
           ? [CUBES.unavailable, "Nothing to serve in " + repo.fullName, plainError(run.error) || "The pipeline found no web application of its own to run.", again]
         : run.status === "failed"
-          ? [CUBES.crashed, "Could not run " + repo.fullName, plainError(run.error) || "The run failed. See Setup’s Logs for what the tools printed.", again]
+          // A sandbox that went away is not a repository that would not
+          // run. The run got as far as running and then lost the machine
+          // under it — a machine reclaimed after its hour, or a runner
+          // that stopped — so the frowning cube blames the repository
+          // for something it did not do. Eyes closed, and the one fact
+          // there is, which is also the whole of what the pane knows:
+          // the sentence under the old heading said it, and the heading
+          // above it said something else.
+          ? run.errorKind === "SandboxGone"
+            ? [CUBES.stopped, "This sandbox is no longer running", null, again]
+            : [CUBES.crashed, "Could not run " + repo.fullName, plainError(run.error) || "The run failed. See Setup’s Logs for what the tools printed.", again]
           : isRunCloned(run)
             ? [CUBES.idle, "Live preview", "Your running project will appear here.", { label: "Start", onClick: () => onLaunch(run.id), primary: true, icon: <Play className="size-3 fill-current" /> }]
             : [CUBES.stopped, STATUS_LABEL[run.status], plainError(run.error) || "Prepare the repository again to start over.", again];
