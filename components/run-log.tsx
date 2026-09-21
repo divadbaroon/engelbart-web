@@ -48,7 +48,11 @@ export function RunLog({ lines, empty, error }: Props) {
     <section
       ref={scroller}
       aria-label="Run log"
-      className="h-full overflow-y-auto px-[22px] py-[18px] font-mono text-[13px] leading-[1.75]"
+      // No padding above the first line: the log starts where the bar
+      // over it ends. A gap there reads as the pane not having loaded,
+      // and it is most visible arriving from a step in Build, where the
+      // bar naming the step is immediately followed by empty space.
+      className="h-full overflow-y-auto px-[22px] pb-[18px] font-mono text-[13px] leading-[1.75]"
     >
       {!count && <p className="text-muted-foreground">{empty}</p>}
       <div style={{ height: total, position: "relative", width: "100%" }}>
