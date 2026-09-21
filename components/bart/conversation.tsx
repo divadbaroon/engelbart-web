@@ -81,7 +81,7 @@ export function BartConversation({ session, repo, labelRef, onOpenRef, compact =
                 its ground is baked in — and a black tile on a #f6f6f6
                 panel reads as a logo that arrived from somewhere else.
                 Drawn instead, from the same geometry: components/bart/mark.tsx. */}
-            <BartMark className="mb-[18px] h-[82px] w-auto" />
+            <BartMark className="mb-[18px] h-[85px] w-auto" />
             <p className="mb-2.5 text-[15px] leading-6 font-semibold">What are you trying to understand?</p>
             {/* A hard space in "related work" below, so the pair cannot be
                 split across the break. Left to itself the greedy wrap put
