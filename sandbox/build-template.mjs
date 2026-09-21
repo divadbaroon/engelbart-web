@@ -16,6 +16,7 @@
 // HC_SOURCE points at a checkout of hc (pyproject.toml, src/). E2B_TEMPLATE
 // names the base template; the app reads the same variable when creating
 // sandboxes, and the Docker template is that name plus "-docker".
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -39,6 +40,22 @@ for (const entry of ["pyproject.toml", "README.md", "src"]) {
     recursive: true,
     filter: (src) => !/__pycache__|\.pyc$|\.DS_Store/.test(src),
   });
+}
+
+// Engelbart's own addition to hc, which lives here rather than in the
+// checkout so it survives one being lost or rebuilt: a launch capability
+// that hands the application a Node preload without the repository
+// having to mention it. The patch is small on purpose — the capability
+// itself is a module of ours — and the build fails rather than quietly
+// producing a template that cannot watch an artifact's model calls.
+const trajectory = path.join(here, staged, "src/human_compact/trajectory");
+fs.copyFileSync(path.join(here, "hc/project_instrumentation.py"), path.join(trajectory, "project_instrumentation.py"));
+try {
+  execFileSync("patch", ["-p0", "--no-backup-if-mismatch", "-i", path.join(here, "hc/project_run.patch")], { cwd: trajectory, stdio: "pipe" });
+} catch (err) {
+  console.error(`sandbox/hc/project_run.patch no longer applies to ${hc}. hc has moved; reconcile the patch before building.`);
+  console.error(String(err.stdout ?? "") + String(err.stderr ?? ""));
+  process.exit(1);
 }
 
 // The pipeline looks for the Supabase CLI under its own home before
@@ -82,7 +99,7 @@ function runner({ docker }) {
     .copy("visit.mjs", "/opt/engelbart/visit.mjs", { user: "root" })
     .runCmd("cd /opt/engelbart && npm init -y >/dev/null 2>&1 && npm install --no-audit --no-fund playwright@1 && PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright npx playwright install --with-deps chromium && chmod -R a+rX /opt/ms-playwright /opt/engelbart && apt-get clean && rm -rf /var/lib/apt/lists/*", { user: "root" })
     // Fail the build, not the first run, if anything is missing.
-    .runCmd(`node --version && claude --version && railpack --version && bun --version && pnpm --version && uv --version && python3 -c 'import human_compact.trajectory.project_run' && node /opt/engelbart/visit.mjs about:blank 100 | grep -q '"error":null' && ENGELBART_TRACE_TOKEN=check ENGELBART_MODEL_GATEWAY_PORT=0 timeout 10 node /opt/engelbart/trace/model-gateway.mjs 2>/dev/null | head -1 | grep -q '"kind":"gateway.listening"' && ENGELBART_PREVIEW_BIND=127.0.0.1 timeout 10 node /opt/engelbart/trace/preview-gateway.mjs 43199:1 2>/dev/null | head -1 | grep -q '"gateway":"preview"'${docker ? " && docker --version && docker compose version && supabase --version" : ""}`);
+    .runCmd(`node --version && claude --version && railpack --version && bun --version && pnpm --version && uv --version && python3 -c 'import human_compact.trajectory.project_run' && node /opt/engelbart/visit.mjs about:blank 100 | grep -q '"error":null' && ENGELBART_TRACE_TOKEN=check ENGELBART_MODEL_GATEWAY_PORT=0 timeout 10 node /opt/engelbart/trace/model-gateway.mjs 2>/dev/null | head -1 | grep -q '"kind":"gateway.listening"' && ENGELBART_PREVIEW_BIND=127.0.0.1 timeout 10 node /opt/engelbart/trace/preview-gateway.mjs 43199:1 2>/dev/null | head -1 | grep -q '"gateway":"preview"' && node --require /opt/engelbart/trace/preload.cjs -e 'process.exit(process.env.ENGELBART_MODEL_CAPTURE?1:0)' && python3 -c 'import inspect;from human_compact.trajectory import project_run as R,project_instrumentation as I;assert "instrumentation" in inspect.signature(R.start).parameters;assert I.wanted({"modelCapture":True})=={"modelCapture"}'${docker ? " && docker --version && docker compose version && supabase --version" : ""}`);
 }
 
 // Both templates get the largest sandbox E2B allows. A front-end production

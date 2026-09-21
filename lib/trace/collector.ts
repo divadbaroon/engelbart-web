@@ -43,6 +43,15 @@ export function createCollector(supabase: SupabaseClient, runId: string, record?
   // Application requests the preview gateway has seen start but not end,
   // and the ids each model call was given when it began.
   const inflight = new Map<string, { at: number; interactionId: string | null; category: string | null }>();
+  // Which interaction each application request belonged to, kept after
+  // the request has finished. A model call can name the request it was
+  // made for, and this is what turns that name into a link: the id is
+  // only accepted when the preview gateway reported the same request
+  // itself, and the interaction is taken from that report rather than
+  // from the claim. So the strongest thing a claim can do is point at a
+  // request the collector already saw.
+  const requests = new Map<string, string | null>();
+  const REQUESTS_KEPT = 500;
   const callIds = new Map<string, EventIds>();
   const announced = new Map<string, { port: number }>();
   const waiting = new Map<string, ((v: { port: number } | null) => void)[]>();
@@ -94,12 +103,21 @@ export function createCollector(supabase: SupabaseClient, runId: string, record?
     return { ids: { requestId, interactionId: r.interactionId, correlation: "temporal" }, candidates: [] };
   };
 
+  // The call named the request it was made for, and the preview gateway
+  // reported that request: the two ends agree, so this is a link and
+  // not an association.
+  const claimedLink = (ev: GatewayLine): { ids: EventIds; candidates: string[] } | null => {
+    const requestId = str(ev.requestId);
+    if (!requestId || !requests.has(requestId)) return null;
+    return { ids: { requestId, interactionId: requests.get(requestId) ?? null, correlation: "explicit" }, candidates: [] };
+  };
+
   const insertCall = (ev: GatewayLine) => {
     const request = obj(ev.request);
     const upstream = obj(ev.upstream) ?? { scheme: null, host: null, path: null, has_query: false };
     const raw = obj(ev.raw);
     const sizes = obj(ev.sizes) ?? {};
-    const link = temporalLink(Date.parse(str(ev.started_at) ?? ev.ts) || Date.now());
+    const link = claimedLink(ev) ?? temporalLink(Date.parse(str(ev.started_at) ?? ev.ts) || Date.now());
     const ids: EventIds = { callId: String(ev.callId), ...link.ids };
     callIds.set(String(ev.callId), ids);
     const row = {
@@ -121,7 +139,7 @@ export function createCollector(supabase: SupabaseClient, runId: string, record?
       model: row.model, stream: row.streamed, messageCount: num(request?.message_count), promptChars: num(request?.prompt_chars),
       parsed: obj(ev.request_parse)?.ok === true, ...(link.candidates.length ? { candidates: link.candidates } : {}),
     }, ids);
-    log(`model.request ${ev.callId} ${row.method} ${upstream.host ?? "?"}${upstream.path ?? ""}`, { run: runId, model: row.model, stream: row.streamed, messages: num(request?.message_count), ...(ids.requestId ? { request: ids.requestId, interaction: ids.interactionId, correlation: "temporal" } : {}) });
+    log(`model.request ${ev.callId} ${row.method} ${upstream.host ?? "?"}${upstream.path ?? ""}`, { run: runId, model: row.model, stream: row.streamed, messages: num(request?.message_count), ...(ids.requestId ? { request: ids.requestId, interaction: ids.interactionId, correlation: link.ids.correlation } : {}) });
   };
 
   const finishCall = (ev: GatewayLine) => {
@@ -191,7 +209,11 @@ export function createCollector(supabase: SupabaseClient, runId: string, record?
           return true;
         case "network.request": {
           const requestId = str(ev.requestId);
-          if (requestId) inflight.set(requestId, { at: Date.parse(str(ev.started_at) ?? ev.ts) || Date.now(), interactionId: str(ev.interactionId), category: str(ev.category) });
+          if (requestId) {
+            inflight.set(requestId, { at: Date.parse(str(ev.started_at) ?? ev.ts) || Date.now(), interactionId: str(ev.interactionId), category: str(ev.category) });
+            requests.set(requestId, str(ev.interactionId));
+            if (requests.size > REQUESTS_KEPT) requests.delete(requests.keys().next().value as string);
+          }
           stats.network += 1;
           insertEvent(ev.source as TraceSource, ev.kind, ev.ts, dataOf(ev), idsOf(ev));
           return true;

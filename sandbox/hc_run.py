@@ -19,7 +19,7 @@ import uuid
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit, urlunsplit
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 # Every answer the planner and the runner can settle on. A planner answer
 # outside this list once kept the wrapper polling until the deadline.
@@ -57,6 +57,19 @@ INSTRUMENTATION_DIR = os.environ.get("ENGELBART_INSTRUMENTATION_DIR") or "/opt/e
 INSTRUMENT_COMMIT = "engelbart: sandbox-only instrumentation, never upstream"
 TRACE_ENV = {}        # values Engelbart hands the application so its model calls pass through the gateway
 TRACE_NAMES = set()   # their names, for the environment report
+
+# The other way model calls can be watched, and the one that leaves the
+# repository alone: a Node preload in the application's own process,
+# delivered by hc as a launch capability rather than written into the
+# artifact. The file is root-owned in the image, so nothing running as
+# the application's user — including a repair agent — can change what it
+# does. See sandbox/trace/preload.cjs.
+PRELOAD = os.environ.get("ENGELBART_PRELOAD") or "/opt/engelbart/trace/preload.cjs"
+# The name the preload looks for before it does anything at all. It
+# holds this run's gateway URL, so it is at once the authorisation to
+# arm and the place to send what is seen; a process without it is not
+# this application and stays untouched.
+CAPTURE_MARKER = "ENGELBART_MODEL_CAPTURE"
 
 
 def agent(rung, prompt, model, budget, tools=None, max_turns=1, timeout=600, cwd=None, schema=None, system=None):
@@ -176,6 +189,13 @@ class StageLog:
             if not announced:
                 emit(phase="stage", stage=stage.get("stage"), command=stage.get("command"), cwd=stage.get("cwd"),
                      status=stage.get("status"), attempt=stage.get("attempt"))
+                # Whether this service could be watched is a fact about
+                # the run, and a different fact from how many model calls
+                # it turned out to make.
+                capability = stage.get("modelCapture")
+                if isinstance(capability, dict):
+                    emit(phase="capability", capability="modelCapture", stage=stage.get("stage"),
+                         state=capability.get("state"), detail=capability.get("detail"))
             for stream, length in (("stdout", out_len), ("stderr", err_len)):
                 text = stage.get(stream) or ""
                 if len(text) > length:
@@ -332,6 +352,12 @@ def instrument(repo):
     if os.environ.get("ENGELBART_TRACE") != "1":
         return
     name = (os.environ.get("ENGELBART_REPO") or "").strip().lower()
+    # An operator can switch this off for a run: to see what the
+    # repository does with nothing of ours in it, and to check that
+    # what watches it no longer needs the edit.
+    if (os.environ.get("ENGELBART_INSTRUMENTATION") or "").strip().lower() in ("off", "none", "0"):
+        emit(phase="instrument", status="none", repo=name, reason="sandbox-only instrumentation is switched off for this run")
+        return
     gateway = (os.environ.get("ENGELBART_MODEL_GATEWAY_URL") or "").rstrip("/")
     try:
         with open(Path(INSTRUMENTATION_DIR) / "index.json", encoding="utf-8") as f:
@@ -378,6 +404,114 @@ def instrument(repo):
     os.environ.update(values)   # the setup rung's scripts inherit the wrapper's environment
     emit(phase="instrument", status="applied", repo=name, files=files, diff=diff, why=entry.get("why"),
          environment=sorted(values), upstreams=entry.get("upstreams"), commit=INSTRUMENT_COMMIT)
+
+
+# A path the Node preload cannot reach. Next runs middleware, and any
+# route that declares `runtime = "edge"`, in a runtime that is not Node:
+# no NODE_OPTIONS, no node:http, its own fetch. A model call made there
+# is invisible to capture. Nothing here tries to reach it. The point is
+# only that the run says so, because "capture is partial" and "no model
+# calls happened" must never be the same silence.
+EDGE_EXPORT = re.compile(r"""export\s+const\s+runtime\s*=\s*["']edge["']""")
+EDGE_CONFIG = re.compile(r"""export\s+const\s+config\b""")
+EDGE_FIELD = re.compile(r"""runtime\s*:\s*["']edge["']""")
+EDGE_SUFFIX = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".mts")
+EDGE_SKIP = {"node_modules", ".next", ".git", "dist", "build", "out", "coverage", ".turbo", ".vercel", "venv", ".venv", "__pycache__"}
+EDGE_MAX_FILES = 4000
+EDGE_MAX_BYTES = 512 * 1024
+
+
+def edge_paths(root):
+    """Files in the repository that declare a runtime the preload cannot enter.
+
+    Returns (paths relative to the repository, whether the scan stopped
+    early). Never raises: not being able to look is itself reported."""
+    found = []
+    scanned = 0
+    base_path = Path(root)
+    try:
+        for base, dirs, names in os.walk(root):
+            dirs[:] = [d for d in dirs if d not in EDGE_SKIP]
+            here = Path(base)
+            # Next's middleware always runs on the edge runtime. It is
+            # only middleware where an application is: beside a Next
+            # config, or beside the app's own routes.
+            beside_an_app = any(n.startswith("next.config.") for n in names) or "app" in dirs or "pages" in dirs
+            for name in sorted(names):
+                if not name.endswith(EDGE_SUFFIX):
+                    continue
+                path = here / name
+                rel = str(path.relative_to(base_path))
+                if name.startswith("middleware.") and beside_an_app:
+                    found.append(rel)
+                    continue
+                scanned += 1
+                if scanned > EDGE_MAX_FILES:
+                    return sorted(set(found)), True
+                try:
+                    if path.stat().st_size > EDGE_MAX_BYTES:
+                        continue
+                    text = path.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    continue
+                if EDGE_EXPORT.search(text) or (EDGE_CONFIG.search(text) and EDGE_FIELD.search(text)):
+                    found.append(rel)
+    except Exception:  # noqa: BLE001
+        return sorted(set(found)), True
+    return sorted(set(found)), False
+
+
+def report_capability(gateway, state, detail):
+    """Say what the run's capture capability is on the trace itself, over
+    the same endpoint the preload reports on. Best effort: a report that
+    does not arrive is still in the run's event log."""
+    if not gateway:
+        return
+    try:
+        body = json.dumps({"state": state, "detail": detail[:400], "runtime": "wrapper"}).encode()
+        request = Request(gateway + "/gateway/status", data=body, headers={"content-type": "application/json"})
+        urlopen(request, timeout=3).close()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def request_capture(root=None):
+    """Ask hc to launch the application with Engelbart's Node preload.
+
+    hc is told which capability is wanted, never how to do it: it
+    resolves the file itself from its own environment, checks it is
+    outside the repository, and applies it after the plan's own
+    settings. The repository is not read, not edited and not consulted,
+    which is the whole point — an artifact should be byte-for-byte what
+    it was, and what watches it should come from the environment it runs
+    in.
+
+    Returns the capability request, or None with a reason said out loud.
+    Never raises: a run that cannot be watched is still a run."""
+    gateway = (os.environ.get("ENGELBART_MODEL_GATEWAY_URL") or "").rstrip("/")
+    if os.environ.get("ENGELBART_TRACE") != "1" or not gateway:
+        return None
+    if not os.path.isfile(PRELOAD):
+        detail = f"{PRELOAD} is not in this sandbox; model calls are traced only if the application reads its base URL from the environment"
+        emit(phase="capability", capability="modelCapture", state="instrumentation_failed", detail=detail)
+        # On the trace as well as in the log. A run whose trace holds no
+        # model calls and no word about capture cannot be read.
+        report_capability(gateway, "instrumentation_failed", detail)
+        return None
+    os.environ["HC_NODE_PRELOAD"] = PRELOAD
+    os.environ["HC_LAUNCH_MARKERS"] = json.dumps({CAPTURE_MARKER: gateway})
+    if root:
+        paths, stopped = edge_paths(root)
+        if paths:
+            named = ", ".join(paths[:5]) + (f" (+{len(paths) - 5} more)" if len(paths) > 5 else "")
+            detail = f"model capture reaches this application's Node paths; {len(paths)} path(s) declare the edge runtime and are outside it: {named}"
+            emit(phase="capability", capability="modelCapture", state="partial", detail=detail, paths=paths[:20], scanStopped=stopped)
+            report_capability(gateway, "partial", detail)
+        elif stopped:
+            detail = "the repository could not be read for edge-runtime paths, so whether any model call bypasses capture is unknown"
+            emit(phase="capability", capability="modelCapture", state="partial", detail=detail, scanStopped=True)
+            report_capability(gateway, "partial", detail)
+    return {"modelCapture": True}
 
 
 def stop_leftovers(PR, run_id):
@@ -612,7 +746,7 @@ def run(PR, PE, PS, run_id, cwd, root):
     LAST_LOCAL_ERROR = local_error
     LAST_MISSING = sorted(name for names in skips.values() for name in names)
 
-    PR.start(run_id, environment_skips=skips)
+    PR.start(run_id, environment_skips=skips, instrumentation=request_capture(root))
     logs = LOGS[run_id] = StageLog()
     last = None
     approved = set()
@@ -1538,6 +1672,15 @@ def start_app(root, url, attempt=None):
     free_port(port)
     log = Path(root) / SETUP_DIR / "start.log"
     emit(phase="start", status="starting", attempt=attempt, url=url)
+    if os.environ.get("HC_NODE_PRELOAD"):
+        # This rung runs a shell script an agent wrote, so what ends up
+        # being the application is not known here. Guessing would mean
+        # setting NODE_OPTIONS on something that is not Node, and a
+        # refused option reads as the artifact crashing. Said plainly
+        # instead: the application runs, and is not watched.
+        detail = "the setup rung starts the application from a shell script, which is not instrumented"
+        emit(phase="capability", capability="modelCapture", stage="start.sh", state="unsupported_launcher", detail=detail)
+        report_capability((os.environ.get("ENGELBART_MODEL_GATEWAY_URL") or "").rstrip("/"), "unsupported_launcher", detail)
     with open(log, "w", encoding="utf-8") as handle:
         proc = subprocess.Popen(["bash", str(Path(root) / SETUP_DIR / "start.sh")], cwd=root, env=dict(os.environ, PIP_NO_CACHE_DIR="1"),
                                 stdout=handle, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)

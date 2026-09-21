@@ -303,6 +303,12 @@ export function createPreviewGateway({ listenPort, targetPort, targetAddress = "
     const ids = interactionId ? { interactionId, correlation: "explicit" } : {};
     const wantsDocument = category === "document" && req.method === "GET";
     const headers = forwarded(req.headers);
+    // The application is told which request this is, as it is already
+    // told which interaction. It never reads either; what does is the
+    // preload inside it, so that a model call the application makes
+    // while handling this request can say which one it was, instead of
+    // the collector having to guess from the clock.
+    if (requestId) headers["x-engelbart-request"] = requestId;
     // Only an uncompressed document can be injected. Anything else keeps
     // the encoding the browser asked for.
     if (wantsDocument) headers["accept-encoding"] = "identity";

@@ -105,8 +105,9 @@ describe("model gateway", () => {
   before(async () => {
     upstreamPort = await upstream.listen();
     gateway = createGateway({
-      token: TOKEN, capture: "full", allowHttp: true,
-      upstreamHosts: [`127.0.0.1:${upstreamPort}`, "127.0.0.1:1"],
+      token: TOKEN, capture: "full",
+      modelHosts: [`127.0.0.1:${upstreamPort}`, "127.0.0.1:1"],
+      denyHosts: ["blocked.example.com"],
       redactor: new Redactor({ OPENAI_API_KEY: SECRET, MONGODB_URI: "mongodb+srv://rope:hunter22@cluster0.example.net/rope" }),
       emit: (kind, fields) => events.push({ kind, ...fields }),
     });
@@ -258,11 +259,20 @@ describe("model gateway", () => {
     assert.ok(!JSON.stringify(events).includes("tok_wrong"), "the guessed token is not echoed");
   });
 
-  it("refuses an upstream host that is not on the allowlist", async () => {
+  it("refuses a destination the run denied by name", async () => {
     events.length = 0;
-    const response = await fetch(url("/v1/chat/completions", { host: "evil.example.com", scheme: "https" }), { method: "POST", body: "{}" });
+    const response = await fetch(url("/v1/chat/completions", { host: "blocked.example.com", scheme: "https" }), { method: "POST", body: "{}" });
     assert.equal(response.status, 403);
-    assert.deepEqual([last("gateway.rejected").reason, last("gateway.rejected").host], ["upstream_not_allowed", "evil.example.com"]);
+    assert.deepEqual([last("gateway.rejected").reason, last("gateway.rejected").host], ["destination_denied", "blocked.example.com"]);
+  });
+
+  it("refuses to relay to itself rather than looping", async () => {
+    // Without this a preload that redirects the gateway's own request
+    // turns one call into an unbounded chain of them.
+    events.length = 0;
+    const response = await fetch(url("/v1/chat/completions", { host: `127.0.0.1:${gatewayPort}` }), { method: "POST", body: "{}" });
+    assert.equal(response.status, 508);
+    assert.equal(last("gateway.rejected").reason, "relay_loop");
   });
 
   it("answers 502 and records a connect error when the upstream is down", async () => {
@@ -293,10 +303,103 @@ describe("model gateway", () => {
   });
 
   it("serves a health check under the token", async () => {
-    const response = await fetch(url("/health", { host: "gateway", scheme: "https" }));
+    const response = await fetch(`http://127.0.0.1:${gatewayPort}/t/${TOKEN}/gateway/health`);
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.deepEqual(body, { ok: true, capture: "full", upstreams: [`127.0.0.1:${upstreamPort}`, "127.0.0.1:1"] });
+    assert.deepEqual(body, { ok: true, capture: "full", upstreams: [`127.0.0.1:${upstreamPort}`, "127.0.0.1:1"], deny: ["blocked.example.com"] });
+  });
+});
+
+// Failing to recognise a request is a fact about Engelbart. It must not
+// become a fact about whether the application works, and it must not
+// become a reason to keep the request either.
+describe("model gateway with a destination it does not recognise", () => {
+  const events = [];
+  // Nobody declares this one, and no provider claims its paths.
+  const stranger = http.createServer((req, res) => {
+    const chunks = [];
+    req.on("data", (c) => chunks.push(c));
+    req.on("end", () => {
+      if (req.url === "/v1/chat/completions") {
+        res.writeHead(200, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ id: "chatcmpl-stranger", model: "llama-3.1-70b", choices: [{ index: 0, message: { role: "assistant", content: "from an undeclared host" }, finish_reason: "stop" }], usage: { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 } }));
+      }
+      res.writeHead(201, { "content-type": "application/json", "x-strange": "1" });
+      res.end(JSON.stringify({ echoed: Buffer.concat(chunks).toString("utf8"), url: req.url, auth: req.headers.authorization ?? null }));
+    });
+  });
+  let strangerPort; let gateway; let gatewayPort; let declaredPort;
+  const at = (host, rest) => `http://127.0.0.1:${gatewayPort}/t/${TOKEN}/http/${host}${rest}`;
+  const eventsOf = (kind) => events.filter((e) => e.kind === kind);
+  const last = (kind) => eventsOf(kind).at(-1);
+
+  before(async () => {
+    strangerPort = await new Promise((r) => stranger.listen(0, "127.0.0.1", () => r(stranger.address().port)));
+    declaredPort = strangerPort + 1;   // a declaration that names a host nothing runs on
+    gateway = createGateway({
+      token: TOKEN, capture: "full", modelHosts: [`127.0.0.1:${declaredPort}`],
+      redactor: new Redactor({ OPENAI_API_KEY: SECRET }),
+      emit: (kind, fields) => events.push({ kind, ...fields }),
+    });
+    gatewayPort = (await gateway.listen(0)).port;
+  });
+  after(async () => { await gateway.close(); stranger.close(); });
+
+  it("carries the request and the answer through untouched", async () => {
+    events.length = 0;
+    const response = await fetch(at(`127.0.0.1:${strangerPort}`, "/api/telemetry?run=7"), {
+      method: "POST", body: "the application's own business", headers: { "content-type": "text/plain", authorization: `Bearer ${SECRET}` },
+    });
+    assert.equal(response.status, 201, "not a 403: being unrecognised is not a reason to refuse");
+    assert.equal(response.headers.get("x-strange"), "1");
+    const body = await response.json();
+    assert.equal(body.echoed, "the application's own business");
+    assert.equal(body.url, "/api/telemetry?run=7");
+    assert.equal(body.auth, `Bearer ${SECRET}`, "the credential the application chose to send still reaches its destination");
+  });
+
+  it("records that it happened, and nothing of what was in it", () => {
+    const relayed = last("gateway.relayed");
+    assert.ok(relayed, "an unrecognised relay is still on the record");
+    assert.equal(relayed.capture, "none");
+    assert.equal(relayed.reason, "unrecognized");
+    assert.equal(relayed.status, 201);
+    assert.equal(relayed.method, "POST");
+    assert.deepEqual(relayed.upstream, { scheme: "http", host: `127.0.0.1:${strangerPort}`, path: "/api/telemetry", has_query: true });
+    assert.equal(relayed.sizes.request_bytes, Buffer.byteLength("the application's own business"));
+    assert.ok(relayed.sizes.response_bytes > 0);
+    assert.ok(typeof relayed.latency_ms === "number");
+    // The whole point: a proxy can see this body, and that is not a
+    // reason to have it.
+    assert.ok(!("raw" in relayed) && !("request" in relayed) && !("headers" in relayed), `only metadata: ${Object.keys(relayed).join(",")}`);
+    const written = JSON.stringify(events);
+    assert.ok(!written.includes("the application's own business"), "no body of an unrecognised request is stored");
+    assert.ok(!written.includes(SECRET), "and no credential from one either");
+  });
+
+  it("does not file it as a model call", () => {
+    assert.equal(eventsOf("model.request").length, 0);
+    assert.equal(eventsOf("model.response").length, 0);
+    assert.equal(eventsOf("gateway.rejected").length, 0);
+  });
+
+  it("still reads a request a provider claims, on a host nobody declared", async () => {
+    // Recognition is the gate, and a provider recognising the shape is
+    // recognition. This is what lets a new proxy host be understood
+    // without anyone configuring it.
+    events.length = 0;
+    const response = await fetch(at(`127.0.0.1:${strangerPort}`, "/v1/chat/completions"), {
+      method: "POST", body: JSON.stringify({ model: "llama-3.1-70b", messages: [{ role: "user", content: "hello" }] }),
+      headers: { "content-type": "application/json" },
+    });
+    assert.equal(response.status, 200);
+    await response.text();
+    const req = await waitFor(() => last("model.request"));
+    assert.equal(req.provider, "openai");
+    assert.equal(req.request.model, "llama-3.1-70b");
+    assert.equal(eventsOf("gateway.relayed").length, 0, "a recognised call is a model call, not a bare relay");
+    const done = await waitFor(() => last("model.response"));
+    assert.equal(done.response.output.text, "from an undeclared host");
   });
 });
 
@@ -306,7 +409,7 @@ describe("model gateway in metadata capture", () => {
   let gateway; let gatewayPort; let upstreamPort;
   before(async () => {
     upstreamPort = await upstream.listen();
-    gateway = createGateway({ token: TOKEN, capture: "metadata", allowHttp: true, upstreamHosts: [`127.0.0.1:${upstreamPort}`], emit: (kind, fields) => events.push({ kind, ...fields }) });
+    gateway = createGateway({ token: TOKEN, capture: "metadata", modelHosts: [`127.0.0.1:${upstreamPort}`], emit: (kind, fields) => events.push({ kind, ...fields }) });
     gatewayPort = (await gateway.listen(0)).port;
   });
   after(async () => { await gateway.close(); upstream.server.close(); });

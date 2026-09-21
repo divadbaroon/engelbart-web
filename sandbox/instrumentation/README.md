@@ -1,10 +1,22 @@
 # Sandbox-only instrumentation
 
 A research artifact sometimes cannot be observed without a change to its
-code: ROPE, for one, writes its model provider's base URL into a server
-action, so no environment value can route its calls through Engelbart's
-model gateway. What lives here is the smallest edit that makes such a
-route configurable, with the artifact's own behavior kept as the default.
+code: it writes its model provider's base URL into its source, so no
+environment value can route its calls through Engelbart's model gateway.
+What lives here is the smallest edit that makes such a route
+configurable, with the artifact's own behavior kept as the default.
+
+**The registry is empty, and that is the point.** ROPE was the one entry
+here, for exactly the reason above. Since 2026-09-20 model capture
+reaches an unmodified Node application through a preload hc delivers as
+a launch capability (`sandbox/trace/preload.cjs`, `sandbox/trace/CAPTURE.md`),
+so ROPE's model calls are read with its source untouched — proven by
+`npm run capture:check` against a pristine clone and by a traced run
+through the normal machinery. This mechanism stays for the artifact that
+the preload cannot reach: one that is not Node, or that will not take a
+preload. Adding an entry means an artifact is being edited to be
+watched, which is a decision worth making deliberately, so anything
+registered here should also say why capture could not do it.
 
 Rules, all of them checked by the wrapper that applies these:
 

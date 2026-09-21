@@ -1,0 +1,84 @@
+--- project_run.py
++++ project_run.py
+@@ -11,6 +11,7 @@
+ import time
+ import uuid
+ from . import preview as PV, project_environment as PE, project_owner as Owner
++from . import project_instrumentation as INST
+ 
+ FINITE_TIMEOUT=600
+ # A dev server may lint, format and compile a large app before it listens;
+@@ -202,17 +203,17 @@
+             if _JOBS.get(id) is job:save_job(id,job)
+ 
+ 
+-def start(id,retry=False,owner=None,environment_skips=None):
++def start(id,retry=False,owner=None,environment_skips=None,instrumentation=None):
+     import hashlib
+     root=str(Path(read(id)['cwd']).resolve())
+     lock=folder()/('.launch-'+hashlib.sha256(root.encode()).hexdigest())
+     try:lock.mkdir()
+     except FileExistsError:raise ValueError('Another launch request for this project is in progress. Retry shortly.') from None
+-    try:return _start(id,retry,owner,environment_skips)
++    try:return _start(id,retry,owner,environment_skips,instrumentation)
+     finally:lock.rmdir()
+ 
+ 
+-def _start(id,retry=False,owner=None,environment_skips=None):
++def _start(id,retry=False,owner=None,environment_skips=None,instrumentation=None):
+     with _LOCK:
+         if id in _JOBS and _JOBS[id]['state']['status'] not in ('failed','needs_input','unsupported','no_service'):return view(id)
+         record=read(id)
+@@ -257,7 +258,9 @@
+                'attempts':record.get('run',{}).get('attempts',[]),
+                'failures':record.get('run',{}).get('failures',[])[-8:],
+                'stages':[{k:redact(v) if k=='command' else v for k,v in s.items() if k!='variables'} for s in steps]}
+-        job={'state':state,'owner':owner,'orderPlan':record.get('orderPlan'),'order':record.get('order'),'plan':record['plan'],'repositoryRoot':record.get('repositoryRoot',record['cwd']),'index':0};_JOBS[id]=job
++        job={'state':state,'owner':owner,'orderPlan':record.get('orderPlan'),'order':record.get('order'),'plan':record['plan'],'repositoryRoot':record.get('repositoryRoot',record['cwd']),'index':0,
++     # Asked for by whoever started hc, never by the project.
++     'capabilities':INST.wanted(instrumentation)};_JOBS[id]=job
+         def persist():save_job(id,job)
+         def work():
+             inherited = dict(base)
+@@ -282,9 +285,14 @@
+                         state['stages'][i]['status']='running';persist()
+                     inherited.update(step['variables'])
+                     env={**inherited,**values}
++                    if step['stage']=='start':
++                        # Applied last, so nothing the plan set can undo it.
++                        extra,capture,detail=INST.resolve(job.get('capabilities'),job['repositoryRoot'],argv=shlex.split(step['command']),command=step['command'],env=env)
++                        env={**env,**extra}
++                        state['stages'][i]['modelCapture']={'state':capture,'detail':detail}
+                     with _LOCK:
+                         if job.get('cancelled'): raise ValueError('Stopped by Reset')
+-                        proc=PV.start_plan_process(state['cwd'],step['command'],env,redact)
++                        proc=PV.start_plan_process(state['cwd'],step['command'],env,lambda t:INST.mask(redact(t)))
+                         job['proc']=proc
+                     deadline=time.monotonic()+(START_TIMEOUT if step['stage']=='start' else FINITE_TIMEOUT)
+                     while proc.alive():
+@@ -556,7 +564,7 @@
+                     else:bound,extra=RT.bind(step,requests,paths)
+                     if bound is None:continue  # Managed environment was created above.
+                     step={**step,'argv':bound};env.update(extra)
+-                def mask(text,local_redact=local_redact):return redact(local_redact(text))
++                def mask(text,local_redact=local_redact):return INST.mask(redact(local_redact(text)))
+                 command=shlex.join(step['argv'])
+                 with _LOCK:
+                     check()
+@@ -575,7 +583,15 @@
+                         except OSError:pass
+                         else:
+                             connection.close();raise ValueError('Health port is already occupied; refusing to claim an unrelated server')
+-                    proc=PV.start_plan_process(step['cwd'],command,{**env,**step['env']},mask,owner=id+':'+step['id'],argv=step['argv'])
++                    launch={**env,**step['env']}
++                    if step['stage']=='service':
++                        # Applied after the plan's own env on purpose: a
++                        # preload the project could unset would be a
++                        # preload the project controls.
++                        extra,capture,detail=INST.resolve(job.get('capabilities'),job['repositoryRoot'],argv=step['argv'],command=command,env=launch)
++                        launch.update(extra)
++                        stage['modelCapture']={'state':capture,'detail':detail}
++                    proc=PV.start_plan_process(step['cwd'],command,launch,mask,owner=id+':'+step['id'],argv=step['argv'])
+                     job['proc']=proc;job['setupProcs'][step['id']]=proc
+                 deadline=time.monotonic()+(FINITE_TIMEOUT if step['stage']=='prepare' else START_TIMEOUT)
+                 while True:

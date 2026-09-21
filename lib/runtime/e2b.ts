@@ -298,6 +298,11 @@ export const e2bRuntime: Runtime = {
           // With a gateway up, the wrapper applies the repository's registered
           // sandbox-only instrumentation and hands the application the URL.
           ...(gateway ? { ENGELBART_TRACE: "1", ENGELBART_REPO: repo.fullName, ENGELBART_MODEL_GATEWAY_URL: gateway.url } : {}),
+          // Two switches an operator can set on the runner itself, for a
+          // run made to see what happens without something: the
+          // repository's sandbox-only edit, and the preload that watches
+          // model calls. Neither can be set by a repository or an agent.
+          ...Object.fromEntries(["ENGELBART_INSTRUMENTATION", "ENGELBART_PRELOAD"].filter((k) => process.env[k]).map((k) => [k, process.env[k] as string])),
         },
         onStdout: (d) => lines.push(d),
         onStderr: (d) => record.event("stderr", d),

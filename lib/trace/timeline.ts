@@ -290,7 +290,33 @@ export function describeNote(e: TraceEvent, frames: Map<string, FrameInfo> = new
   const frame = (id: unknown) => frameLabel(frames, str(id));
   switch (e.kind) {
     case "gateway.listening":
-      return { label: `${d.gateway === "model" ? "Model gateway" : d.gateway === "preview" ? "Preview gateway" : `${e.source} gateway`} up`, detail: `port ${d.port ?? "?"}${d.capture ? ` · capture ${d.capture}` : ""}${list(d.upstreams).length ? ` · allowed upstreams ${list(d.upstreams).join(", ")}` : ""}` };
+      return { label: `${d.gateway === "model" ? "Model gateway" : d.gateway === "preview" ? "Preview gateway" : `${e.source} gateway`} up`, detail: `port ${d.port ?? "?"}${d.capture ? ` · capture ${d.capture}` : ""}${list(d.upstreams).length ? ` · read as model endpoints: ${list(d.upstreams).join(", ")}` : ""}` };
+    case "gateway.relayed": {
+      // Somewhere the application called that Engelbart carried without
+      // reading. Worth a row — it is part of what the run did — and the
+      // row says plainly that nothing of it was kept.
+      const u = obj(d.upstream) ?? {};
+      const bytes = obj(d.sizes) ?? {};
+      return {
+        label: `Relayed ${str(d.method) ?? "a request"} to ${str(u.host) ?? "?"}${str(u.path) ?? ""}`,
+        detail: `not a recognised model endpoint, so it was carried and not read · ${str(obj(d.error)?.type) ?? num(d.status) ?? "?"} · ${num(bytes.request_bytes) ?? 0} bytes out, ${num(bytes.response_bytes) ?? 0} back${num(d.latency_ms) !== null ? ` · ${num(d.latency_ms)}ms` : ""}`,
+      };
+    }
+    case "gateway.unsupported":
+      return { label: `A ${str(d.form) === "connect" ? "CONNECT" : `${str(d.protocol) || "websocket"} upgrade`} could not be carried`, detail: "a proxy that reads both sides cannot forward one; the connection was closed rather than quietly broken" };
+    case "capability.modelCapture": {
+      const state = str(d.state) ?? "unknown";
+      const used = list(d.used);
+      const label = state === "active" ? "Model capture is watching this application"
+        : state === "available" ? "Model capture armed"
+        : state === "partial" ? "Model capture reaches only part of this application"
+        : state === "unsupported_launcher" ? "Model capture cannot reach this launcher"
+        : state === "unsupported_runtime" ? "Model capture cannot reach this runtime"
+        : state === "instrumentation_failed" ? "Model capture could not be installed"
+        : state === "unavailable" ? "Model capture is no longer watching"
+        : `Model capture: ${state}`;
+      return { label, detail: [str(d.detail), used.length ? `carried over ${used.join(", ")}` : null, num(d.pid) !== null ? `pid ${num(d.pid)}` : null].filter(Boolean).join(" · ") || null };
+    }
     case "instrument.applied":
       return { label: "Sandbox-only instrumentation applied", detail: `${list(d.files).join(", ")} · committed in the sandbox copy only, never upstream` };
     case "instrument.present":
@@ -323,6 +349,36 @@ export function describeNote(e: TraceEvent, frames: Map<string, FrameInfo> = new
     default:
       return { label: e.kind, detail: null };
   }
+}
+
+// What this run's model capture amounts to, as one answer.
+//
+// Realms report for themselves — a Next application has several, and
+// the wrapper reports too — so the run's state is the least capable
+// true statement about it, not the last one to arrive. A run where
+// nothing reported at all is its own answer: that capture worked and
+// saw nothing is exactly what must not be assumed.
+const CAPTURE_SEVERITY: Record<string, number> = {
+  available: 1,
+  active: 2,
+  partial: 3,
+  unsupported_runtime: 4,
+  unsupported_launcher: 4,
+  instrumentation_failed: 4,
+  unavailable: 4,
+};
+export type CaptureState = { state: string; detail: string | null; used: string[]; reports: number; at: string | null };
+
+export function captureState(events: TraceEvent[]): CaptureState {
+  const reports = events.filter((e) => e.kind === "capability.modelCapture");
+  const used = [...new Set(reports.flatMap((e) => list(e.data?.used)))];
+  if (!reports.length) return { state: "unreported", detail: "nothing reported whether model capture was working, so a run with no model calls says nothing about whether there were any", used, reports: 0, at: null };
+  let worst = reports[0];
+  for (const e of reports) {
+    const rank = (x: TraceEvent) => CAPTURE_SEVERITY[str(x.data?.state) ?? ""] ?? 2;
+    if (rank(e) > rank(worst) || (rank(e) === rank(worst) && ms(e.at) >= ms(worst.at))) worst = e;
+  }
+  return { state: str(worst.data?.state) ?? "unknown", detail: str(worst.data?.detail), used, reports: reports.length, at: worst.at };
 }
 
 // The text a change added and removed, net: the same text taken out and

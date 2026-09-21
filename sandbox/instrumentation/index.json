@@ -1,8 +1,1 @@
-{
-  "mqo00/rope": {
-    "diff": "mqo00--rope.diff",
-    "why": "ROPE's server action builds its OpenAI client with a base URL written into the code, so no environment value can route its model calls through the gateway. The patch reads OPENAI_BASE_URL first and keeps ROPE's own upstream as the fallback; nothing else changes.",
-    "upstreams": ["api.openai-proxy.com"],
-    "environment": { "OPENAI_BASE_URL": "{gateway}/https/api.openai-proxy.com/v1" }
-  }
-}
+{}

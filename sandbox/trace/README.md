@@ -9,6 +9,7 @@ collector reads it and stores it under the run's identity.
 browser ──bridge.js──► preview-gateway.mjs ──stdout──► worker collector ──► engelbart_trace_events
   │                          │  (network.*)                                 engelbart_model_calls
   └── application ──► model-gateway.mjs ──stdout──┘  (model.*)
+        └ preload.cjs puts the call there, with the artifact unedited
 ```
 
 ## The line format
@@ -48,6 +49,82 @@ format), `model.response` (streamed output merged, usage when the provider
 sent it, timings) or `model.error`. Capture `full` keeps content, `metadata`
 keeps shapes and counts. Known secret values and anything shaped like a
 key are redacted before a line is written.
+
+Carrying a request and reading one are separate decisions, made in that
+order.
+
+It carries everything. Not recognising a destination says something about
+Engelbart, not about whether the application may use its network, so an
+unrecognised request is relayed rather than refused. Three refusals are
+left and none of them can reach a working application: a wrong token
+(404), the gateway's own address (508, which is a loop and not a
+request), and a host the run denied by name through
+`ENGELBART_MODEL_DENY` (403, empty by default). A websocket upgrade or a
+`CONNECT` cannot be carried by a proxy that tees, so it is reported as
+`gateway.unsupported` and closed rather than silently broken — nothing
+should redirect one here.
+
+It reads only what something declared. Either the operator named the host
+a model endpoint (`ENGELBART_MODEL_UPSTREAMS`, plus the three defaults) or
+a provider module claims the request's shape — and a provider match alone
+is enough, so an OpenAI-compatible host nobody configured is still
+understood. Both are decided from the route before a byte of the body is
+taken. Anything else is relayed with no body buffered, no stream
+decompressed and no request header kept, and leaves one `gateway.relayed`
+event carrying where it went, how big it was and how it went. Being able
+to see a request is not a reason to store it.
+
+## preload.cjs
+
+How an artifact's model calls reach the gateway without the artifact being
+edited. `OPENAI_BASE_URL` works when the operator can set it; this is for
+the repositories where the URL is written into the source, which is most
+of them.
+
+hc launches the application with `--require=/opt/engelbart/trace/preload.cjs`
+and one marker, `ENGELBART_MODEL_CAPTURE`, holding the gateway's own URL.
+Neither comes from the repository: the supervisor names the preload once
+in hc's own environment, a run asks for the `modelCapture` capability by
+name, and hc resolves the path itself and applies it after the plan's
+env, so nothing in the project can name another preload or undo this one
+(`sandbox/hc/project_instrumentation.py`). Inside the process the marker
+is the authorisation: with no marker the file does nothing at all.
+
+It moves requests rather than reading them. Three hooks, because no one
+of them covers Node: `http.request`/`https.request` and their `get`
+twins, `globalThis.fetch`, and undici's global dispatcher — the last
+installed by watching `Object.defineProperty` for undici's dispatcher
+symbol, so a later `setGlobalDispatcher` is re-wrapped instead of
+silently removing capture. A redirected request keeps its method, headers
+and body; the original scheme and host travel in the gateway's path.
+Provider decoding stays in the gateway.
+
+What it refuses to touch: a request carrying its own TLS material (`ca`,
+`cert`, `key`, `pfx`, `rejectUnauthorized`, `checkServerIdentity`), an
+`Upgrade`, anything to the gateway itself, and anything to a local
+address unless `ENGELBART_MODEL_CAPTURE_LOCAL` names it. It does not arm
+in an Engelbart-owned process, nor in one holding `ENGELBART_TRACE_TOKEN`,
+so the gateways and the agent's own traffic are never intercepted.
+
+Failing to observe must never be failing to run, so nothing is redirected
+until the gateway has answered once, per realm; a socket error to the
+gateway stops redirection for the rest of the run; and calls that went
+out unobserved are counted and reported rather than lost quietly. The
+whole bootstrap is one `try`, and it writes nothing to the application's
+stdout or stderr — a line hc reads as an app error would send the run to
+the repair rung, where an agent would edit the repository.
+
+The run says which of these happened. `capability.modelCapture` carries
+`available` (armed, gateway answered), `active` (something was actually
+carried, with which transports), `unsupported_runtime`,
+`unsupported_launcher` (bun, deno, docker, python, a shell script — named
+before launch), `instrumentation_failed` or `unavailable`. A trace with
+no model calls and a trace where capture was impossible are different
+facts and are recorded as different facts.
+
+What this reaches, measured rather than asserted, is in
+[CAPTURE.md](CAPTURE.md): twelve runtime and launcher paths, and the list
+of what is not supported.
 
 ## preview-gateway.mjs
 
@@ -255,7 +332,11 @@ frame path and route.
 | `ENGELBART_TRACE_TOKEN` | model gateway | required; part of the gateway's URL |
 | `ENGELBART_TRACE_CAPTURE` | both gateways | `full` (default) or `metadata` |
 | `ENGELBART_MODEL_GATEWAY_PORT`, `_BIND` | model gateway | default 43200 on 127.0.0.1 |
-| `ENGELBART_MODEL_UPSTREAMS` | model gateway | extra allowed upstream hosts |
+| `ENGELBART_MODEL_UPSTREAMS` | model gateway | extra hosts to read as model endpoints (does not gate relaying) |
+| `ENGELBART_MODEL_DENY` | model gateway | hosts to refuse outright; empty by default |
+| `ENGELBART_MODEL_CAPTURE` | preload | the gateway's URL; its presence is what arms the preload |
+| `ENGELBART_MODEL_CAPTURE_LOCAL` | preload | local hosts to capture anyway (a fixture upstream in a test) |
+| `ENGELBART_PRELOAD` | hc wrapper | where the preload lives; `/opt/engelbart/trace/preload.cjs` by default |
 | `ENGELBART_REDACT_FILE` | both gateways | JSON of values to redact; deleted once read |
 | `ENGELBART_PREVIEW_BIND` | preview gateway | default 0.0.0.0 (the public port) |
 | `ENGELBART_BRIDGE_FILE`, `ENGELBART_BRIDGE_CONFIG` | preview gateway | the bridge to serve; tuning for it |
@@ -716,8 +797,20 @@ database, the timeline model. Annotations themselves are under
 semantic layer under `tests/semantics/` — the vocabulary and the two
 untrusted boundaries (a survey from a page, a reading from a model), the
 lookup ladder, the signature policy, what the model is shown, and what a
-trace row says with and without a reading. What `npm test` cannot do is
-run a real page: `npm run semantics:verify -- <file-or-url>` does that,
-and with `ANTHROPIC_API_KEY` set it reads the page for real. The events endpoint is as public as the
+trace row says with and without a reading. Model capture has two suites of its own:
+`tests/trace/preload.test.mjs` runs each hook in a real child process
+under the real preload, and `tests/sandbox/hc-instrumentation.test.mjs`
+drives hc's capability module through `python3` — which launchers may
+take a preload, which are refused, and that a repository can neither
+choose the path nor reach the marker.
+
+What `npm test` cannot do is run a real page or a real artifact.
+`npm run semantics:verify -- <file-or-url>` does the first, and with
+`ANTHROPIC_API_KEY` set it reads the page for real. `npm run capture:check`
+does the second: it clones a pristine research artifact, runs its own
+model call under the preload, and checks nineteen things about the result,
+including that the repository is byte-for-byte unchanged. `npm run
+capture:coverage` measures which runtimes and launchers capture reaches
+and prints the table in [CAPTURE.md](CAPTURE.md). The events endpoint is as public as the
 preview itself; it can only add events to the run whose gateway received
 them, never read anything.

@@ -82,3 +82,56 @@ describe("collector", () => {
     assert.deepEqual([second.request_id, second.correlation], [null, null], "no request open: no association");
   });
 });
+
+// A model call can now name the request it was made for, because the
+// preload inside the application knew. What the collector must not do is
+// take that name on trust: it is a link only where the preview gateway
+// reported the same request itself, and the interaction comes from that
+// report rather than from the claim. Everything else falls back to
+// timing, which is what it always was.
+describe("a model call that names the request it belongs to", () => {
+  const upstream = { scheme: "https", host: "api.example.com", path: "/v1/chat/completions", has_query: false };
+  const call = (fields: Row) => line("model-gateway", "model.request", { callId: "mc_x", capture: "full", provider: "openai", method: "POST", upstream, request: { model: "gpt-4o" }, ...fields });
+
+  it("is linked, not associated, when the preview gateway saw that request too", async () => {
+    const { client, tables } = fakeSupabase();
+    const c = createCollector(client as never, "run-x");
+    c.line(line("preview-gateway", "network.request", { requestId: "r_7", interactionId: "i_page01_3", correlation: "explicit", method: "POST", path: "/", category: "action" }));
+    // The request has already finished: this is the server-action shape,
+    // where the work outlives the response and timing would find nothing.
+    c.line(line("preview-gateway", "network.response", { requestId: "r_7", status: 200 }));
+    c.line(call({ interactionId: "i_page01_3", requestId: "r_7", correlation: "explicit" }));
+    await c.flush();
+    const row = tables.engelbart_model_calls[0];
+    assert.deepEqual([row.interaction_id, row.request_id, row.correlation], ["i_page01_3", "r_7", "explicit"]);
+  });
+
+  it("takes the interaction from what the gateway reported, not from the claim", async () => {
+    const { client, tables } = fakeSupabase();
+    const c = createCollector(client as never, "run-x");
+    c.line(line("preview-gateway", "network.request", { requestId: "r_7", interactionId: "i_real0001_1", correlation: "explicit", method: "POST", path: "/", category: "action" }));
+    c.line(call({ interactionId: "i_made0up1_9", requestId: "r_7", correlation: "explicit" }));
+    await c.flush();
+    const row = tables.engelbart_model_calls[0];
+    assert.equal(row.interaction_id, "i_real0001_1", "the strongest a claim can be is a pointer at something already recorded");
+  });
+
+  it("falls back to timing when it names a request nothing reported", async () => {
+    const { client, tables } = fakeSupabase();
+    const c = createCollector(client as never, "run-x");
+    c.line(line("preview-gateway", "network.request", { requestId: "r_open", interactionId: "i_page01_4", correlation: "explicit", method: "GET", path: "/", category: "document" }));
+    c.line(call({ interactionId: "i_page01_9", requestId: "r_never_reported", correlation: "explicit" }));
+    await c.flush();
+    const row = tables.engelbart_model_calls[0];
+    assert.deepEqual([row.interaction_id, row.request_id, row.correlation], ["i_page01_4", "r_open", "temporal"]);
+  });
+
+  it("leaves a call that names nothing exactly where it was", async () => {
+    const { client, tables } = fakeSupabase();
+    const c = createCollector(client as never, "run-x");
+    c.line(call({}));
+    await c.flush();
+    const row = tables.engelbart_model_calls[0];
+    assert.deepEqual([row.interaction_id, row.request_id, row.correlation], [null, null, null]);
+  });
+});
