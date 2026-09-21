@@ -143,13 +143,27 @@ export function CenterPanel({ tabs, middle, middleTab, children, panes, tab, onT
           <ResizablePanel
             panelRef={column}
             defaultSize="35"
-            // Measured when the bar held four names: they came to 241px
-            // and the header needs about 289 with the close button and its
-            // padding; 25% of an ordinary workspace row is around 283,
-            // which is just short, and 28 is the first that clears it. The
-            // bar holds five now and has not been re-measured, so 28 may
-            // no longer clear it — the row below scrolls when it does not,
-            // which is the same fallback a narrow window gets.
+            // Measured, and left as it is. The five tab names come to
+            // 332px at their widest — whichever is selected is the bold
+            // one — and the header needs 388 with the gap, the close
+            // button and the row's own padding. 28% clears that only when
+            // the workspace row is 1386px or wider, which a laptop with a
+            // sidebar in front of it is not: dragged to its minimum there,
+            // the row scrolls, and it scrolls with no scrollbar, so
+            // Activity goes quietly out of sight.
+            //
+            // The honest fix is a minimum in pixels, and the library will
+            // not take one: react-resizable-panels 4.12.4 documents
+            // `minSize={388}` and `minSize="388px"` as pixels, clamps the
+            // drag at exactly 388 as asked, and then lays the group out at
+            // 54% instead of the 35% defaultSize asks for (60% with
+            // maxSize removed). Measured both ways against the control.
+            // No percentage works either, because what 388px is worth as
+            // one depends on the window and on how wide the repository
+            // names have made the sidebar.
+            //
+            // So: the default always fits, every window width, and only a
+            // deliberate drag to the very minimum can hide a tab.
             minSize="28"
             maxSize="55"
             collapsible
