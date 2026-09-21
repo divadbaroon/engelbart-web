@@ -1,0 +1,117 @@
+{
+  "controls:1": {
+    "key": "controls:1",
+    "session": "controls",
+    "role": "HELD-OUT 2 (controls + a long gap)",
+    "index": 1,
+    "broad": "UNCLEAR",
+    "sub": "NOTHING_RECORDED",
+    "description": "Nothing at all was recorded for 53s.",
+    "because": "no input and no change to the document was recorded in this stretch",
+    "confidence": "high",
+    "determined": "rule",
+    "verdict": {
+      "supported": "yes",
+      "infersUnobservable": false,
+      "claimsHiddenState": false,
+      "broadDefensible": "yes",
+      "betterBroad": "",
+      "descriptionAccurate": "yes",
+      "deservedConfidence": "high",
+      "missedActivity": "",
+      "why": "The stretch contains no events whatsoever, and the claim asserts exactly that, with no inference about reading, thinking, or being away. UNCLEAR is the correct class for an empty stretch."
+    }
+  },
+  "controls:0": {
+    "key": "controls:0",
+    "session": "controls",
+    "role": "HELD-OUT 2 (controls + a long gap)",
+    "index": 0,
+    "broad": "ACTING",
+    "sub": "ADJUST_TOPIC_LABELS",
+    "description": "Changed how many automatic topic labels the embedding map draws, using the Number of Labels slider.",
+    "because": "the Number of Labels slider or the High Density Region checkbox was used",
+    "confidence": "high",
+    "determined": "rule",
+    "verdict": {
+      "supported": "partly",
+      "infersUnobservable": false,
+      "claimsHiddenState": true,
+      "broadDefensible": "yes",
+      "betterBroad": "",
+      "descriptionAccurate": "partly",
+      "deservedConfidence": "medium",
+      "missedActivity": "Earlier clicks on the \"Time\" button and two clicks on the time-menu button, each followed by large page mutations with year/data-point counts changing; also the High Density Region checkbox toggle at +19s.",
+      "why": "The slider change is genuinely recorded (label-num value committed, displayed count 20→9), so the ACTING/slider part holds; but what the map actually draws is canvas/in-memory state the recording cannot show, and the claim ignores the preceding Time-panel clicks and the checkbox toggle."
+    }
+  },
+  "controls:2": {
+    "key": "controls:2",
+    "session": "controls",
+    "role": "HELD-OUT 2 (controls + a long gap)",
+    "index": 2,
+    "broad": "ACTING",
+    "sub": "TOGGLE_MAP_LAYER",
+    "description": "Switched layers of the embedding map on and off from its control bar.",
+    "because": "one of the Contour, Point or Grid controls was used in this stretch",
+    "confidence": "high",
+    "determined": "rule",
+    "verdict": {
+      "supported": "partly",
+      "infersUnobservable": false,
+      "claimsHiddenState": true,
+      "broadDefensible": "yes",
+      "betterBroad": "",
+      "descriptionAccurate": "partly",
+      "deservedConfidence": "low",
+      "missedActivity": "Four zoom-button clicks (plus, minus twice, reset) with the zoom value changing 0.2350 → 0.4700 → 0.9400 → 0.7635, and label/tooltip text changes in the map view",
+      "why": "A \"Grid\" button and one unlabelled button of the same class were clicked, so a layer-style control was used, but \"on and off\" (toggling state) is not observable, and the claim ignores the four zoom-control clicks that dominate this stretch."
+    }
+  },
+  "search:0": {
+    "key": "search:0",
+    "session": "search",
+    "role": "HELD-OUT 1 (search-led)",
+    "index": 0,
+    "broad": "EXPLORING",
+    "sub": "SEARCH_EMBEDDING",
+    "description": "Searched the embedding, and the search panel's result list was rewritten.",
+    "because": "the search box or the search result list was used in this stretch",
+    "confidence": "high",
+    "determined": "rule",
+    "verdict": {
+      "supported": "yes",
+      "infersUnobservable": false,
+      "claimsHiddenState": false,
+      "broadDefensible": "yes",
+      "betterBroad": "",
+      "descriptionAccurate": "partly",
+      "deservedConfidence": "high",
+      "missedActivity": "Repeated clicks on zoom-in and zoom-reset buttons, which redrew the map's topic labels, plus two clicks on an unlabelled button at the end",
+      "why": "Clicks and multiple edits to #search-bar-input are recorded alongside result-list rewrites showing changing counts (\"5000+\", \"1,723\", \"182\"), so the search claim is well evidenced; it omits the several zoom-button interactions and map redraws that also occurred."
+    }
+  },
+  "discovery:0": {
+    "key": "discovery:0",
+    "session": "discovery",
+    "role": "DISCOVERY (in-sample)",
+    "index": 0,
+    "broad": "ACTING",
+    "sub": "TOGGLE_MAP_LAYER",
+    "description": "Switched layers of the embedding map on and off from its control bar.",
+    "because": "one of the Contour, Point or Grid controls was used in this stretch",
+    "confidence": "high",
+    "determined": "rule",
+    "verdict": {
+      "supported": "partly",
+      "infersUnobservable": false,
+      "claimsHiddenState": true,
+      "broadDefensible": "no",
+      "betterBroad": "EXPLORING",
+      "descriptionAccurate": "partly",
+      "deservedConfidence": "low",
+      "missedActivity": "The bulk of the stretch is zoom-plus, zoom-minus and zoom-reset clicks (seven of them) each triggering large re-renders of the topic labels; the claim ignores all of it.",
+      "why": "Three clicks on unlabelled buttons sharing the class of the \"Grid\" button (and one on \"Grid\" itself) are consistent with view-mode controls, but only one has recorded text, and whether any layer turned \"on and off\" on screen is unknowable since the map render is not captured. The stretch is dominated by repeated zoom in/out/reset cycling, which reads as exploring the map rather than a single decided action."
+    }
+  }
+}

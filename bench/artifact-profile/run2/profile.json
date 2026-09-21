@@ -1,0 +1,2680 @@
+{
+  "version": 1,
+  "artifact": {
+    "name": "WizMap"
+  },
+  "provenance": {
+    "by": "generated",
+    "model": "claude-opus-5[1m]",
+    "note": "Written from the artifact repository (README, Svelte components, TypeScript sources) plus one 82-second recording and its DOM/attribute surveys. WizMap is a scalable interactive visualisation for exploring large machine-learning embeddings (Wang, Hohman and Chau, ACL'23 demo). The interface is one document: a zoomable embedding map drawn in WebGL canvases and SVG, a top control bar (Contour / Point / Grid / Label / Time), a left search panel, a bottom-right footer with zoom and embedding-chooser buttons, a draggable point-detail window and two tooltips. Its primary interactions are pan, zoom, wheel and hover, none of which the collector can record; almost everything below is therefore anchored either on the few clickable controls or on the text the map writes back onto the page when it redraws."
+  },
+  "surfaces": [
+    {
+      "id": "map-view",
+      "match": {
+        "equals": "/"
+      },
+      "label": "the WizMap map view",
+      "role": "shell",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "App.svelte",
+            "note": "the whole application is one <MapView /> in one document"
+          },
+          {
+            "kind": "trace",
+            "seq": 7,
+            "eventKind": "frame.loaded",
+            "note": "url \"/\", title \"WizMap\", depth 0, embedded false"
+          }
+        ],
+        "note": "WizMap is a single-document application. Its query string carries ?dataset= or ?dataURL=&gridURL=, never ?id= or ?name=, so the collector keys the document by its path."
+      }
+    },
+    {
+      "id": "map-view-hosted",
+      "match": {
+        "glob": "*wizmap*"
+      },
+      "label": "the WizMap map view ({key})",
+      "role": "shell",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "README.md",
+            "note": "the public deployment is served from https://poloclub.github.io/wizmap, i.e. under a /wizmap/ path"
+          },
+          {
+            "kind": "repo",
+            "path": "notebook-widget/wizmap/wizmap.py",
+            "line": 893,
+            "note": "visualize() embeds the app in an iframe whose id is \"wizmap-iframe-<random>\""
+          }
+        ],
+        "note": "Hedge for the deployments this recording did not use: GitHub Pages serves the same single document under /wizmap/, and the Python widget embeds it in an iframe. If the collector keys the notebook iframe by its position rather than by a name, that document will fall through to \"other\"; I could not tell from the pack which it would do."
+      }
+    }
+  ],
+  "channels": [
+    {
+      "id": "topic-labels",
+      "label": "the map's topic labels",
+      "from": "system",
+      "container": {
+        "any": [
+          {
+            "classes": {
+              "equals": "topics"
+            }
+          },
+          {
+            "classes": {
+              "equals": "topic-label"
+            }
+          },
+          {
+            "classes": {
+              "equals": "label-group"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingLabel.ts",
+            "line": 458,
+            "note": "layoutTopicLabels() writes the multi-resolution topic summaries into g.topics"
+          },
+          {
+            "kind": "trace",
+            "seq": 9,
+            "eventKind": "ui.change",
+            "note": "region target <g> classes [\"topics\"], added \"summarization-summaries- document-summary question-answer- …\""
+          },
+          {
+            "kind": "survey",
+            "ord": 19,
+            "note": "<text> classes [\"topic-label\"] text \"summarization-document- summaries-summary\""
+          }
+        ],
+        "note": "These are the words the software itself generates: automatically extracted topic labels for whatever part of the embedding is on screen. Six of the eleven change bursts in the recording landed here."
+      }
+    },
+    {
+      "id": "point-tooltip",
+      "label": "the tooltip for a point on the map",
+      "from": "system",
+      "container": {
+        "elementId": {
+          "equals": "popper-tooltip-top"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingPointWebGL.ts",
+            "line": 483,
+            "note": "updatePopperTooltip(this.tooltipTop, …, this.hoverPoint.tooltip, 'top') — the hovered data point's own text"
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/mapview/MapView.svelte",
+            "line": 47,
+            "note": "<div id=\"popper-tooltip-top\" class=\"popper-tooltip hidden\" role=\"tooltip\">"
+          }
+        ],
+        "note": "WizMap keeps two tooltip elements and uses them for different things: the top one always carries the text of the data point under the pointer."
+      }
+    },
+    {
+      "id": "topic-tooltip",
+      "label": "the tooltip for a region of the map",
+      "from": "system",
+      "container": {
+        "elementId": {
+          "equals": "popper-tooltip-bottom"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingLabel.ts",
+            "line": 1123,
+            "note": "mouseoverLabel() puts the hovered grid tile's topic name into this.tooltipBottom"
+          },
+          {
+            "kind": "trace",
+            "seq": 21,
+            "eventKind": "ui.change",
+            "note": "a 16-mutation burst whose removed text is the topic name \"language-model-generation-models\""
+          }
+        ],
+        "note": "The bottom tooltip carries a hyphen-joined topic name for the tile under the pointer, and only while the Grid layer is on."
+      }
+    },
+    {
+      "id": "map-tooltip",
+      "label": "a tooltip on the map",
+      "from": "system",
+      "container": {
+        "any": [
+          {
+            "role": {
+              "equals": "tooltip"
+            }
+          },
+          {
+            "classes": {
+              "equals": "popper-content"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingLabel.ts",
+            "line": 1218,
+            "note": "both tooltips are filled by writing innerHTML of their .popper-content span"
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/mapview/MapView.svelte",
+            "line": 47
+          }
+        ],
+        "note": "Backstop for the two channels above. Both tooltips write into a <span class=\"popper-content\"> child; if a change burst is attributed to that span rather than to the id-bearing div, the point/topic distinction is lost and this channel catches it instead."
+      }
+    },
+    {
+      "id": "point-window",
+      "label": "the point detail window",
+      "from": "system",
+      "container": {
+        "any": [
+          {
+            "title": {
+              "equals": "Window"
+            }
+          },
+          {
+            "classes": {
+              "equals": "window-name"
+            }
+          },
+          {
+            "classes": {
+              "equals": "floating-window"
+            }
+          },
+          {
+            "classes": {
+              "equals": "section-content"
+            }
+          },
+          {
+            "classes": {
+              "equals": "section-header"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/floating-window/FloatingWindow.svelte",
+            "note": "the window header reads \"Point {id}\" and the body is a list of sections (Image / Text / the json field names)"
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.ts",
+            "line": 1314,
+            "note": "clickHandler() fills floatingWindowStore with the hovered point, which is what makes the window appear"
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/floating-window/FloatingWindow.ts",
+            "line": 118,
+            "note": "formatContent() — the section headers are \"Image\", \"Text\" or a json key"
+          }
+        ],
+        "note": "Never seen in the recording; taken from source. The class names here are the artifact's own, but see the note on the map control: this collector demonstrably drops some class names, so the anchor lists several routes to the same element."
+      }
+    },
+    {
+      "id": "search-results",
+      "label": "the search results",
+      "from": "system",
+      "container": {
+        "any": [
+          {
+            "classes": {
+              "equals": "result-list"
+            }
+          },
+          {
+            "classes": {
+              "equals": "count-label"
+            }
+          },
+          {
+            "classes": {
+              "equals": "search-list"
+            }
+          },
+          {
+            "classes": {
+              "equals": "clamp-line"
+            }
+          },
+          {
+            "selector": {
+              "contains": "result-list"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/search-panel/SearchPanel.svelte",
+            "note": "the result list renders a count label (\"5000+ Search Results\") followed by one div.item per matching point"
+          },
+          {
+            "kind": "repo",
+            "path": "src/config/config.ts",
+            "line": 293,
+            "note": "searchLimit: 5000 — the count label reads \"5000+\" at the cap"
+          }
+        ],
+        "note": "The text here belongs to the embedded corpus, not to the person, even though the person's query words are wrapped in <em> inside it. Marked from: \"system\" for that reason."
+      }
+    },
+    {
+      "id": "time-slider",
+      "label": "the time slider's readout",
+      "from": "system",
+      "container": {
+        "any": [
+          {
+            "classes": {
+              "equals": "thumb-label-span"
+            }
+          },
+          {
+            "classes": {
+              "equals": "thumb-label-middle"
+            }
+          },
+          {
+            "elementId": {
+              "equals": "time-slider-middle-thumb"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingControl.ts",
+            "note": "moveTimeSliderThumb() writes the formatted time into .thumb-label-span on every step of a drag or of the animation"
+          },
+          {
+            "kind": "survey",
+            "note": "02-raw-dom.md state 03-time-menu-open shows <span class=\"thumb-label-span\"> holding \"1986\""
+          }
+        ],
+        "note": "The one place the software writes out where the time slider has got to. It is the only recordable trace of a slider drag, because drags are not recorded."
+      }
+    },
+    {
+      "id": "footer-status",
+      "label": "the footer readout",
+      "from": "system",
+      "container": {
+        "any": [
+          {
+            "classes": {
+              "equals": "footer"
+            }
+          },
+          {
+            "classes": {
+              "equals": "subset-count"
+            }
+          },
+          {
+            "classes": {
+              "equals": "total-count"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte",
+            "note": "the footer shows the embedding name, the data-point count and a scale legend"
+          },
+          {
+            "kind": "trace",
+            "seq": 13,
+            "eventKind": "ui.change",
+            "note": "container <span> classes [\"subset-count\"] text \"63213 Data Points\""
+          },
+          {
+            "kind": "trace",
+            "seq": 29,
+            "eventKind": "ui.change",
+            "note": "region inside <div> classes [\"footer\"], added \"0.7635\" — the scale legend"
+          }
+        ],
+        "note": "Declared so that footer churn is attributed somewhere rather than read as map content. No rule fires on it: it changes on almost every zoom and says nothing about what was done."
+      }
+    }
+  ],
+  "controls": [
+    {
+      "id": "zoom-in",
+      "label": "the zoom-in button",
+      "anchor": {
+        "any": [
+          {
+            "classes": {
+              "equals": "zoom-button-plus"
+            }
+          },
+          {
+            "selector": {
+              "contains": "#icon-plus"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte",
+            "note": "button.zoom-button-plus -> myFooter.zoomInClicked()"
+          },
+          {
+            "kind": "trace",
+            "seq": 8,
+            "eventKind": "ui.click",
+            "note": "target selector \"#icon-plus > path\", control classes [\"zoom-button-plus\"]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoom-out",
+      "label": "the zoom-out button",
+      "anchor": {
+        "any": [
+          {
+            "classes": {
+              "equals": "zoom-button-minus"
+            }
+          },
+          {
+            "selector": {
+              "contains": "#icon-minus"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte",
+            "note": "button.zoom-button-minus -> myFooter.zoomOutClicked()"
+          },
+          {
+            "kind": "trace",
+            "seq": 16,
+            "eventKind": "ui.click",
+            "note": "target selector \"#icon-minus > path\", control classes [\"zoom-button-minus\"]"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoom-reset",
+      "label": "the reset-view button",
+      "moment": true,
+      "anchor": {
+        "selector": {
+          "contains": "#icon-home"
+        }
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte",
+            "note": "the home-icon button calls myFooter.zoomResetClicked()"
+          },
+          {
+            "kind": "trace",
+            "seq": 19,
+            "eventKind": "ui.click",
+            "note": "target selector \"#icon-home > path\""
+          }
+        ],
+        "note": "Anchored on the icon's id and not on a class, because the reset button and the embedding-chooser button carry exactly the same classes (\"zoom-button zoom-button-reset\"). A click that lands on the button's padding rather than on the icon therefore cannot be told apart from opening the chooser, and will match neither control."
+      }
+    },
+    {
+      "id": "choose-embedding",
+      "label": "the folder button that opens the embedding chooser",
+      "anchor": {
+        "selector": {
+          "contains": "#icon-folder"
+        }
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte",
+            "note": "the folder-icon button calls datasetClicked(), which does dialogElement.showModal()"
+          },
+          {
+            "kind": "repo",
+            "path": "README.md",
+            "note": "\"click the folder icon on the bottom right … and enter the URLs to the JSON files in the pop-up window\""
+          }
+        ],
+        "note": "Same caveat as the reset button: the two share a class, so only a click on the icon itself is attributable."
+      }
+    },
+    {
+      "id": "dataset-link",
+      "label": "a bundled embedding in the Choose an Embedding dialog",
+      "moment": true,
+      "anchor": {
+        "href": {
+          "prefix": "./?dataset="
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte",
+            "note": "links to ./?dataset=diffusiondb, ./?dataset=acl-abstracts, ./?dataset=imdb"
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.svelte",
+            "note": "the datasetName switch that turns that query value into the point and grid URLs"
+          }
+        ]
+      }
+    },
+    {
+      "id": "own-embedding-url",
+      "label": "the Data JSON URL and Grid JSON URL fields",
+      "anchor": {
+        "placeholder": {
+          "equals": [
+            "https://xxx.ndjson",
+            "https://xxx.json"
+          ]
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte",
+            "note": "the My Own Embedding rows bind dataURLInput and gridURLInput"
+          },
+          {
+            "kind": "survey",
+            "note": "04-attributes.md lists exactly these two placeholders plus the search box's"
+          }
+        ]
+      }
+    },
+    {
+      "id": "create-embedding",
+      "label": "the Create button in the Choose an Embedding dialog",
+      "moment": true,
+      "anchor": {
+        "text": {
+          "equals": "Create"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte",
+            "note": "useMyEmbeddingClicked() encodes the two URLs and sets window.location.href, reloading the document"
+          }
+        ]
+      }
+    },
+    {
+      "id": "close-dialog",
+      "label": "the Close button in the Choose an Embedding dialog",
+      "anchor": {
+        "text": {
+          "equals": "Close"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte",
+            "note": "button.close-button -> dialogElement.close()"
+          }
+        ]
+      }
+    },
+    {
+      "id": "contour-toggle",
+      "label": "the Contour button on the control bar",
+      "moment": true,
+      "anchor": {
+        "any": [
+          {
+            "text": {
+              "equals": "Contour"
+            }
+          },
+          {
+            "selector": {
+              "contains": "#icon-contour2"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.svelte",
+            "note": "first control-bar item; calls displayCheckboxChanged('contour', …), which shows or hides g.contour-group (the KDE density plot)"
+          },
+          {
+            "kind": "trace",
+            "seq": 15,
+            "eventKind": "ui.click",
+            "note": "target text \"Contour\", classes [\"name\"]"
+          }
+        ],
+        "note": "The control-bar buttons carry no usable class of their own (the collector reported only the Svelte scope hash for them), so these are anchored on the visible word and on the icon's id."
+      }
+    },
+    {
+      "id": "point-toggle",
+      "label": "the Point button on the control bar",
+      "moment": true,
+      "anchor": {
+        "any": [
+          {
+            "text": {
+              "equals": "Point"
+            }
+          },
+          {
+            "selector": {
+              "contains": "#icon-point"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.svelte",
+            "note": "second control-bar item; displayCheckboxChanged('point', …) shows or hides the WebGL scatter plot"
+          },
+          {
+            "kind": "trace",
+            "seq": 12,
+            "eventKind": "ui.click",
+            "note": "target text \"Point\", classes [\"name\"]"
+          }
+        ],
+        "note": "\"Point\" is matched exactly, so it does not collide with the detail window's header, which reads \"Point <id>\"."
+      }
+    },
+    {
+      "id": "grid-toggle",
+      "label": "the Grid button on the control bar",
+      "moment": true,
+      "anchor": {
+        "any": [
+          {
+            "text": {
+              "equals": "Grid"
+            }
+          },
+          {
+            "selector": {
+              "contains": "#icon-grid"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.svelte",
+            "note": "third control-bar item; displayCheckboxChanged('grid', …) shows or hides the topic-grid canvases"
+          },
+          {
+            "kind": "trace",
+            "seq": 14,
+            "eventKind": "ui.click",
+            "note": "target text \"Grid\", control text \"Grid\""
+          }
+        ],
+        "note": "Turning Grid on is also what enables the per-tile topic tooltip: mouseoverLabel() returns immediately unless showGrid is true."
+      }
+    },
+    {
+      "id": "group-checkbox",
+      "label": "a group checkbox in the Contour or Point menu",
+      "moment": true,
+      "anchor": {
+        "any": [
+          {
+            "elementId": {
+              "equals": [
+                "checkbox-contour-1",
+                "checkbox-contour-2",
+                "checkbox-point-1",
+                "checkbox-point-2"
+              ]
+            }
+          },
+          {
+            "fieldName": {
+              "equals": [
+                "checkbox-contour-1",
+                "checkbox-contour-2",
+                "checkbox-point-1",
+                "checkbox-point-2"
+              ]
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.svelte",
+            "note": "rendered only when myEmbedding.groupNames !== null, i.e. for embeddings whose points carry group labels"
+          },
+          {
+            "kind": "repo",
+            "path": "notebook-widget/wizmap/wizmap.py",
+            "note": "generate_contour_dict takes labels and group_names, which is what produces those groups"
+          }
+        ],
+        "note": "Absent from the recorded session because the ACL-abstracts embedding has no groups. Present in the software for grouped embeddings such as DiffusionDB's text and image points."
+      }
+    },
+    {
+      "id": "label-menu",
+      "label": "the Label button on the control bar",
+      "anchor": {
+        "any": [
+          {
+            "text": {
+              "equals": "Label"
+            }
+          },
+          {
+            "selector": {
+              "contains": "#icon-label3"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.svelte",
+            "note": "sets controlDisplayItem = 'label', which un-hides button.menu.label-menu; it changes no layer by itself"
+          },
+          {
+            "kind": "survey",
+            "note": "02-raw-dom.md state 02-label-menu-open differs from state 01 only by .caret gaining \"activated\" and .label-menu losing \"hidden\""
+          }
+        ],
+        "note": "Marked as a door, not a deed: opening this menu changes nothing about the map."
+      }
+    },
+    {
+      "id": "label-density-checkbox",
+      "label": "the High Density Region checkbox",
+      "moment": true,
+      "anchor": {
+        "any": [
+          {
+            "elementId": {
+              "equals": "checkbox-label"
+            }
+          },
+          {
+            "fieldName": {
+              "equals": "checkbox-label"
+            }
+          },
+          {
+            "text": {
+              "equals": "High Density Region"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.svelte",
+            "note": "under the \"Automatic Labeling\" header; displayCheckboxChanged(e, 'label') hides or re-lays out g.topics"
+          }
+        ]
+      }
+    },
+    {
+      "id": "label-num-slider",
+      "label": "the Number of Labels slider",
+      "moment": true,
+      "anchor": {
+        "any": [
+          {
+            "elementId": {
+              "equals": "slider-label-num"
+            }
+          },
+          {
+            "fieldName": {
+              "equals": "label-num"
+            }
+          },
+          {
+            "text": {
+              "equals": "Number of Labels"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingLabel.ts",
+            "line": 1028,
+            "note": "labelNumSliderChanged() sets userMaxLabelNum and re-runs layoutTopicLabels()"
+          },
+          {
+            "kind": "survey",
+            "note": "input#slider-label-num, name=\"label-num\", min 0 max 58 in the recorded state"
+          }
+        ]
+      }
+    },
+    {
+      "id": "time-menu",
+      "label": "the Time button on the control bar",
+      "moment": true,
+      "anchor": {
+        "any": [
+          {
+            "text": {
+              "equals": "Time"
+            }
+          },
+          {
+            "selector": {
+              "contains": "#icon-time2"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.svelte",
+            "note": "calls displayCheckboxChanged('time', true/false) as well as opening the menu, so it switches timeInspectMode on or off"
+          },
+          {
+            "kind": "survey",
+            "note": "02-raw-dom.md state 03-time-menu-open: g.contour-group-time stops being hidden and the footer count drops to \"178 Data Points\""
+          }
+        ],
+        "note": "Unlike Label, this button is a deed as well as a door: it puts the map into time-inspect mode, which redraws the contour for one time slice only. The button is disabled unless the embedding carries times."
+      }
+    },
+    {
+      "id": "time-play-pause",
+      "label": "the play/pause button on the time slider",
+      "moment": true,
+      "anchor": {
+        "any": [
+          {
+            "selector": {
+              "contains": "#icon-play-solid"
+            }
+          },
+          {
+            "selector": {
+              "contains": "#icon-pause-solid"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingControl.ts",
+            "note": "playPauseClickHandler() / startTimeSliderAnimation(), an 8-second loop over the time range"
+          }
+        ],
+        "note": "Anchored on the two icon ids rather than on the .play-pause-button class, to avoid relying on a class name; \"#icon-play\" alone would also match the footer's Video link."
+      }
+    },
+    {
+      "id": "time-slider-thumb",
+      "label": "the time slider thumb",
+      "moment": true,
+      "anchor": {
+        "elementId": {
+          "equals": "time-slider-middle-thumb"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingControl.ts",
+            "note": "timeSliderMouseDownHandler() drags it; the drag itself is mousemove and is never recorded"
+          }
+        ]
+      }
+    },
+    {
+      "id": "search-input",
+      "label": "the search box",
+      "anchor": {
+        "any": [
+          {
+            "elementId": {
+              "equals": "search-bar-input"
+            }
+          },
+          {
+            "fieldName": {
+              "equals": "search-query"
+            }
+          },
+          {
+            "placeholder": {
+              "equals": "Search WizMap Embeddings"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/search-panel/SearchPanel.svelte",
+            "note": "input#search-bar-input, name=\"search-query\"; on:input runs the query — there is no submit"
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/search-panel/SearchPanel.ts",
+            "note": "inputChanged() bumps queryID and pushes the query into the store, which the search worker picks up"
+          }
+        ],
+        "note": "WizMap searches as you type. Nothing is ever submitted, so the recording's \"submitted\" flag will never be true for this field."
+      }
+    },
+    {
+      "id": "search-clear",
+      "label": "the clear-search button",
+      "moment": true,
+      "anchor": {
+        "selector": {
+          "contains": "#icon-cancel"
+        }
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/search-panel/SearchPanel.svelte",
+            "note": "button.cancel-icon empties the box and calls cancelSearch(), collapsing the result list"
+          }
+        ]
+      }
+    },
+    {
+      "id": "search-result",
+      "label": "a search result in the list",
+      "anchor": {
+        "any": [
+          {
+            "classes": {
+              "equals": "clamp-line"
+            }
+          },
+          {
+            "selector": {
+              "contains": "result-list"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "low",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/search-panel/SearchPanel.svelte",
+            "note": "clicking a result flips result.isSummary, which adds or removes the clamp-line class that truncates it"
+          },
+          {
+            "kind": "survey",
+            "note": "02-raw-dom.md state 04-search-results shows <div class=\"item s-H0d2FahnGNOH clamp-line\">"
+          }
+        ],
+        "note": "Weakest anchor in the profile. There is no id and no role on a result row, the \"item\" class is shared with the control bar and the footer, and the clamp-line class disappears once a result has been expanded, so re-collapsing one will not match."
+      }
+    },
+    {
+      "id": "search-show-more",
+      "label": "the Show More button in the search results",
+      "anchor": {
+        "text": {
+          "equals": "Show More"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/search-panel/SearchPanel.svelte",
+            "note": "adds another 100 rows to the rendered list"
+          }
+        ]
+      }
+    },
+    {
+      "id": "search-back-to-top",
+      "label": "the Back to top button in the search results",
+      "anchor": {
+        "any": [
+          {
+            "text": {
+              "equals": "Back to top"
+            }
+          },
+          {
+            "selector": {
+              "contains": "#icon-top"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/search-panel/SearchPanel.svelte",
+            "note": "appears once the result list has been scrolled past 3000px"
+          }
+        ]
+      }
+    },
+    {
+      "id": "map",
+      "label": "the embedding map itself",
+      "moment": true,
+      "anchor": {
+        "any": [
+          {
+            "classes": {
+              "equals": "mouse-track-rect"
+            }
+          },
+          {
+            "classes": {
+              "equals": "topic-label"
+            }
+          },
+          {
+            "classes": {
+              "equals": "topic-tile"
+            }
+          },
+          {
+            "tag": {
+              "equals": "canvas"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.ts",
+            "line": 378,
+            "note": "the top SVG takes pointermove and click; clickHandler() opens the detail window if a point is currently highlighted"
+          },
+          {
+            "kind": "survey",
+            "ord": 15,
+            "note": "<rect> classes [\"mouse-track-rect\"] — the full-size hit target that sits over the canvases"
+          },
+          {
+            "kind": "trace",
+            "seq": 7,
+            "eventKind": "frame.loaded",
+            "note": "five canvases, all of them the map's layers"
+          }
+        ],
+        "note": "Every canvas in this application belongs to the map (search points, points, the back buffer used for colour picking, and two topic-grid layers), so matching on the tag is safe here. Marked as a moment because a click on the map is how a data point is opened, and because clicking is rare in an interface driven by wheel and drag."
+      }
+    },
+    {
+      "id": "close-point-window",
+      "label": "the close button on the point detail window",
+      "anchor": {
+        "any": [
+          {
+            "title": {
+              "equals": "Close"
+            }
+          },
+          {
+            "classes": {
+              "equals": "control-close"
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/floating-window/FloatingWindow.svelte",
+            "note": "<div class=\"control-close\" title=\"Close\"> -> closeClicked()"
+          },
+          {
+            "kind": "survey",
+            "note": "04-attributes.md: the only two title values in the interface are \"Window\" and \"Close\""
+          }
+        ],
+        "note": "Matched on the title attribute, which does not collide with the dialog's Close button — that one is matched on its visible text."
+      }
+    },
+    {
+      "id": "external-link",
+      "label": "a link out of WizMap",
+      "moment": true,
+      "anchor": {
+        "any": [
+          {
+            "href": {
+              "equals": [
+                "https://arxiv.org/abs/2306.09328",
+                "https://github.com/poloclub/wizmap",
+                "https://youtu.be/8fJG87QVceQ"
+              ]
+            }
+          },
+          {
+            "href": {
+              "prefix": "https://github.com/poloclub/wizmap#"
+            }
+          },
+          {
+            "text": {
+              "equals": [
+                "Paper",
+                "Code",
+                "Video",
+                "(what is this?)"
+              ]
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte",
+            "note": "the footer carries Paper, Code and Video links"
+          },
+          {
+            "kind": "survey",
+            "note": "04-attributes.md lists all twelve href values in the interface"
+          }
+        ]
+      }
+    }
+  ],
+  "keySets": [
+    {
+      "id": "dismiss",
+      "label": "the key that closes the Choose an Embedding dialog",
+      "keys": [
+        "Escape"
+      ],
+      "generation": {
+        "confidence": "medium",
+        "grounding": "inference",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte",
+            "note": "the chooser is a native <dialog> opened with showModal()"
+          }
+        ],
+        "note": "Inference, not source: the repository binds no keyboard handler anywhere, but a modal <dialog> is closed by Escape in the browser. WizMap has effectively no keyboard interface — Enter does not run the search, because the search runs on every input event."
+      }
+    }
+  ],
+  "rules": [
+    {
+      "id": "map-view-opened",
+      "sub": "MAP_VIEW_OPENED",
+      "broad": "UNCLEAR",
+      "priority": 10,
+      "when": {
+        "all": [
+          {
+            "index": {
+              "op": "eq",
+              "value": 0
+            }
+          },
+          {
+            "acts": {
+              "of": [
+                "clicks",
+                "keys",
+                "typing",
+                "submits",
+                "navigations"
+              ],
+              "op": "eq",
+              "value": 0
+            }
+          }
+        ]
+      },
+      "description": {
+        "join": [
+          {
+            "lit": "The session opened with WizMap loading its embedding and drawing the map; no click, key press or text entry was recorded over "
+          },
+          {
+            "duration": true
+          },
+          {
+            "lit": "."
+          }
+        ]
+      },
+      "because": {
+        "lit": "this was the first stretch of the session and it contains no click, key press or text entry"
+      },
+      "confidence": "high",
+      "note": "Kept above the pan/zoom rule on purpose. The first draw of the topic labels happens as the data finishes loading, and would otherwise be read as somebody moving the map.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "trace",
+            "seq": 3,
+            "eventKind": "network.request",
+            "note": "/data/acl-abstracts/grid.json"
+          },
+          {
+            "kind": "trace",
+            "seq": 5,
+            "eventKind": "network.request",
+            "note": "/data/acl-abstracts/umap.ndjson, 61 MB"
+          },
+          {
+            "kind": "trace",
+            "seq": 8,
+            "eventKind": "ui.click",
+            "note": "the first input of the session is 31 seconds after load"
+          }
+        ],
+        "note": "Deliberately UNCLEAR rather than ORIENTING or WAITING. A person reading a freshly drawn map and a person who has walked away leave the same recording."
+      }
+    },
+    {
+      "id": "load-new-embedding",
+      "sub": "LOAD_NEW_EMBEDDING",
+      "broad": "ACTING",
+      "priority": 20,
+      "when": {
+        "controlUsed": [
+          "dataset-link",
+          "create-embedding"
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "controlUsed": [
+                "create-embedding"
+              ]
+            },
+            "then": {
+              "lit": "Loaded an embedding of their own into WizMap from the Data JSON and Grid JSON URLs."
+            }
+          }
+        ],
+        "else": {
+          "lit": "Switched WizMap to one of the bundled embeddings from the Choose an Embedding dialog."
+        }
+      },
+      "because": {
+        "lit": "a dataset link or the Create button was used, and either one reloads the document against a different embedding"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte",
+            "note": "useMyEmbeddingClicked() sets window.location.href; the dataset links are plain hrefs"
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/mapview/MapView.svelte",
+            "note": "the dataset is read out of the query string on load"
+          }
+        ]
+      }
+    },
+    {
+      "id": "reload-map",
+      "sub": "RELOAD_MAP",
+      "broad": "ACTING",
+      "priority": 30,
+      "when": {
+        "flag": "discontinuity"
+      },
+      "description": {
+        "lit": "The WizMap document was replaced and the session picked up again on a freshly loaded map."
+      },
+      "because": {
+        "lit": "the document was replaced during this stretch"
+      },
+      "confidence": "medium",
+      "note": "Sits below the rule above so that a deliberate change of embedding is named as such; this one catches a replacement whose cause was not recorded.",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/mapview/MapView.svelte",
+            "note": "every change of embedding in WizMap is a full document load; there is no client-side routing"
+          }
+        ]
+      }
+    },
+    {
+      "id": "inspect-point",
+      "sub": "INSPECT_POINT",
+      "broad": "UNDERSTANDING",
+      "priority": 40,
+      "when": {
+        "channelSaid": "point-window"
+      },
+      "description": {
+        "join": [
+          {
+            "lit": "Opened a data point's detail window on the embedding map, which showed "
+          },
+          {
+            "quote": {
+              "source": {
+                "channel": "point-window"
+              },
+              "max": 140
+            }
+          },
+          {
+            "lit": "."
+          }
+        ]
+      },
+      "because": {
+        "lit": "the point detail window gained text in this stretch"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.ts",
+            "line": 1314,
+            "note": "clickHandler() only fills the window when a point is highlighted, so text arriving there means a point was opened"
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/floating-window/FloatingWindow.svelte"
+          }
+        ],
+        "note": "Never exercised in the recording. The behaviour is certain from source; what is uncertain is whether a change burst inside the window will be attributed to one of the elements the channel anchors on."
+      }
+    },
+    {
+      "id": "search-embedding",
+      "sub": "SEARCH_EMBEDDING",
+      "broad": "EXPLORING",
+      "priority": 50,
+      "when": {
+        "any": [
+          {
+            "controlUsed": [
+              "search-input",
+              "search-clear",
+              "search-result",
+              "search-show-more",
+              "search-back-to-top"
+            ]
+          },
+          {
+            "channelSaid": "search-results"
+          }
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "channelSaid": "search-results"
+            },
+            "then": {
+              "lit": "Searched the embedding, and the search panel's result list was rewritten."
+            }
+          },
+          {
+            "when": {
+              "controlUsed": [
+                "search-clear"
+              ]
+            },
+            "then": {
+              "lit": "Cleared the WizMap search box, collapsing the result list."
+            }
+          },
+          {
+            "when": {
+              "controlUsed": [
+                "search-result"
+              ]
+            },
+            "then": {
+              "lit": "Expanded or collapsed a row in the WizMap search results."
+            }
+          },
+          {
+            "when": {
+              "controlUsed": [
+                "search-show-more"
+              ]
+            },
+            "then": {
+              "lit": "Loaded another page of rows into the WizMap search results."
+            }
+          },
+          {
+            "when": {
+              "controlUsed": [
+                "search-back-to-top"
+              ]
+            },
+            "then": {
+              "lit": "Jumped back to the top of the WizMap search results."
+            }
+          }
+        ],
+        "else": {
+          "lit": "Entered text in the WizMap search box."
+        }
+      },
+      "because": {
+        "lit": "the search box or the search result list was used in this stretch"
+      },
+      "confidence": "high",
+      "note": "What was typed is never recoverable: characters are not recorded, and the query is only ever echoed back as <em> spans inside corpus text, which belongs to the software and not to the person.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/search-panel/SearchPanel.ts"
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/workers/search.ts",
+            "note": "the worker that answers the query"
+          },
+          {
+            "kind": "repo",
+            "path": "README.md",
+            "note": "\"Fast embedding search\" is one of the tool's headline features"
+          }
+        ]
+      }
+    },
+    {
+      "id": "play-time-slider",
+      "sub": "PLAY_TIME_SLIDER",
+      "broad": "ACTING",
+      "priority": 60,
+      "when": {
+        "controlUsed": [
+          "time-play-pause"
+        ]
+      },
+      "description": {
+        "lit": "Started or stopped the animation of the embedding over time."
+      },
+      "because": {
+        "lit": "the play/pause button on the time slider was used"
+      },
+      "confidence": "high",
+      "note": "Start and stop cannot be told apart: the button swaps which of two icons is hidden, and the recording does not carry that.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingControl.ts",
+            "note": "startTimeSliderAnimation() loops the slider over the whole range every 8 seconds"
+          },
+          {
+            "kind": "repo",
+            "path": "README.md",
+            "note": "\"Animated embedding evolution\""
+          }
+        ]
+      }
+    },
+    {
+      "id": "scrub-time-slider",
+      "sub": "SCRUB_TIME_SLIDER",
+      "broad": "EXPLORING",
+      "priority": 70,
+      "when": {
+        "controlUsed": [
+          "time-slider-thumb"
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "channelSaid": "time-slider"
+            },
+            "then": {
+              "join": [
+                {
+                  "lit": "Moved the time slider on the embedding map; its readout reached "
+                },
+                {
+                  "quote": {
+                    "source": {
+                      "channel": "time-slider"
+                    },
+                    "max": 40
+                  }
+                },
+                {
+                  "lit": "."
+                }
+              ]
+            }
+          }
+        ],
+        "else": {
+          "lit": "Moved the time slider on the embedding map."
+        }
+      },
+      "because": {
+        "lit": "the time slider's thumb was used in this stretch"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingControl.ts",
+            "note": "timeSliderMouseDownHandler(); the thumb carries id=\"time-slider-middle-thumb\""
+          }
+        ],
+        "note": "The drag itself is mousemove and is never recorded. What the recording can hold is the mousedown on the thumb and the readout the slider writes as it moves."
+      }
+    },
+    {
+      "id": "adjust-topic-labels",
+      "sub": "ADJUST_TOPIC_LABELS",
+      "broad": "ACTING",
+      "priority": 80,
+      "when": {
+        "controlUsed": [
+          "label-num-slider",
+          "label-density-checkbox"
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "controlUsed": [
+                "label-num-slider"
+              ]
+            },
+            "then": {
+              "lit": "Changed how many automatic topic labels the embedding map draws, using the Number of Labels slider."
+            }
+          }
+        ],
+        "else": {
+          "lit": "Switched automatic high-density-region labelling of the embedding map on or off."
+        }
+      },
+      "because": {
+        "lit": "the Number of Labels slider or the High Density Region checkbox was used"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingLabel.ts",
+            "line": 1028
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.svelte",
+            "note": "the Label menu holds the \"Automatic Labeling\" checkbox and the \"Number of Labels\" slider"
+          }
+        ]
+      }
+    },
+    {
+      "id": "toggle-map-layer",
+      "sub": "TOGGLE_MAP_LAYER",
+      "broad": "ACTING",
+      "priority": 90,
+      "when": {
+        "controlUsed": [
+          "contour-toggle",
+          "point-toggle",
+          "grid-toggle",
+          "group-checkbox"
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "controlUsed": [
+                "group-checkbox"
+              ]
+            },
+            "then": {
+              "lit": "Switched one of the embedding's groups on or off in the Contour or Point menu."
+            }
+          },
+          {
+            "when": {
+              "acts": {
+                "of": [
+                  "clicks"
+                ],
+                "op": "gte",
+                "value": 2
+              }
+            },
+            "then": {
+              "lit": "Switched layers of the embedding map on and off from its control bar."
+            }
+          },
+          {
+            "when": {
+              "controlUsed": [
+                "grid-toggle"
+              ]
+            },
+            "then": {
+              "lit": "Switched the topic grid layer of the embedding map on or off."
+            }
+          },
+          {
+            "when": {
+              "controlUsed": [
+                "point-toggle"
+              ]
+            },
+            "then": {
+              "lit": "Switched the point layer of the embedding map on or off."
+            }
+          }
+        ],
+        "else": {
+          "lit": "Switched the contour layer of the embedding map on or off."
+        }
+      },
+      "because": {
+        "lit": "one of the Contour, Point or Grid controls was used in this stretch"
+      },
+      "confidence": "high",
+      "note": "On or off is not decidable. These buttons are toggles, the recording carries no attribute changes for them, and the layers they control are canvases whose contents are invisible to the collector. The wording says only that the layer was switched.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.svelte",
+            "note": "the five control-bar items and their displayCheckboxChanged calls"
+          },
+          {
+            "kind": "trace",
+            "seq": 12,
+            "eventKind": "ui.click"
+          },
+          {
+            "kind": "trace",
+            "seq": 14,
+            "eventKind": "ui.click",
+            "note": "the Grid click produced no ui.change at all — the layer lives in a canvas"
+          }
+        ]
+      }
+    },
+    {
+      "id": "zoom-map",
+      "sub": "ZOOM_MAP",
+      "broad": "EXPLORING",
+      "priority": 100,
+      "when": {
+        "controlUsed": [
+          "zoom-in",
+          "zoom-out"
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "controlUsed": [
+                "zoom-reset"
+              ]
+            },
+            "then": {
+              "join": [
+                {
+                  "lit": "Zoomed the embedding map in and out with its zoom buttons and reset it to the default view, over "
+                },
+                {
+                  "duration": true
+                },
+                {
+                  "lit": "."
+                }
+              ]
+            }
+          },
+          {
+            "when": {
+              "channelSaid": "topic-labels"
+            },
+            "then": {
+              "join": [
+                {
+                  "lit": "Zoomed the embedding map with its zoom buttons; it redrew its topic labels ("
+                },
+                {
+                  "quote": {
+                    "source": {
+                      "channel": "topic-labels"
+                    },
+                    "max": 90
+                  }
+                },
+                {
+                  "lit": ")."
+                }
+              ]
+            }
+          }
+        ],
+        "else": {
+          "lit": "Zoomed the embedding map with its zoom buttons."
+        }
+      },
+      "because": {
+        "lit": "the zoom-in or zoom-out button was used in this stretch"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.ts",
+            "note": "zoomInClicked / zoomOutClicked post a messageCommand through the footer store"
+          },
+          {
+            "kind": "trace",
+            "seq": 8,
+            "eventKind": "ui.click"
+          },
+          {
+            "kind": "trace",
+            "seq": 9,
+            "eventKind": "ui.change",
+            "note": "1446 mutations, all of them new topic labels in g.topics"
+          }
+        ],
+        "note": "EXPLORING rather than ACTING: the zoom buttons are used repeatedly to move around the embedding, and WizMap's whole design is a map you navigate. A single, isolated zoom is arguably ACTING, but the recording cannot tell the two apart and the repeated case is the common one."
+      }
+    },
+    {
+      "id": "reset-map-view",
+      "sub": "RESET_MAP_VIEW",
+      "broad": "ACTING",
+      "priority": 110,
+      "when": {
+        "controlUsed": [
+          "zoom-reset"
+        ]
+      },
+      "description": {
+        "lit": "Reset the embedding map back to its default view."
+      },
+      "because": {
+        "lit": "the reset-view button in the footer was used"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.ts",
+            "note": "zoomResetClicked()"
+          },
+          {
+            "kind": "trace",
+            "seq": 19,
+            "eventKind": "ui.click"
+          },
+          {
+            "kind": "trace",
+            "seq": 28,
+            "eventKind": "ui.click"
+          }
+        ]
+      }
+    },
+    {
+      "id": "click-map",
+      "sub": "CLICK_MAP",
+      "broad": "EXPLORING",
+      "priority": 120,
+      "when": {
+        "controlUsed": [
+          "map"
+        ]
+      },
+      "description": {
+        "lit": "Clicked on the embedding map."
+      },
+      "because": {
+        "lit": "a click was recorded on the map's canvases or on its topic-label layer"
+      },
+      "confidence": "high",
+      "note": "Deliberately says no more than that. A click on the map opens a data point's detail window only if a point happened to be under the pointer, and whether one was is not in the recording; when the window does open, the rule above names it instead.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.ts",
+            "line": 379
+          },
+          {
+            "kind": "brief",
+            "field": "canvas",
+            "note": "the collector records a click on a canvas as a click on a canvas and nothing more"
+          }
+        ]
+      }
+    },
+    {
+      "id": "time-inspect-mode",
+      "sub": "TIME_INSPECT_MODE",
+      "broad": "ACTING",
+      "priority": 130,
+      "when": {
+        "controlUsed": [
+          "time-menu"
+        ]
+      },
+      "description": {
+        "lit": "Switched the embedding map's time-inspect mode on or off from the Time control."
+      },
+      "because": {
+        "lit": "the Time button on the control bar was used, which both opens the time menu and toggles timeInspectMode"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.svelte",
+            "note": "the Time item calls displayCheckboxChanged('time', …) as well as setting controlDisplayItem"
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.ts",
+            "line": 1498,
+            "note": "case 'time': this.timeInspectMode = checked"
+          }
+        ],
+        "note": "timeInspectMode is the software's own name for this state."
+      }
+    },
+    {
+      "id": "open-label-menu",
+      "sub": "OPEN_LABEL_MENU",
+      "broad": "ORIENTING",
+      "priority": 140,
+      "when": {
+        "any": [
+          {
+            "controlUsed": [
+              "label-menu"
+            ]
+          },
+          {
+            "enteredBy": [
+              "label-menu"
+            ]
+          }
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "controlUsed": [
+                "label-menu"
+              ]
+            },
+            "then": {
+              "lit": "Opened the Label menu on the embedding map's control bar."
+            }
+          }
+        ],
+        "else": {
+          "join": [
+            {
+              "lit": "Spent "
+            },
+            {
+              "duration": true
+            },
+            {
+              "lit": " with the Label menu open and nothing else recorded."
+            }
+          ]
+        }
+      },
+      "because": {
+        "lit": "the Label button on the control bar was used, or was how this stretch was entered"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.svelte",
+            "note": "the Label button only un-hides button.menu.label-menu"
+          }
+        ],
+        "note": "ORIENTING is the least bad of the nine for opening a menu that changes nothing. It is a claim about the interface, not about what the person understood."
+      }
+    },
+    {
+      "id": "open-embedding-chooser",
+      "sub": "OPEN_EMBEDDING_CHOOSER",
+      "broad": "ORIENTING",
+      "priority": 150,
+      "when": {
+        "any": [
+          {
+            "controlUsed": [
+              "choose-embedding",
+              "own-embedding-url"
+            ]
+          },
+          {
+            "enteredBy": [
+              "choose-embedding"
+            ]
+          }
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "controlUsed": [
+                "own-embedding-url"
+              ]
+            },
+            "then": {
+              "lit": "Entered a Data JSON or Grid JSON URL in the Choose an Embedding dialog."
+            }
+          },
+          {
+            "when": {
+              "controlUsed": [
+                "choose-embedding"
+              ]
+            },
+            "then": {
+              "lit": "Opened the Choose an Embedding dialog."
+            }
+          }
+        ],
+        "else": {
+          "join": [
+            {
+              "lit": "Spent "
+            },
+            {
+              "duration": true
+            },
+            {
+              "lit": " in the Choose an Embedding dialog."
+            }
+          ]
+        }
+      },
+      "because": {
+        "lit": "the folder button or one of the dialog's URL fields was used, or the folder button was how this stretch was entered"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte"
+          },
+          {
+            "kind": "repo",
+            "path": "README.md",
+            "note": "the dialog is how a reader loads their own embedding: \"click the folder icon on the bottom right\""
+          }
+        ]
+      }
+    },
+    {
+      "id": "dismiss-overlay",
+      "sub": "DISMISS_OVERLAY",
+      "broad": "ACTING",
+      "priority": 160,
+      "when": {
+        "any": [
+          {
+            "controlUsed": [
+              "close-dialog",
+              "close-point-window"
+            ]
+          },
+          {
+            "keysIn": "dismiss"
+          }
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "controlUsed": [
+                "close-point-window"
+              ]
+            },
+            "then": {
+              "lit": "Closed a data point's detail window."
+            }
+          },
+          {
+            "when": {
+              "controlUsed": [
+                "close-dialog"
+              ]
+            },
+            "then": {
+              "lit": "Closed the Choose an Embedding dialog."
+            }
+          }
+        ],
+        "else": {
+          "join": [
+            {
+              "lit": "Pressed "
+            },
+            {
+              "keys": {
+                "in": "dismiss"
+              }
+            },
+            {
+              "lit": "."
+            }
+          ]
+        }
+      },
+      "because": {
+        "lit": "a close button was used, or a dismiss key was pressed"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/floating-window/FloatingWindow.svelte"
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/footer/Footer.svelte"
+          }
+        ],
+        "note": "The Escape branch says only that the key was pressed, because nothing in the recording shows whether anything was open to dismiss."
+      }
+    },
+    {
+      "id": "follow-external-link",
+      "sub": "FOLLOW_EXTERNAL_LINK",
+      "broad": "ACTING",
+      "priority": 170,
+      "when": {
+        "controlUsed": [
+          "external-link"
+        ]
+      },
+      "description": {
+        "lit": "Followed one of WizMap's links out of the tool — the paper, the code repository, the demo video or the documentation."
+      },
+      "because": {
+        "lit": "one of the footer or dialog links out of the application was used"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "survey",
+            "note": "the interface has twelve href values; four of them are these outward links"
+          }
+        ]
+      }
+    },
+    {
+      "id": "time-slider-moved",
+      "sub": "TIME_SLIDER_MOVED",
+      "broad": "EXPLORING",
+      "priority": 175,
+      "when": {
+        "all": [
+          {
+            "channelSaid": "time-slider"
+          },
+          {
+            "acts": {
+              "of": [
+                "clicks",
+                "keys",
+                "typing",
+                "submits",
+                "navigations"
+              ],
+              "op": "eq",
+              "value": 0
+            }
+          }
+        ]
+      },
+      "description": {
+        "join": [
+          {
+            "lit": "The embedding map's time slider moved through the embedding's time range, reaching "
+          },
+          {
+            "quote": {
+              "source": {
+                "channel": "time-slider"
+              },
+              "max": 40
+            }
+          },
+          {
+            "lit": ", with no click or key press recorded."
+          }
+        ]
+      },
+      "because": {
+        "lit": "the time slider's readout was rewritten and no click, key press or text entry was recorded"
+      },
+      "confidence": "medium",
+      "note": "Two readings, both of them \"the slider moved\": the thumb was being dragged, or the animation was running from an earlier press of play. The wording covers both rather than choosing.",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingControl.ts",
+            "note": "moveTimeSliderThumb() writes the formatted time into the thumb label on every step, from both the drag handler and the animation loop"
+          }
+        ]
+      }
+    },
+    {
+      "id": "navigate-map",
+      "sub": "NAVIGATE_MAP",
+      "broad": "EXPLORING",
+      "priority": 180,
+      "when": {
+        "all": [
+          {
+            "channelSaid": "topic-labels"
+          },
+          {
+            "acts": {
+              "of": [
+                "clicks",
+                "keys",
+                "typing",
+                "submits",
+                "navigations"
+              ],
+              "op": "eq",
+              "value": 0
+            }
+          }
+        ]
+      },
+      "description": {
+        "join": [
+          {
+            "lit": "Panned or zoomed the embedding map over "
+          },
+          {
+            "duration": true
+          },
+          {
+            "lit": ", redrawing its topic labels ("
+          },
+          {
+            "quote": {
+              "source": {
+                "channel": "topic-labels"
+              },
+              "max": 90
+            }
+          },
+          {
+            "lit": "); no click, key press or text entry was recorded."
+          }
+        ]
+      },
+      "because": {
+        "lit": "new topic labels appeared on the map with no click, key press or text entry recorded, and WizMap only re-lays out topic labels when the view transform changes or a label control is used"
+      },
+      "confidence": "medium",
+      "note": "This is the rule that recovers WizMap's main interaction, which the instrument cannot see. Wheel, drag and hover leave no events at all; what they do leave is a burst of new topic labels in g.topics. layoutTopicLabels() has six call sites: the first data load, zoomed(), zoomEnded(), the Number of Labels slider, the High Density Region checkbox and a group contour checkbox. The load is excluded by the index-0 rule above, and the three controls are excluded both by their own higher-priority rules and by the requirement that nothing was clicked, typed or pressed. There is no resize handler in the application, so a window resize does not redraw them either.",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "abstraction",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.ts",
+            "line": 1012,
+            "note": "zoomed() -> layoutTopicLabels"
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.ts",
+            "line": 1057,
+            "note": "zoomEnded() -> layoutTopicLabels"
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingLabel.ts",
+            "line": 458
+          },
+          {
+            "kind": "trace",
+            "seq": 20,
+            "eventKind": "ui.change",
+            "note": "471 mutations in g.topics with the whole label set replaced"
+          }
+        ],
+        "note": "\"NAVIGATE_MAP\" is an abstraction: the source calls the pieces zoomed(), curZoomTransform and layoutTopicLabels, and the README calls the design \"a familiar map-like interaction design\", but it has no single word for moving around the map. Pan and zoom are not separable from the recording, so the name covers both."
+      }
+    },
+    {
+      "id": "hover-point",
+      "sub": "HOVER_POINT",
+      "broad": "UNDERSTANDING",
+      "priority": 190,
+      "when": {
+        "channelSaid": "point-tooltip"
+      },
+      "description": {
+        "join": [
+          {
+            "lit": "A data point's tooltip appeared on the embedding map, showing "
+          },
+          {
+            "quote": {
+              "source": {
+                "channel": "point-tooltip"
+              },
+              "max": 140
+            }
+          },
+          {
+            "lit": "."
+          }
+        ]
+      },
+      "because": {
+        "lit": "the top tooltip, which WizMap fills only with the text of the point under the pointer, was rewritten in this stretch"
+      },
+      "confidence": "medium",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingPointWebGL.ts",
+            "line": 483
+          },
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/Embedding.ts",
+            "line": 1292,
+            "note": "mousemoveHandler -> mouseoverPoint -> quadtree search -> highlightPoint"
+          }
+        ],
+        "note": "Hovering itself is not recordable. The tooltip text is, and nothing but a hover puts it there."
+      }
+    },
+    {
+      "id": "hover-topic-tile",
+      "sub": "HOVER_TOPIC_TILE",
+      "broad": "UNDERSTANDING",
+      "priority": 200,
+      "when": {
+        "channelSaid": "topic-tooltip"
+      },
+      "description": {
+        "join": [
+          {
+            "lit": "The topic grid named the region of the embedding under the pointer: "
+          },
+          {
+            "quote": {
+              "source": {
+                "channel": "topic-tooltip"
+              },
+              "max": 60
+            }
+          },
+          {
+            "lit": "."
+          }
+        ]
+      },
+      "because": {
+        "lit": "the bottom tooltip, which WizMap fills only with the topic name of the grid tile under the pointer, was rewritten in this stretch"
+      },
+      "confidence": "medium",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingLabel.ts",
+            "line": 1041,
+            "note": "mouseoverLabel() returns immediately unless showGrid is true"
+          },
+          {
+            "kind": "trace",
+            "seq": 21,
+            "eventKind": "ui.change",
+            "note": "the topic name \"language-model-generation-models\" leaving the tooltip, 4 seconds after the last click"
+          }
+        ],
+        "note": "Only possible while the Grid layer is on, which makes it a fairly specific signal."
+      }
+    },
+    {
+      "id": "map-tooltip-shown",
+      "sub": "MAP_TOOLTIP_SHOWN",
+      "broad": "UNDERSTANDING",
+      "priority": 210,
+      "when": {
+        "channelSaid": "map-tooltip"
+      },
+      "description": {
+        "join": [
+          {
+            "lit": "A tooltip appeared on the embedding map, showing "
+          },
+          {
+            "quote": {
+              "source": {
+                "channel": "map-tooltip"
+              },
+              "max": 140
+            }
+          },
+          {
+            "lit": "."
+          }
+        ]
+      },
+      "because": {
+        "lit": "one of the map's two tooltips was rewritten in this stretch, without saying which"
+      },
+      "confidence": "medium",
+      "note": "Fires only when a tooltip change was attributed to the shared .popper-content span rather than to one of the two id-bearing tooltip elements, in which case a point tooltip and a topic tooltip cannot be told apart.",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "src/components/embedding/EmbeddingLabel.ts",
+            "line": 1218
+          }
+        ]
+      }
+    },
+    {
+      "id": "interface-changed-no-input",
+      "sub": "INTERFACE_CHANGED_NO_INPUT",
+      "broad": "UNCLEAR",
+      "priority": 220,
+      "when": {
+        "all": [
+          {
+            "flag": "observed"
+          },
+          {
+            "acts": {
+              "of": [
+                "clicks",
+                "keys",
+                "typing",
+                "submits",
+                "navigations"
+              ],
+              "op": "eq",
+              "value": 0
+            }
+          }
+        ]
+      },
+      "description": {
+        "join": [
+          {
+            "lit": "The WizMap interface changed over "
+          },
+          {
+            "duration": true
+          },
+          {
+            "lit": " with no click, key press or text entry recorded."
+          }
+        ]
+      },
+      "because": {
+        "lit": "changes to the document were recorded but no input of any kind was"
+      },
+      "confidence": "high",
+      "note": "In WizMap this is usually the pointer: hovering over points or tiles, or a running time animation. Which of those it was is not decidable once the change carried no text, so it is left UNCLEAR rather than guessed at.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "trace",
+            "seq": 22,
+            "eventKind": "ui.change",
+            "note": "8 mutations, no added text, no region, 6.7 seconds after the last interaction"
+          },
+          {
+            "kind": "trace",
+            "seq": 23,
+            "eventKind": "ui.change",
+            "note": "4 mutations, same shape"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nothing-recorded",
+      "sub": "NOTHING_RECORDED",
+      "broad": "UNCLEAR",
+      "priority": 230,
+      "when": {
+        "not": {
+          "flag": "observed"
+        }
+      },
+      "description": {
+        "join": [
+          {
+            "lit": "Nothing at all was recorded for "
+          },
+          {
+            "duration": true
+          },
+          {
+            "lit": "."
+          }
+        ]
+      },
+      "because": {
+        "lit": "no input and no change to the document was recorded in this stretch"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "brief",
+            "field": "silence",
+            "note": "the collector records no focus, no visibility and no pointer movement, so an unchanging screen and an empty chair are the same recording"
+          }
+        ]
+      }
+    }
+  ],
+  "fallback": {
+    "id": "not-characterised",
+    "sub": "NOT_CHARACTERISED",
+    "broad": "UNCLEAR",
+    "description": {
+      "join": [
+        {
+          "lit": "Activity on "
+        },
+        {
+          "field": "surfaceLabel"
+        },
+        {
+          "lit": " over "
+        },
+        {
+          "duration": true
+        },
+        {
+          "lit": " that this profile does not characterise."
+        }
+      ]
+    },
+    "because": {
+      "lit": "no rule in this profile matched the evidence in this stretch"
+    },
+    "confidence": "high",
+    "generation": {
+      "confidence": "high",
+      "grounding": "abstraction",
+      "note": "Left deliberately empty of any reading. WizMap is driven mostly by wheel, drag and hover, and a recording of it will contain stretches that nothing can name."
+    }
+  }
+}

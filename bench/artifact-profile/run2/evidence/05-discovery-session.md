@@ -1,0 +1,1811 @@
+# One recorded session, exactly as it was stored
+
+30 rows, run `wizmap-discovery`, 82 seconds long.
+This is the whole row, every field, in order — the same JSON the pipeline reads.
+The offset in the heading is from the first row; it is not stored, it is
+arithmetic on `at`.
+
+##  0 · +00:00.0 · network.request
+
+```json
+{
+ "id": 0,
+ "run_id": "wizmap-discovery",
+ "seq": 0,
+ "at": "2026-09-20T22:44:10.714Z",
+ "received_at": "2026-09-20T22:44:10.714Z",
+ "source": "preview-gateway",
+ "kind": "network.request",
+ "interaction_id": null,
+ "request_id": "r_CFfWOVVq_Ehc",
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "method": "GET",
+  "path": "/",
+  "has_query": false,
+  "category": "document",
+  "dest": "document",
+  "headers": {
+   "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+   "sec-fetch-mode": "navigate",
+   "sec-fetch-dest": "document"
+  },
+  "next_action": false,
+  "started_at": "2026-09-20T22:44:10.714Z"
+ }
+}
+```
+
+##  1 · +00:00.0 · frame.served
+
+```json
+{
+ "id": 1,
+ "run_id": "wizmap-discovery",
+ "seq": 1,
+ "at": "2026-09-20T22:44:10.719Z",
+ "received_at": "2026-09-20T22:44:10.719Z",
+ "source": "preview-gateway",
+ "kind": "frame.served",
+ "interaction_id": null,
+ "request_id": "r_CFfWOVVq_Ehc",
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "path": "/",
+  "has_query": false,
+  "dest": "document",
+  "status": 200,
+  "injected_at": 41,
+  "nonce": false,
+  "recorder": true
+ }
+}
+```
+
+##  2 · +00:00.0 · network.response
+
+```json
+{
+ "id": 2,
+ "run_id": "wizmap-discovery",
+ "seq": 2,
+ "at": "2026-09-20T22:44:10.720Z",
+ "received_at": "2026-09-20T22:44:10.720Z",
+ "source": "preview-gateway",
+ "kind": "network.response",
+ "interaction_id": null,
+ "request_id": "r_CFfWOVVq_Ehc",
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "method": "GET",
+  "path": "/",
+  "category": "document",
+  "latency_ms": 6,
+  "ttfb_ms": 5,
+  "sizes": {
+   "request_bytes": 0,
+   "response_bytes": 441
+  },
+  "ended_at": "2026-09-20T22:44:10.720Z",
+  "status": 200,
+  "headers": {
+   "content-type": "text/html",
+   "cache-control": "no-cache",
+   "content-length": "441"
+  },
+  "streamed": false,
+  "injected": "f_be3fdc2bfc"
+ }
+}
+```
+
+##  3 · +00:00.1 · network.request
+
+```json
+{
+ "id": 3,
+ "run_id": "wizmap-discovery",
+ "seq": 3,
+ "at": "2026-09-20T22:44:10.861Z",
+ "received_at": "2026-09-20T22:44:10.861Z",
+ "source": "preview-gateway",
+ "kind": "network.request",
+ "interaction_id": null,
+ "request_id": "r_whGlf-TBA_2F",
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "method": "GET",
+  "path": "/data/acl-abstracts/grid.json",
+  "has_query": false,
+  "category": "api",
+  "dest": "empty",
+  "referer": "/",
+  "headers": {
+   "accept": "*/*",
+   "sec-fetch-mode": "cors",
+   "sec-fetch-dest": "empty"
+  },
+  "next_action": false,
+  "started_at": "2026-09-20T22:44:10.861Z"
+ }
+}
+```
+
+##  4 · +00:00.2 · network.response
+
+```json
+{
+ "id": 4,
+ "run_id": "wizmap-discovery",
+ "seq": 4,
+ "at": "2026-09-20T22:44:10.896Z",
+ "received_at": "2026-09-20T22:44:10.896Z",
+ "source": "preview-gateway",
+ "kind": "network.response",
+ "interaction_id": null,
+ "request_id": "r_whGlf-TBA_2F",
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "method": "GET",
+  "path": "/data/acl-abstracts/grid.json",
+  "category": "api",
+  "latency_ms": 35,
+  "ttfb_ms": 1,
+  "sizes": {
+   "request_bytes": 0,
+   "response_bytes": 12998814
+  },
+  "ended_at": "2026-09-20T22:44:10.896Z",
+  "status": 200,
+  "headers": {
+   "content-length": "12998814",
+   "content-type": "application/json",
+   "cache-control": "no-cache"
+  },
+  "streamed": false,
+  "injected": null
+ }
+}
+```
+
+##  5 · +00:00.2 · network.request
+
+```json
+{
+ "id": 5,
+ "run_id": "wizmap-discovery",
+ "seq": 5,
+ "at": "2026-09-20T22:44:10.958Z",
+ "received_at": "2026-09-20T22:44:10.958Z",
+ "source": "preview-gateway",
+ "kind": "network.request",
+ "interaction_id": null,
+ "request_id": "r_RkN-ckN094AA",
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "method": "GET",
+  "path": "/data/acl-abstracts/umap.ndjson",
+  "has_query": false,
+  "category": "api",
+  "dest": "empty",
+  "referer": "/src/components/embedding/workers/loader.ts?…",
+  "headers": {
+   "accept": "*/*",
+   "sec-fetch-mode": "cors",
+   "sec-fetch-dest": "empty"
+  },
+  "next_action": false,
+  "started_at": "2026-09-20T22:44:10.957Z"
+ }
+}
+```
+
+##  6 · +00:00.5 · network.response
+
+```json
+{
+ "id": 6,
+ "run_id": "wizmap-discovery",
+ "seq": 6,
+ "at": "2026-09-20T22:44:11.205Z",
+ "received_at": "2026-09-20T22:44:11.205Z",
+ "source": "preview-gateway",
+ "kind": "network.response",
+ "interaction_id": null,
+ "request_id": "r_RkN-ckN094AA",
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "method": "GET",
+  "path": "/data/acl-abstracts/umap.ndjson",
+  "category": "api",
+  "latency_ms": 248,
+  "ttfb_ms": 1,
+  "sizes": {
+   "request_bytes": 0,
+   "response_bytes": 60980195
+  },
+  "ended_at": "2026-09-20T22:44:11.205Z",
+  "status": 200,
+  "headers": {
+   "content-length": "60980195",
+   "content-type": "",
+   "cache-control": "no-cache"
+  },
+  "streamed": false,
+  "injected": null
+ }
+}
+```
+
+##  7 · +00:00.2 · frame.loaded
+
+```json
+{
+ "id": 7,
+ "run_id": "wizmap-discovery",
+ "seq": 7,
+ "at": "2026-09-20T22:44:10.873Z",
+ "received_at": "2026-09-20T22:44:10.873Z",
+ "source": "browser",
+ "kind": "frame.loaded",
+ "interaction_id": null,
+ "request_id": null,
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944250867,
+  "clock_offset_ms": 6,
+  "url": "/",
+  "title": "WizMap",
+  "embedded": false,
+  "readyState": "interactive",
+  "parentFrameId": null,
+  "depth": 0,
+  "instrumented": "self",
+  "minted": "gateway",
+  "surfaces": {
+   "counts": {
+    "canvas": 5,
+    "svg": 27,
+    "input": 5,
+    "button": 20,
+    "a[href]": 8
+   },
+   "canvases": [
+    {
+     "tag": "canvas",
+     "selector": "div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > canvas.s-ovhWPbaoO3ET:nth-of-type(1)",
+     "classes": [
+      "s-ovhWPbaoO3ET"
+     ],
+     "size": "1440pxx900px",
+     "rect": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900
+     },
+     "route": "/"
+    },
+    {
+     "tag": "canvas",
+     "selector": "div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > canvas.s-ovhWPbaoO3ET.faded:nth-of-type(2)",
+     "classes": [
+      "s-ovhWPbaoO3ET",
+      "faded"
+     ],
+     "size": "1440pxx900px",
+     "rect": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900
+     },
+     "route": "/"
+    },
+    {
+     "tag": "canvas",
+     "selector": "div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > canvas.embedding-canvas-back.s-ovhWPbaoO3ET:nth-of-type(3)",
+     "classes": [
+      "embedding-canvas-back",
+      "s-ovhWPbaoO3ET"
+     ],
+     "rect": {
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0
+     },
+     "route": "/"
+    }
+   ]
+  }
+ }
+}
+```
+
+##  8 · +00:31.0 · ui.click
+
+```json
+{
+ "id": 8,
+ "run_id": "wizmap-discovery",
+ "seq": 8,
+ "at": "2026-09-20T22:44:41.703Z",
+ "received_at": "2026-09-20T22:44:41.703Z",
+ "source": "browser",
+ "kind": "ui.click",
+ "interaction_id": "i_be3fdc2bfc_1",
+ "request_id": null,
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944281701,
+  "clock_offset_ms": 2,
+  "button": 0,
+  "detail": 1,
+  "trusted": true,
+  "target": {
+   "tag": "path",
+   "selector": "#icon-plus > path",
+   "rect": {
+    "x": 1409,
+    "y": 823,
+    "w": 14,
+    "h": 14
+   },
+   "route": "/"
+  },
+  "control": {
+   "tag": "button",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(4) > div.s-JGw2lZm6jsjW > div.s-JGw2lZm6jsjW:nth-of-type(3) > button.zoom-button-plus.s-JGw2lZm6jsjW:nth-of-type(1)",
+   "classes": [
+    "zoom-button-plus",
+    "s-JGw2lZm6jsjW"
+   ],
+   "rect": {
+    "x": 1402,
+    "y": 816,
+    "w": 28,
+    "h": 28
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+##  9 · +00:31.0 · ui.change
+
+```json
+{
+ "id": 9,
+ "run_id": "wizmap-discovery",
+ "seq": 9,
+ "at": "2026-09-20T22:44:41.710Z",
+ "received_at": "2026-09-20T22:44:41.710Z",
+ "source": "browser",
+ "kind": "ui.change",
+ "interaction_id": "i_be3fdc2bfc_1",
+ "request_id": null,
+ "call_id": null,
+ "correlation": "temporal",
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944281708,
+  "clock_offset_ms": 2,
+  "part": 1,
+  "closed": "quiet",
+  "firstMutationAt": 1789944281708,
+  "lastMutationAt": 1789944282521,
+  "durationMs": 813,
+  "sinceInteractionMs": 7,
+  "requestsInFlight": 0,
+  "mutations": 1446,
+  "addedNodes": 1347,
+  "removedNodes": 104,
+  "textChanges": 6,
+  "attributeChanges": 0,
+  "added": [
+   "summarization-summaries- document-summary question-answer- answering-qa generation-text- model-image translation-nmt- machine-neural sentiment-polarity- classification-analysis parsing-dependency- pa…"
+  ],
+  "removed": [
+   "63213 Data Points",
+   "20",
+   "summarization-document- summary-summaries",
+   "sentiment-analysis- classification-opinion",
+   "translation-machine- neural-nmt",
+   "question-answering- qa-answer",
+   "generation-text- models-language",
+   "parsi…"
+  ],
+  "container": {
+   "tag": "div",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF",
+   "text": "[participation d{'}{edf} {r}{\\&}{d} {\\`a} {deft} 2022 ({edf} {r}{\\&}{d} partici…",
+   "classes": [
+    "mapview-page",
+    "s-n1WHAIkRHwGF"
+   ],
+   "rect": {
+    "x": 0,
+    "y": 0,
+    "w": 1440,
+    "h": 900
+   },
+   "route": "/"
+  },
+  "regions": [
+   {
+    "target": {
+     "tag": "g",
+     "selector": "div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > svg.s-ovhWPbaoO3ET:nth-of-type(1) > g > g > g.topics:nth-of-type(2)",
+     "text": "summarization-summaries- document-summary question-answer- answering-qa generat…",
+     "classes": [
+      "topics"
+     ]
+    },
+    "within": [
+     {
+      "tag": "svg",
+      "selector": "div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > svg.s-ovhWPbaoO3ET:nth-of-type(1)",
+      "text": "summarization-summaries- document-summary question-answer- answering-qa generat…",
+      "classes": [
+       "s-ovhWPbaoO3ET"
+      ],
+      "size": "1440pxx900px"
+     },
+     {
+      "tag": "div",
+      "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2)",
+      "text": "summarization-summaries- document-summary question-answer- answering-qa generat…",
+      "classes": [
+       "embedding",
+       "s-ovhWPbaoO3ET"
+      ]
+     }
+    ],
+    "added": [
+     "summarization-summaries- document-summary question-answer- answering-qa generation-text- model-image translation-nmt- machine-neural sentiment-polarity- classification-analysis parsing-dependency- pa…"
+    ]
+   }
+  ]
+ }
+}
+```
+
+## 10 · +00:34.0 · ui.click
+
+```json
+{
+ "id": 10,
+ "run_id": "wizmap-discovery",
+ "seq": 10,
+ "at": "2026-09-20T22:44:44.725Z",
+ "received_at": "2026-09-20T22:44:44.725Z",
+ "source": "browser",
+ "kind": "ui.click",
+ "interaction_id": "i_be3fdc2bfc_2",
+ "request_id": null,
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944284724,
+  "clock_offset_ms": 1,
+  "button": 0,
+  "detail": 1,
+  "trusted": true,
+  "target": {
+   "tag": "path",
+   "selector": "#icon-plus > path",
+   "rect": {
+    "x": 1409,
+    "y": 823,
+    "w": 14,
+    "h": 14
+   },
+   "route": "/"
+  },
+  "control": {
+   "tag": "button",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(4) > div.s-JGw2lZm6jsjW > div.s-JGw2lZm6jsjW:nth-of-type(3) > button.zoom-button-plus.s-JGw2lZm6jsjW:nth-of-type(1)",
+   "classes": [
+    "zoom-button-plus",
+    "s-JGw2lZm6jsjW"
+   ],
+   "rect": {
+    "x": 1402,
+    "y": 816,
+    "w": 28,
+    "h": 28
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 11 · +00:34.0 · ui.change
+
+```json
+{
+ "id": 11,
+ "run_id": "wizmap-discovery",
+ "seq": 11,
+ "at": "2026-09-20T22:44:44.740Z",
+ "received_at": "2026-09-20T22:44:44.740Z",
+ "source": "browser",
+ "kind": "ui.change",
+ "interaction_id": "i_be3fdc2bfc_2",
+ "request_id": null,
+ "call_id": null,
+ "correlation": "temporal",
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944284737,
+  "clock_offset_ms": 3,
+  "part": 1,
+  "closed": "quiet",
+  "firstMutationAt": 1789944284737,
+  "lastMutationAt": 1789944285462,
+  "durationMs": 725,
+  "sinceInteractionMs": 13,
+  "requestsInFlight": 0,
+  "mutations": 1784,
+  "addedNodes": 1655,
+  "removedNodes": 133,
+  "textChanges": 6,
+  "attributeChanges": 0,
+  "added": [
+   "summarization-summaries- summary-rouge question-qa- questions-reading video-multimodal- generation-models sentiment-classification- sentiments-polarity translation-nmt- machine-neural abusive-hate- d…"
+  ],
+  "removed": [
+   "63213 Data Points",
+   "20",
+   "question-answer- answering-qa",
+   "generation-text- model-image",
+   "sentiment-polarity- classification-analysis",
+   "parsing-dependency- parser-parsers",
+   "hate-speech- abusive-detection",
+   "translation-mt- …"
+  ],
+  "container": {
+   "tag": "div",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF",
+   "text": "[participation d{'}{edf} {r}{\\&}{d} {\\`a} {deft} 2022 ({edf} {r}{\\&}{d} partici…",
+   "classes": [
+    "mapview-page",
+    "s-n1WHAIkRHwGF"
+   ],
+   "rect": {
+    "x": 0,
+    "y": 0,
+    "w": 1440,
+    "h": 900
+   },
+   "route": "/"
+  },
+  "regions": [
+   {
+    "target": {
+     "tag": "g",
+     "selector": "div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > svg.s-ovhWPbaoO3ET:nth-of-type(1) > g > g > g.topics:nth-of-type(2)",
+     "text": "summarization-summaries- summary-rouge question-qa- questions-reading video-mul…",
+     "classes": [
+      "topics"
+     ]
+    },
+    "within": [
+     {
+      "tag": "svg",
+      "selector": "div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > svg.s-ovhWPbaoO3ET:nth-of-type(1)",
+      "text": "summarization-summaries- summary-rouge question-qa- questions-reading video-mul…",
+      "classes": [
+       "s-ovhWPbaoO3ET"
+      ],
+      "size": "1440pxx900px"
+     },
+     {
+      "tag": "div",
+      "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2)",
+      "text": "summarization-summaries- summary-rouge question-qa- questions-reading video-mul…",
+      "classes": [
+       "embedding",
+       "s-ovhWPbaoO3ET"
+      ]
+     }
+    ],
+    "added": [
+     "summarization-summaries- summary-rouge question-qa- questions-reading video-multimodal- generation-models sentiment-classification- sentiments-polarity translation-nmt- machine-neural abusive-hate- d…"
+    ]
+   }
+  ]
+ }
+}
+```
+
+## 12 · +00:40.0 · ui.click
+
+```json
+{
+ "id": 12,
+ "run_id": "wizmap-discovery",
+ "seq": 12,
+ "at": "2026-09-20T22:44:50.742Z",
+ "received_at": "2026-09-20T22:44:50.742Z",
+ "source": "browser",
+ "kind": "ui.click",
+ "interaction_id": "i_be3fdc2bfc_3",
+ "request_id": null,
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944290741,
+  "clock_offset_ms": 1,
+  "button": 0,
+  "detail": 1,
+  "trusted": true,
+  "target": {
+   "tag": "div",
+   "selector": "div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.control-bar.s-ovhWPbaoO3ET:nth-of-type(4) > button.s-ovhWPbaoO3ET:nth-of-type(2) > div.item.s-ovhWPbaoO3ET > div.name.s-ovhWPbaoO3ET:nth-of-type(2)",
+   "text": "Point",
+   "classes": [
+    "name",
+    "s-ovhWPbaoO3ET"
+   ],
+   "rect": {
+    "x": 525,
+    "y": 24,
+    "w": 37,
+    "h": 15
+   },
+   "route": "/"
+  },
+  "control": {
+   "tag": "button",
+   "selector": "div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.control-bar.s-ovhWPbaoO3ET:nth-of-type(4) > button.s-ovhWPbaoO3ET:nth-of-type(2)",
+   "classes": [
+    "s-ovhWPbaoO3ET"
+   ],
+   "rect": {
+    "x": 491,
+    "y": 17,
+    "w": 83,
+    "h": 28
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 13 · +00:40.0 · ui.change
+
+```json
+{
+ "id": 13,
+ "run_id": "wizmap-discovery",
+ "seq": 13,
+ "at": "2026-09-20T22:44:50.743Z",
+ "received_at": "2026-09-20T22:44:50.743Z",
+ "source": "browser",
+ "kind": "ui.change",
+ "interaction_id": "i_be3fdc2bfc_3",
+ "request_id": null,
+ "call_id": null,
+ "correlation": "temporal",
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944290742,
+  "clock_offset_ms": 1,
+  "part": 1,
+  "closed": "quiet",
+  "firstMutationAt": 1789944290742,
+  "lastMutationAt": 1789944290742,
+  "durationMs": 0,
+  "sinceInteractionMs": 1,
+  "requestsInFlight": 0,
+  "mutations": 1,
+  "addedNodes": 1,
+  "removedNodes": 1,
+  "textChanges": 0,
+  "attributeChanges": 0,
+  "added": [],
+  "removed": [],
+  "rerendered": 1,
+  "container": {
+   "tag": "span",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(4) > div.s-JGw2lZm6jsjW > div.footer.s-JGw2lZm6jsjW:nth-of-type(4) > span.count.s-JGw2lZm6jsjW:nth-of-type(2) > span.subset-count.s-JGw2lZm6jsjW:nth-of-type(2)",
+   "text": "63213 Data Points",
+   "classes": [
+    "subset-count",
+    "s-JGw2lZm6jsjW"
+   ],
+   "rect": {
+    "x": 1194,
+    "y": 884,
+    "w": 121,
+    "h": 14
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 14 · +00:46.0 · ui.click
+
+```json
+{
+ "id": 14,
+ "run_id": "wizmap-discovery",
+ "seq": 14,
+ "at": "2026-09-20T22:44:56.750Z",
+ "received_at": "2026-09-20T22:44:56.750Z",
+ "source": "browser",
+ "kind": "ui.click",
+ "interaction_id": "i_be3fdc2bfc_4",
+ "request_id": null,
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944296749,
+  "clock_offset_ms": 1,
+  "button": 0,
+  "detail": 1,
+  "trusted": true,
+  "target": {
+   "tag": "div",
+   "selector": "div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.control-bar.s-ovhWPbaoO3ET:nth-of-type(4) > button.s-ovhWPbaoO3ET:nth-of-type(3) > div.item.s-ovhWPbaoO3ET > div.name.s-ovhWPbaoO3ET:nth-of-type(2)",
+   "text": "Grid",
+   "classes": [
+    "name",
+    "s-ovhWPbaoO3ET"
+   ],
+   "rect": {
+    "x": 623,
+    "y": 24,
+    "w": 30,
+    "h": 15
+   },
+   "route": "/"
+  },
+  "control": {
+   "tag": "button",
+   "selector": "div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.control-bar.s-ovhWPbaoO3ET:nth-of-type(4) > button.s-ovhWPbaoO3ET:nth-of-type(3)",
+   "text": "Grid",
+   "classes": [
+    "s-ovhWPbaoO3ET"
+   ],
+   "rect": {
+    "x": 589,
+    "y": 17,
+    "w": 76,
+    "h": 28
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 15 · +00:51.1 · ui.click
+
+```json
+{
+ "id": 15,
+ "run_id": "wizmap-discovery",
+ "seq": 15,
+ "at": "2026-09-20T22:45:01.766Z",
+ "received_at": "2026-09-20T22:45:01.766Z",
+ "source": "browser",
+ "kind": "ui.click",
+ "interaction_id": "i_be3fdc2bfc_5",
+ "request_id": null,
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944301765,
+  "clock_offset_ms": 1,
+  "button": 0,
+  "detail": 1,
+  "trusted": true,
+  "target": {
+   "tag": "div",
+   "selector": "div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.control-bar.s-ovhWPbaoO3ET:nth-of-type(4) > button.s-ovhWPbaoO3ET:nth-of-type(1) > div.item.s-ovhWPbaoO3ET > div.name.s-ovhWPbaoO3ET:nth-of-type(2)",
+   "text": "Contour",
+   "classes": [
+    "name",
+    "s-ovhWPbaoO3ET"
+   ],
+   "rect": {
+    "x": 406,
+    "y": 24,
+    "w": 58,
+    "h": 15
+   },
+   "route": "/"
+  },
+  "control": {
+   "tag": "button",
+   "selector": "div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.control-bar.s-ovhWPbaoO3ET:nth-of-type(4) > button.s-ovhWPbaoO3ET:nth-of-type(1)",
+   "classes": [
+    "s-ovhWPbaoO3ET"
+   ],
+   "rect": {
+    "x": 372,
+    "y": 17,
+    "w": 104,
+    "h": 28
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 16 · +00:55.1 · ui.click
+
+```json
+{
+ "id": 16,
+ "run_id": "wizmap-discovery",
+ "seq": 16,
+ "at": "2026-09-20T22:45:05.789Z",
+ "received_at": "2026-09-20T22:45:05.789Z",
+ "source": "browser",
+ "kind": "ui.click",
+ "interaction_id": "i_be3fdc2bfc_6",
+ "request_id": null,
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944305788,
+  "clock_offset_ms": 1,
+  "button": 0,
+  "detail": 1,
+  "trusted": true,
+  "target": {
+   "tag": "path",
+   "selector": "#icon-minus > path",
+   "rect": {
+    "x": 1409,
+    "y": 857,
+    "w": 14,
+    "h": 2
+   },
+   "route": "/"
+  },
+  "control": {
+   "tag": "button",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(4) > div.s-JGw2lZm6jsjW > div.s-JGw2lZm6jsjW:nth-of-type(3) > button.zoom-button-minus.s-JGw2lZm6jsjW:nth-of-type(2)",
+   "classes": [
+    "zoom-button-minus",
+    "s-JGw2lZm6jsjW"
+   ],
+   "rect": {
+    "x": 1402,
+    "y": 844,
+    "w": 28,
+    "h": 28
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 17 · +00:55.1 · ui.change
+
+```json
+{
+ "id": 17,
+ "run_id": "wizmap-discovery",
+ "seq": 17,
+ "at": "2026-09-20T22:45:05.805Z",
+ "received_at": "2026-09-20T22:45:05.805Z",
+ "source": "browser",
+ "kind": "ui.change",
+ "interaction_id": "i_be3fdc2bfc_6",
+ "request_id": null,
+ "call_id": null,
+ "correlation": "temporal",
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944305804,
+  "clock_offset_ms": 1,
+  "part": 1,
+  "closed": "quiet",
+  "firstMutationAt": 1789944305804,
+  "lastMutationAt": 1789944306241,
+  "durationMs": 437,
+  "sinceInteractionMs": 16,
+  "requestsInFlight": 0,
+  "mutations": 1744,
+  "addedNodes": 1624,
+  "removedNodes": 120,
+  "textChanges": 3,
+  "attributeChanges": 0,
+  "added": [
+   "summarization-summaries- document-summary question-answer- answering-qa generation-text- model-image translation-nmt- machine-neural sentiment-polarity- classification-analysis parsing-dependency- pa…"
+  ],
+  "removed": [
+   "9",
+   "summarization-summaries- summary-rouge",
+   "question-qa- questions-reading",
+   "video-multimodal- generation-models",
+   "sentiment-classification- sentiments-polarity",
+   "abusive-hate- detection-cyberbullying",
+   "translation-m…"
+  ],
+  "container": {
+   "tag": "div",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF",
+   "text": "[participation d{'}{edf} {r}{\\&}{d} {\\`a} {deft} 2022 ({edf} {r}{\\&}{d} partici…",
+   "classes": [
+    "mapview-page",
+    "s-n1WHAIkRHwGF"
+   ],
+   "rect": {
+    "x": 0,
+    "y": 0,
+    "w": 1440,
+    "h": 900
+   },
+   "route": "/"
+  },
+  "regions": [
+   {
+    "target": {
+     "tag": "g",
+     "selector": "div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > svg.s-ovhWPbaoO3ET:nth-of-type(1) > g > g > g.topics:nth-of-type(2)",
+     "text": "summarization-summaries- summary-rouge question-qa- questions-reading video-mul…",
+     "classes": [
+      "topics"
+     ]
+    },
+    "within": [
+     {
+      "tag": "svg",
+      "selector": "div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > svg.s-ovhWPbaoO3ET:nth-of-type(1)",
+      "text": "summarization-summaries- summary-rouge question-qa- questions-reading video-mul…",
+      "classes": [
+       "s-ovhWPbaoO3ET"
+      ],
+      "size": "1440pxx900px"
+     },
+     {
+      "tag": "div",
+      "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2)",
+      "text": "summarization-summaries- summary-rouge question-qa- questions-reading video-mul…",
+      "classes": [
+       "embedding",
+       "s-ovhWPbaoO3ET"
+      ]
+     }
+    ],
+    "added": [
+     "summarization-summaries- document-summary question-answer- answering-qa generation-text- model-image translation-nmt- machine-neural sentiment-polarity- classification-analysis parsing-dependency- pa…"
+    ]
+   }
+  ]
+ }
+}
+```
+
+## 18 · +00:56.6 · ui.change
+
+```json
+{
+ "id": 18,
+ "run_id": "wizmap-discovery",
+ "seq": 18,
+ "at": "2026-09-20T22:45:07.298Z",
+ "received_at": "2026-09-20T22:45:07.298Z",
+ "source": "browser",
+ "kind": "ui.change",
+ "interaction_id": "i_be3fdc2bfc_6",
+ "request_id": null,
+ "call_id": null,
+ "correlation": "temporal",
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944307297,
+  "clock_offset_ms": 1,
+  "part": 1,
+  "closed": "quiet",
+  "firstMutationAt": 1789944307297,
+  "lastMutationAt": 1789944307297,
+  "durationMs": 0,
+  "sinceInteractionMs": 1509,
+  "requestsInFlight": 0,
+  "mutations": 1,
+  "addedNodes": 0,
+  "removedNodes": 1,
+  "textChanges": 0,
+  "attributeChanges": 0,
+  "added": [],
+  "removed": [
+   "summarization-summaries- summary-rouge question-qa- questions-reading video-multimodal- generation-models sentiment-classification- sentiments-polarity translation-nmt- machine-neural abusive-hate- d…"
+  ],
+  "container": {
+   "tag": "g",
+   "selector": "div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > svg.s-ovhWPbaoO3ET:nth-of-type(1) > g > g > g.topics:nth-of-type(2)",
+   "text": "summarization-summaries- document-summary question-answer- answering-qa generat…",
+   "classes": [
+    "topics"
+   ],
+   "rect": {
+    "x": -9,
+    "y": 5,
+    "w": 1517,
+    "h": 916
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 19 · +00:57.6 · ui.click
+
+```json
+{
+ "id": 19,
+ "run_id": "wizmap-discovery",
+ "seq": 19,
+ "at": "2026-09-20T22:45:08.301Z",
+ "received_at": "2026-09-20T22:45:08.301Z",
+ "source": "browser",
+ "kind": "ui.click",
+ "interaction_id": "i_be3fdc2bfc_7",
+ "request_id": null,
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944308300,
+  "clock_offset_ms": 1,
+  "button": 0,
+  "detail": 1,
+  "trusted": true,
+  "target": {
+   "tag": "path",
+   "selector": "#icon-home > path",
+   "rect": {
+    "x": 1408,
+    "y": 785,
+    "w": 16,
+    "h": 14
+   },
+   "route": "/"
+  },
+  "control": {
+   "tag": "button",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(4) > div.s-JGw2lZm6jsjW > div.s-JGw2lZm6jsjW:nth-of-type(2) > button.zoom-button-reset.s-JGw2lZm6jsjW",
+   "classes": [
+    "zoom-button-reset",
+    "s-JGw2lZm6jsjW"
+   ],
+   "rect": {
+    "x": 1402,
+    "y": 778,
+    "w": 28,
+    "h": 28
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 20 · +00:57.6 · ui.change
+
+```json
+{
+ "id": 20,
+ "run_id": "wizmap-discovery",
+ "seq": 20,
+ "at": "2026-09-20T22:45:08.317Z",
+ "received_at": "2026-09-20T22:45:08.317Z",
+ "source": "browser",
+ "kind": "ui.change",
+ "interaction_id": "i_be3fdc2bfc_7",
+ "request_id": null,
+ "call_id": null,
+ "correlation": "temporal",
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944308315,
+  "clock_offset_ms": 2,
+  "part": 1,
+  "closed": "quiet",
+  "firstMutationAt": 1789944308315,
+  "lastMutationAt": 1789944309815,
+  "durationMs": 1500,
+  "sinceInteractionMs": 15,
+  "requestsInFlight": 0,
+  "mutations": 471,
+  "addedNodes": 468,
+  "removedNodes": 4,
+  "textChanges": 2,
+  "attributeChanges": 0,
+  "added": [
+   "summarization-document- summaries-summary question-answer- answering-qa sentiment-analysis- classification-polarity translation-machine- neural-nmt generation-text- language-model parsing-dependency-…"
+  ],
+  "removed": [
+   "20",
+   "summarization-summaries- document-summary question-answer- answering-qa generation-text- model-image translation-nmt- machine-neural sentiment-polarity- classification-analysis parsing-dependency- …"
+  ],
+  "container": {
+   "tag": "div",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET",
+   "text": "summarization-document- summaries-summary question-answer- answering-qa sentime…",
+   "classes": [
+    "s-ovhWPbaoO3ET"
+   ],
+   "rect": {
+    "x": 0,
+    "y": 0,
+    "w": 1440,
+    "h": 900
+   },
+   "route": "/"
+  },
+  "regions": [
+   {
+    "target": {
+     "tag": "g",
+     "selector": "div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > svg.s-ovhWPbaoO3ET:nth-of-type(1) > g > g > g.topics:nth-of-type(2)",
+     "text": "summarization-document- summaries-summary question-answer- answering-qa sentime…",
+     "classes": [
+      "topics"
+     ]
+    },
+    "within": [
+     {
+      "tag": "svg",
+      "selector": "div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > svg.s-ovhWPbaoO3ET:nth-of-type(1)",
+      "text": "summarization-document- summaries-summary question-answer- answering-qa sentime…",
+      "classes": [
+       "s-ovhWPbaoO3ET"
+      ],
+      "size": "1440pxx900px"
+     },
+     {
+      "tag": "div",
+      "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2)",
+      "text": "summarization-document- summaries-summary question-answer- answering-qa sentime…",
+      "classes": [
+       "embedding",
+       "s-ovhWPbaoO3ET"
+      ]
+     }
+    ],
+    "added": [
+     "summarization-document- summaries-summary question-answer- answering-qa sentiment-analysis- classification-polarity translation-machine- neural-nmt generation-text- language-model parsing-dependency-…"
+    ]
+   }
+  ]
+ }
+}
+```
+
+## 21 · +01:01.6 · ui.change
+
+```json
+{
+ "id": 21,
+ "run_id": "wizmap-discovery",
+ "seq": 21,
+ "at": "2026-09-20T22:45:12.308Z",
+ "received_at": "2026-09-20T22:45:12.308Z",
+ "source": "browser",
+ "kind": "ui.change",
+ "interaction_id": "i_be3fdc2bfc_7",
+ "request_id": null,
+ "call_id": null,
+ "correlation": "temporal",
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944312308,
+  "clock_offset_ms": 0,
+  "part": 1,
+  "closed": "quiet",
+  "firstMutationAt": 1789944312308,
+  "lastMutationAt": 1789944313688,
+  "durationMs": 1380,
+  "sinceInteractionMs": 4008,
+  "requestsInFlight": 0,
+  "mutations": 16,
+  "addedNodes": 15,
+  "removedNodes": 12,
+  "textChanges": 0,
+  "attributeChanges": 0,
+  "added": [],
+  "removed": [
+   "language-model-generation-models"
+  ],
+  "rerendered": 2,
+  "container": {
+   "tag": "div",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF",
+   "text": "[participation d{'}{edf} {r}{\\&}{d} {\\`a} {deft} 2022 ({edf} {r}{\\&}{d} partici…",
+   "classes": [
+    "mapview-page",
+    "s-n1WHAIkRHwGF"
+   ],
+   "rect": {
+    "x": 0,
+    "y": 0,
+    "w": 1440,
+    "h": 900
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 22 · +01:04.2 · ui.change
+
+```json
+{
+ "id": 22,
+ "run_id": "wizmap-discovery",
+ "seq": 22,
+ "at": "2026-09-20T22:45:14.963Z",
+ "received_at": "2026-09-20T22:45:14.963Z",
+ "source": "browser",
+ "kind": "ui.change",
+ "interaction_id": "i_be3fdc2bfc_7",
+ "request_id": null,
+ "call_id": null,
+ "correlation": "temporal",
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944314962,
+  "clock_offset_ms": 1,
+  "part": 1,
+  "closed": "quiet",
+  "firstMutationAt": 1789944314962,
+  "lastMutationAt": 1789944315667,
+  "durationMs": 705,
+  "sinceInteractionMs": 6662,
+  "requestsInFlight": 0,
+  "mutations": 8,
+  "addedNodes": 8,
+  "removedNodes": 8,
+  "textChanges": 0,
+  "attributeChanges": 0,
+  "added": [],
+  "removed": [
+   "language-model-generation-models"
+  ],
+  "rerendered": 2,
+  "container": {
+   "tag": "div",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF",
+   "text": "[participation d{'}{edf} {r}{\\&}{d} {\\`a} {deft} 2022 ({edf} {r}{\\&}{d} partici…",
+   "classes": [
+    "mapview-page",
+    "s-n1WHAIkRHwGF"
+   ],
+   "rect": {
+    "x": 0,
+    "y": 0,
+    "w": 1440,
+    "h": 900
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 23 · +01:06.2 · ui.change
+
+```json
+{
+ "id": 23,
+ "run_id": "wizmap-discovery",
+ "seq": 23,
+ "at": "2026-09-20T22:45:16.872Z",
+ "received_at": "2026-09-20T22:45:16.872Z",
+ "source": "browser",
+ "kind": "ui.change",
+ "interaction_id": "i_be3fdc2bfc_7",
+ "request_id": null,
+ "call_id": null,
+ "correlation": "temporal",
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944316871,
+  "clock_offset_ms": 1,
+  "part": 1,
+  "closed": "quiet",
+  "firstMutationAt": 1789944316871,
+  "lastMutationAt": 1789944316928,
+  "durationMs": 57,
+  "sinceInteractionMs": 8571,
+  "requestsInFlight": 0,
+  "mutations": 4,
+  "addedNodes": 4,
+  "removedNodes": 4,
+  "textChanges": 0,
+  "attributeChanges": 0,
+  "added": [],
+  "removed": [
+   "language-model-generation-models"
+  ],
+  "rerendered": 2,
+  "container": {
+   "tag": "div",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF",
+   "text": "[participation d{'}{edf} {r}{\\&}{d} {\\`a} {deft} 2022 ({edf} {r}{\\&}{d} partici…",
+   "classes": [
+    "mapview-page",
+    "s-n1WHAIkRHwGF"
+   ],
+   "rect": {
+    "x": 0,
+    "y": 0,
+    "w": 1440,
+    "h": 900
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 24 · +01:09.2 · ui.click
+
+```json
+{
+ "id": 24,
+ "run_id": "wizmap-discovery",
+ "seq": 24,
+ "at": "2026-09-20T22:45:19.949Z",
+ "received_at": "2026-09-20T22:45:19.949Z",
+ "source": "browser",
+ "kind": "ui.click",
+ "interaction_id": "i_be3fdc2bfc_8",
+ "request_id": null,
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944319948,
+  "clock_offset_ms": 1,
+  "button": 0,
+  "detail": 1,
+  "trusted": true,
+  "target": {
+   "tag": "path",
+   "selector": "#icon-plus > path",
+   "rect": {
+    "x": 1409,
+    "y": 823,
+    "w": 14,
+    "h": 14
+   },
+   "route": "/"
+  },
+  "control": {
+   "tag": "button",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(4) > div.s-JGw2lZm6jsjW > div.s-JGw2lZm6jsjW:nth-of-type(3) > button.zoom-button-plus.s-JGw2lZm6jsjW:nth-of-type(1)",
+   "classes": [
+    "zoom-button-plus",
+    "s-JGw2lZm6jsjW"
+   ],
+   "rect": {
+    "x": 1402,
+    "y": 816,
+    "w": 28,
+    "h": 28
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 25 · +01:09.3 · ui.change
+
+```json
+{
+ "id": 25,
+ "run_id": "wizmap-discovery",
+ "seq": 25,
+ "at": "2026-09-20T22:45:19.967Z",
+ "received_at": "2026-09-20T22:45:19.967Z",
+ "source": "browser",
+ "kind": "ui.change",
+ "interaction_id": "i_be3fdc2bfc_8",
+ "request_id": null,
+ "call_id": null,
+ "correlation": "temporal",
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944319963,
+  "clock_offset_ms": 4,
+  "part": 1,
+  "closed": "quiet",
+  "firstMutationAt": 1789944319963,
+  "lastMutationAt": 1789944321677,
+  "durationMs": 1714,
+  "sinceInteractionMs": 15,
+  "requestsInFlight": 0,
+  "mutations": 656,
+  "addedNodes": 652,
+  "removedNodes": 6,
+  "textChanges": 1,
+  "attributeChanges": 0,
+  "added": [
+   "summarization-document- summary-summaries sentiment-analysis- classification-opinion translation-machine- neural-nmt question-answering- qa-answer generation-text- models-language parsing-dependency-…"
+  ],
+  "removed": [
+   "20",
+   "summarization-document- summaries-summary question-answer- answering-qa sentiment-analysis- classification-polarity translation-machine- neural-nmt generation-text- language-model parsing-dependenc…"
+  ],
+  "container": {
+   "tag": "div",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET",
+   "text": "summarization-document- summary-summaries sentiment-analysis- classification-op…",
+   "classes": [
+    "s-ovhWPbaoO3ET"
+   ],
+   "rect": {
+    "x": 0,
+    "y": 0,
+    "w": 1440,
+    "h": 900
+   },
+   "route": "/"
+  },
+  "regions": [
+   {
+    "target": {
+     "tag": "g",
+     "selector": "div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > svg.s-ovhWPbaoO3ET:nth-of-type(1) > g > g > g.topics:nth-of-type(2)",
+     "text": "summarization-document- summary-summaries sentiment-analysis- classification-op…",
+     "classes": [
+      "topics"
+     ]
+    },
+    "within": [
+     {
+      "tag": "svg",
+      "selector": "div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > svg.s-ovhWPbaoO3ET:nth-of-type(1)",
+      "text": "summarization-document- summary-summaries sentiment-analysis- classification-op…",
+      "classes": [
+       "s-ovhWPbaoO3ET"
+      ],
+      "size": "1440pxx900px"
+     },
+     {
+      "tag": "div",
+      "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2)",
+      "text": "summarization-document- summary-summaries sentiment-analysis- classification-op…",
+      "classes": [
+       "embedding",
+       "s-ovhWPbaoO3ET"
+      ]
+     }
+    ],
+    "added": [
+     "summarization-document- summary-summaries sentiment-analysis- classification-opinion translation-machine- neural-nmt question-answering- qa-answer generation-text- models-language parsing-dependency-…"
+    ]
+   }
+  ]
+ }
+}
+```
+
+## 26 · +01:12.8 · ui.click
+
+```json
+{
+ "id": 26,
+ "run_id": "wizmap-discovery",
+ "seq": 26,
+ "at": "2026-09-20T22:45:23.470Z",
+ "received_at": "2026-09-20T22:45:23.470Z",
+ "source": "browser",
+ "kind": "ui.click",
+ "interaction_id": "i_be3fdc2bfc_9",
+ "request_id": null,
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944323470,
+  "clock_offset_ms": 0,
+  "button": 0,
+  "detail": 1,
+  "trusted": true,
+  "target": {
+   "tag": "path",
+   "selector": "#icon-plus > path",
+   "rect": {
+    "x": 1409,
+    "y": 823,
+    "w": 14,
+    "h": 14
+   },
+   "route": "/"
+  },
+  "control": {
+   "tag": "button",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(4) > div.s-JGw2lZm6jsjW > div.s-JGw2lZm6jsjW:nth-of-type(3) > button.zoom-button-plus.s-JGw2lZm6jsjW:nth-of-type(1)",
+   "classes": [
+    "zoom-button-plus",
+    "s-JGw2lZm6jsjW"
+   ],
+   "rect": {
+    "x": 1402,
+    "y": 816,
+    "w": 28,
+    "h": 28
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 27 · +01:12.8 · ui.change
+
+```json
+{
+ "id": 27,
+ "run_id": "wizmap-discovery",
+ "seq": 27,
+ "at": "2026-09-20T22:45:23.484Z",
+ "received_at": "2026-09-20T22:45:23.484Z",
+ "source": "browser",
+ "kind": "ui.change",
+ "interaction_id": "i_be3fdc2bfc_9",
+ "request_id": null,
+ "call_id": null,
+ "correlation": "temporal",
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944323482,
+  "clock_offset_ms": 2,
+  "part": 1,
+  "closed": "quiet",
+  "firstMutationAt": 1789944323482,
+  "lastMutationAt": 1789944324359,
+  "durationMs": 877,
+  "sinceInteractionMs": 12,
+  "requestsInFlight": 0,
+  "mutations": 775,
+  "addedNodes": 772,
+  "removedNodes": 4,
+  "textChanges": 2,
+  "attributeChanges": 0,
+  "added": [
+   "summarization-summaries- document-summary question-answer- answering-qa generation-text- model-image translation-nmt- machine-neural sentiment-polarity- classification-analysis parsing-dependency- pa…"
+  ],
+  "removed": [
+   "20",
+   "summarization-document- summary-summaries sentiment-analysis- classification-opinion translation-machine- neural-nmt question-answering- qa-answer generation-text- models-language parsing-dependenc…"
+  ],
+  "container": {
+   "tag": "div",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF",
+   "text": "[participation d{'}{edf} {r}{\\&}{d} {\\`a} {deft} 2022 ({edf} {r}{\\&}{d} partici…",
+   "classes": [
+    "mapview-page",
+    "s-n1WHAIkRHwGF"
+   ],
+   "rect": {
+    "x": 0,
+    "y": 0,
+    "w": 1440,
+    "h": 900
+   },
+   "route": "/"
+  },
+  "regions": [
+   {
+    "target": {
+     "tag": "g",
+     "selector": "div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > svg.s-ovhWPbaoO3ET:nth-of-type(1) > g > g > g.topics:nth-of-type(2)",
+     "text": "summarization-summaries- document-summary question-answer- answering-qa generat…",
+     "classes": [
+      "topics"
+     ]
+    },
+    "within": [
+     {
+      "tag": "svg",
+      "selector": "div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2) > svg.s-ovhWPbaoO3ET:nth-of-type(1)",
+      "text": "summarization-summaries- document-summary question-answer- answering-qa generat…",
+      "classes": [
+       "s-ovhWPbaoO3ET"
+      ],
+      "size": "1440pxx900px"
+     },
+     {
+      "tag": "div",
+      "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET > div.embedding.s-ovhWPbaoO3ET:nth-of-type(2)",
+      "text": "summarization-summaries- document-summary question-answer- answering-qa generat…",
+      "classes": [
+       "embedding",
+       "s-ovhWPbaoO3ET"
+      ]
+     }
+    ],
+    "added": [
+     "summarization-summaries- document-summary question-answer- answering-qa generation-text- model-image translation-nmt- machine-neural sentiment-polarity- classification-analysis parsing-dependency- pa…"
+    ]
+   }
+  ]
+ }
+}
+```
+
+## 28 · +01:21.8 · ui.click
+
+```json
+{
+ "id": 28,
+ "run_id": "wizmap-discovery",
+ "seq": 28,
+ "at": "2026-09-20T22:45:32.489Z",
+ "received_at": "2026-09-20T22:45:32.489Z",
+ "source": "browser",
+ "kind": "ui.click",
+ "interaction_id": "i_be3fdc2bfc_10",
+ "request_id": null,
+ "call_id": null,
+ "correlation": null,
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944332486,
+  "clock_offset_ms": 3,
+  "button": 0,
+  "detail": 1,
+  "trusted": true,
+  "target": {
+   "tag": "path",
+   "selector": "#icon-home > path",
+   "rect": {
+    "x": 1408,
+    "y": 785,
+    "w": 16,
+    "h": 14
+   },
+   "route": "/"
+  },
+  "control": {
+   "tag": "button",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(4) > div.s-JGw2lZm6jsjW > div.s-JGw2lZm6jsjW:nth-of-type(2) > button.zoom-button-reset.s-JGw2lZm6jsjW",
+   "classes": [
+    "zoom-button-reset",
+    "s-JGw2lZm6jsjW"
+   ],
+   "rect": {
+    "x": 1402,
+    "y": 778,
+    "w": 28,
+    "h": 28
+   },
+   "route": "/"
+  }
+ }
+}
+```
+
+## 29 · +01:21.8 · ui.change
+
+```json
+{
+ "id": 29,
+ "run_id": "wizmap-discovery",
+ "seq": 29,
+ "at": "2026-09-20T22:45:32.497Z",
+ "received_at": "2026-09-20T22:45:32.497Z",
+ "source": "browser",
+ "kind": "ui.change",
+ "interaction_id": "i_be3fdc2bfc_10",
+ "request_id": null,
+ "call_id": null,
+ "correlation": "temporal",
+ "data": {
+  "frameId": "f_be3fdc2bfc",
+  "browser_at": 1789944332496,
+  "clock_offset_ms": 1,
+  "part": 1,
+  "closed": "quiet",
+  "firstMutationAt": 1789944332496,
+  "lastMutationAt": 1789944334073,
+  "durationMs": 1577,
+  "sinceInteractionMs": 10,
+  "requestsInFlight": 0,
+  "mutations": 1547,
+  "addedNodes": 1480,
+  "removedNodes": 68,
+  "textChanges": 3,
+  "attributeChanges": 0,
+  "added": [
+   "0.7635"
+  ],
+  "removed": [
+   "20",
+   "summarization-document- summary-summaries",
+   "sentiment-analysis- classification-opinion",
+   "question-answering- qa-answer",
+   "generation-text- models-language",
+   "relation-extraction- relations-entity",
+   "hate-speech- lan…"
+  ],
+  "container": {
+   "tag": "div",
+   "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(3) > div.main-app.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF > div.s-ovhWPbaoO3ET",
+   "text": "summarization-document- summaries-summary question-answer- answering-qa sentime…",
+   "classes": [
+    "s-ovhWPbaoO3ET"
+   ],
+   "rect": {
+    "x": 0,
+    "y": 0,
+    "w": 1440,
+    "h": 900
+   },
+   "route": "/"
+  },
+  "regions": [
+   {
+    "target": {
+     "tag": "div",
+     "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(4) > div.s-JGw2lZm6jsjW > div.footer.s-JGw2lZm6jsjW:nth-of-type(4) > div.s-JGw2lZm6jsjW:nth-of-type(7)",
+     "text": "0.7635",
+     "classes": [
+      "s-JGw2lZm6jsjW"
+     ]
+    },
+    "within": [
+     {
+      "tag": "div",
+      "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(4) > div.s-JGw2lZm6jsjW > div.footer.s-JGw2lZm6jsjW:nth-of-type(4)",
+      "classes": [
+       "footer",
+       "s-JGw2lZm6jsjW"
+      ]
+     },
+     {
+      "tag": "div",
+      "selector": "#app > div.stand-alone-page > div.mapview-page.s-n1WHAIkRHwGF > div.s-n1WHAIkRHwGF:nth-of-type(4) > div.s-JGw2lZm6jsjW",
+      "text": "Choose an Embedding DiffusionDB (1.8M text + 1.8M images) ACL Abstracts (63k te…",
+      "classes": [
+       "s-JGw2lZm6jsjW"
+      ]
+     }
+    ],
+    "added": [
+     "0.7635"
+    ]
+   }
+  ]
+ }
+}
+```

@@ -1,0 +1,765 @@
+{
+  "version": 1,
+  "artifact": { "name": "ROPE Training System" },
+  "provenance": {
+    "by": "generated",
+    "model": "claude-opus-5[1m]",
+    "note": "Written from the artifact repository (system/README.md, system/app/page.tsx, system/lib/prompts.ts, system/lib/interfaces.ts, system/components/ClickLogger.ts, system/public/sandbox/index.html, system/lib/Tetris/data.json) and from one recorded session (evidence 01-08). A learner is taken through a game (Tetris by default) step by step: they write the main steps and then the requirements for each step into a chat with an LLM Teaching Assistant, play the groundtruth Solution game in a Python/Skulpt sandbox, and have a game generated from their own requirements onto the My canvas sandbox to see what those requirements produce. No description of the software from outside the pack was consulted."
+  },
+  "surfaces": [
+    {
+      "id": "my-canvas",
+      "match": { "equals": "my-canvas" },
+      "label": "My canvas",
+      "role": "own",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "<iframe src={`${sandboxSrc}?id=my-canvas`}> and <TabsTrigger value=\"my-canvas\">My canvas</TabsTrigger>" },
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "generateCode() streams LLM code built from the learner's own stated requirements into this iframe; generateCode2() puts the groundtruth step code there once the requirements are right" },
+          { "kind": "trace", "eventKind": "frame.loaded", "note": "document served as /sandbox/index.html?id=my-canvas" }
+        ],
+        "note": "role \"own\" because this canvas holds the program produced from the learner's own requirements. It is machine-written code, so \"own\" is a claim about whose requirements produced it, not about who typed it."
+      }
+    },
+    {
+      "id": "solution",
+      "match": { "equals": "solution" },
+      "label": "the Solution game",
+      "role": "reference",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "<iframe src={`${sandboxSrc}?id=solution`}> behind <TabsTrigger value=\"solution\">Solution</TabsTrigger>; fed the last of gameStepsCodes" },
+          { "kind": "repo", "path": "system/lib/prompts.ts", "note": "the tutor prompt repeatedly tells the student to \"double-check the Solution game interaction\"" },
+          { "kind": "trace", "eventKind": "frame.loaded", "note": "document served as /sandbox/index.html?id=solution" }
+        ]
+      }
+    },
+    {
+      "id": "solution-step",
+      "match": { "glob": "solution-step-*" },
+      "label": "the Solution game for the open step",
+      "role": "reference",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "in stage 2+ the Solution tab becomes an accordion of per-step iframes: src={`/sandbox/index.html?id=solution-step-${index}`}" }
+        ],
+        "note": "Not seen in the recording, which stayed in stage 1; taken from the source."
+      }
+    },
+    {
+      "id": "shell",
+      "match": { "prefix": "/" },
+      "label": "the ROPE training page",
+      "role": "shell",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/README.md", "note": "\"ROPE Training System\"; single Next.js route" },
+          { "kind": "trace", "eventKind": "frame.loaded", "note": "url \"/\", title \"Create Next App\", parentFrameId null" }
+        ],
+        "note": "The application has one route, so it is keyed by its path. Matched on prefix \"/\" rather than equality because the exact key the collector mints for the root document was not directly visible in the evidence; the sandbox documents are keyed by their ?id= value and so cannot collide with it. The sign-in screen and the workshop are the same document, so the surface cannot tell them apart."
+      }
+    }
+  ],
+  "channels": [
+    {
+      "id": "tutorial-complete",
+      "label": "the completion message",
+      "from": "system",
+      "text": { "glob": "*successfully completed the * tutorial*" },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "nextStep() on the last step and showAll() both push `Congratulations!! You've successfully completed the ${gameTitle} tutorial!`" }
+        ],
+        "note": "Placed first so that this message, which arrives in the same container as a learner's own message when the composer is removed at game over, is never mistaken for something the learner wrote. The glob avoids punctuation because arriving text reaches the collector tokenised (\"You ' ve\")."
+      }
+    },
+    {
+      "id": "sandbox-error",
+      "label": "the sandbox error",
+      "from": "system",
+      "container": { "elementId": { "equals": "error-display" } },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/public/sandbox/index.html", "note": "#error-display is filled with err.toString() and unhidden when the Python run throws" }
+        ],
+        "note": "Never fired in this recording; the anchor is the element's own id, so it is stable, but that the collector reports #error-display as the container of that text is untested."
+      }
+    },
+    {
+      "id": "learner-message",
+      "label": "the learner's message",
+      "from": "person",
+      "container": { "selector": { "equals": "main > div:nth-of-type(2) > div:nth-of-type(2) > div" } },
+      "generation": {
+        "confidence": "low",
+        "grounding": "abstraction",
+        "ev": [
+          { "kind": "trace", "seq": 133, "eventKind": "ui.change", "note": "added [\"help\"] in container main > div:nth-of-type(2) > div:nth-of-type(2) > div at the moment of the first send" },
+          { "kind": "trace", "seq": 450, "eventKind": "ui.change", "note": "the same container for the second send" },
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "the learner's bubble is appended to the message list while the loading spinner appears in the composer, so the lowest element containing both changes is the chat body div; a streamed tutor reply changes only the message list one level below" }
+        ],
+        "note": "The learner's and the tutor's words sit in the same list, distinguished in the DOM only by a utility class (flex-row vs flex-row-reverse) that the collector does not report, so this channel rests on a generated CSS path and on the one-level-up container that a send produces. I looked for a test id, an id, a role and an aria label on the message bubbles and found none. Trust it only where a send is independently recorded."
+      }
+    },
+    {
+      "id": "chat",
+      "label": "the chat",
+      "from": "system",
+      "container": { "selector": { "prefix": "main > div:nth-of-type(2)" } },
+      "generation": {
+        "confidence": "low",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "ChatBox is the first of main's three panels; it holds the stage banner, the message list and the composer" },
+          { "kind": "trace", "seq": 136, "eventKind": "ui.change", "note": "a tutor reply arrived in main > div:nth-of-type(2) > div:nth-of-type(2) > div > div:nth-of-type(1)" },
+          { "kind": "survey", "note": "screen 2: the chat column carries the stage banner, the messages and the textarea" }
+        ],
+        "note": "A generated CSS path: the chat column has no id, test id or landmark. Ordered after learner-message so the learner's own words are not counted as the software's."
+      }
+    },
+    {
+      "id": "requirement-doc",
+      "label": "the requirement document",
+      "from": "system",
+      "container": { "selector": { "prefix": "main > div:nth-of-type(3)" } },
+      "generation": {
+        "confidence": "low",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "GameDocBox is main's second panel; it renders gameDocs.steps and, per step, the doc entries whose show flag the model set to true" },
+          { "kind": "trace", "seq": 135, "eventKind": "ui.click", "note": "main > div:nth-of-type(3) > div carried the document title \"Tetris\"" }
+        ],
+        "note": "Generated CSS path again. This panel is where the groundtruth requirements are revealed one at a time as the learner's answers are judged to hit them, so text arriving here is the document filling in."
+      }
+    }
+  ],
+  "controls": [
+    {
+      "id": "chat-input",
+      "label": "the chat box",
+      "anchor": { "placeholder": { "contains": "requirements by typing here" } },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "placeholder={`Start discussing about ${currentGameObj.gameTitle} requirements by typing here.`}" },
+          { "kind": "survey", "note": "screen 2 element 10: textarea placeholder \"Start discussing about Tetris requirements by typing here.\"" }
+        ],
+        "note": "Matched on the game-independent tail of the placeholder so it also holds for Connect 4 and TicTacToe."
+      }
+    },
+    {
+      "id": "chat-submit",
+      "label": "the send button",
+      "moment": true,
+      "anchor": { "all": [ { "tag": { "equals": "button" } }, { "inputType": { "equals": "submit" } } ] },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "the arrow button in the chat form, type=\"submit\", data-button-id=\"chat-submit\"" },
+          { "kind": "trace", "seq": 442, "eventKind": "ui.click", "note": "tag button, type submit, inside the chat form" }
+        ],
+        "note": "The button has no text of its own (an inline SVG arrow) and its data-button-id is not reported by the collector, so it is identified by being the only type=submit element in the application."
+      }
+    },
+    {
+      "id": "action-generate-game",
+      "label": "the Generate Game action",
+      "moment": true,
+      "anchor": { "text": { "equals": "Generate Game" } },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/lib/prompts.ts", "note": "the tutor prompt returns action: [\"Generate Game\"] when code generation is allowed, and [\"Generate Game\", \"Next Step\"] when every requirement is hit" },
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "onActionClick matches \"Generate Game\"/\"generate game\" and calls generateCode()/generateCode2(); the chip is data-button-id={`action-${item...}`}" }
+        ],
+        "note": "The chips are divs whose entire text is the action string, so an exact text match is the tightest available anchor; a looser contains test would also catch a tutor sentence mentioning the phrase."
+      }
+    },
+    {
+      "id": "action-next-step",
+      "label": "the Next Step action",
+      "moment": true,
+      "anchor": { "text": { "equals": "Next Step" } },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/lib/prompts.ts", "note": "action: [\"Next Step\"] once all main steps or all requirements are hit" },
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "onActionClick sends \"Next step\"/\"next step\"/\"Next Step\" to nextStep(); text matching ignores case" }
+        ]
+      }
+    },
+    {
+      "id": "tab-my-canvas",
+      "label": "the My canvas tab",
+      "anchor": { "any": [ { "role": { "equals": "tab" }, "name": { "equals": "My canvas" } }, { "text": { "equals": "My canvas" } } ] },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "<TabsTrigger value=\"my-canvas\" data-button-id=\"tab-my-canvas\">My canvas</TabsTrigger>" },
+          { "kind": "survey", "note": "screen 2 element 25: role=tab, text \"My canvas\"" }
+        ],
+        "note": "Navigation, not a deed: it belongs to the stretch it opens."
+      }
+    },
+    {
+      "id": "tab-solution",
+      "label": "the Solution tab",
+      "anchor": { "any": [ { "role": { "equals": "tab" }, "name": { "equals": "Solution" } }, { "text": { "equals": "Solution" } } ] },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "<TabsTrigger value=\"solution\" data-button-id=\"tab-solution\">Solution</TabsTrigger>" },
+          { "kind": "survey", "note": "screen 2 element 26: role=tab, text \"Solution\"" }
+        ]
+      }
+    },
+    {
+      "id": "replay-solution",
+      "label": "the Replay button",
+      "anchor": { "text": { "equals": "Replay" } },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "replaySolution() reloads the Solution iframe so the groundtruth program runs again; data-button-id=\"replay-solution\"" },
+          { "kind": "survey", "note": "screen 2 element 27: button text \"Replay\"" }
+        ],
+        "note": "Left as navigation rather than a deed: it is normally the way into a stretch of playing the Solution."
+      }
+    },
+    {
+      "id": "game-canvas",
+      "label": "the game canvas",
+      "anchor": { "elementId": { "equals": "game-canvas" } },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/public/sandbox/index.html", "note": "<canvas id=\"game-canvas\"> in the Skulpt sandbox; clicks and key presses on it are posted to the parent as CANVAS_CLICK / CANVAS_KEYPRESS" },
+          { "kind": "repo", "path": "system/components/ClickLogger.ts", "note": "the application logs these as eventType 'canvas_click' and 'canvas_keypress'" },
+          { "kind": "trace", "seq": 96, "eventKind": "ui.click", "note": "#game-canvas in the solution sandbox" }
+        ],
+        "note": "Not a deed: in Tetris a canvas click is how you give the canvas focus before pressing keys (the opening chat message says so); in Connect 4 and TicTacToe it is a move. Because the recording cannot tell those apart, it is left as navigation."
+      }
+    },
+    {
+      "id": "reset",
+      "label": "the Reset button",
+      "moment": true,
+      "anchor": { "text": { "equals": "Reset" } },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "reset() mints a new conversation id, clears the messages and the document and returns to stage 1; data-button-id=\"reset-game\"" },
+          { "kind": "survey", "note": "screen 2 element 2: button text \"Reset\"" }
+        ]
+      }
+    },
+    {
+      "id": "end",
+      "label": "the End button",
+      "moment": true,
+      "anchor": { "text": { "equals": "End" } },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "showAll() reveals every step and requirement, moves to stage 3 and ends the tutorial; data-button-id=\"end-game\"" },
+          { "kind": "survey", "note": "screen 2 element 3: button text \"End\"" }
+        ]
+      }
+    },
+    {
+      "id": "change-game",
+      "label": "the Change Game button",
+      "anchor": { "text": { "equals": "Change Game" } },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/README.md", "note": "\"Click the third button, labeled `Change Game`. This will open a menu\"" },
+          { "kind": "survey", "note": "screen 2 element 4: button text \"Change Game\"" }
+        ]
+      }
+    },
+    {
+      "id": "add-game",
+      "label": "the Add Game button",
+      "anchor": { "text": { "equals": "Add Game" } },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [ { "kind": "repo", "path": "system/app/page.tsx", "note": "opens the upload dialog for a game data file and a game code file; data-button-id=\"add-game\"" } ],
+        "note": "Set-up, not learning: the README describes it as password-protected authoring."
+      }
+    },
+    {
+      "id": "delete-game",
+      "label": "the Delete Game button",
+      "anchor": { "text": { "equals": "Delete Game" } },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [ { "kind": "repo", "path": "system/app/page.tsx", "note": "opens the delete dialog; data-button-id=\"delete-game\"" } ]
+      }
+    },
+    {
+      "id": "subject-id",
+      "label": "the Subject ID field",
+      "anchor": { "label": { "equals": "Subject ID" } },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/components/ui/login.jsx", "note": "FormLabel \"Subject ID\", input name=\"Subject ID\", stored as localStorage username and used as the per-participant database name" },
+          { "kind": "trace", "seq": 405, "eventKind": "ui.input", "note": "label \"Subject ID\"" }
+        ]
+      }
+    },
+    {
+      "id": "login",
+      "label": "the login button",
+      "moment": true,
+      "anchor": { "text": { "equals": "login" } },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/components/ui/login.jsx", "note": "the sign-in button; without a Subject ID the application shows nothing else" },
+          { "kind": "trace", "seq": 406, "eventKind": "ui.click", "note": "button text \"login\"" }
+        ]
+      }
+    }
+  ],
+  "keySets": [
+    {
+      "id": "enter-send",
+      "label": "the key that sends a chat message",
+      "keys": ["Enter"]
+    },
+    {
+      "id": "tetris-piece-move",
+      "label": "the keys that move a Tetris piece left, right and down",
+      "keys": ["ArrowLeft", "ArrowRight", "ArrowDown"]
+    },
+    {
+      "id": "tetris-piece-rotate",
+      "label": "the key that rotates a Tetris piece",
+      "keys": ["ArrowUp"]
+    },
+    {
+      "id": "tetris-hard-drop",
+      "label": "the key that hard drops a Tetris piece",
+      "keys": [" ", "Space"]
+    },
+    {
+      "id": "tetris-piece-select",
+      "label": "the number keys that load each of the seven Tetris pieces",
+      "keys": ["0", "1", "2", "3", "4", "5", "6"]
+    }
+  ],
+  "rules": [
+    {
+      "id": "login",
+      "sub": "SUBJECT_LOGIN",
+      "broad": "ACTING",
+      "priority": 10,
+      "when": { "controlUsed": ["login", "subject-id"] },
+      "description": {
+        "cond": [ { "when": { "controlUsed": ["login"] }, "then": { "lit": "Signed in with a Subject ID." } } ],
+        "else": { "lit": "Filled in the Subject ID field on the sign-in screen." }
+      },
+      "because": {
+        "cond": [ { "when": { "controlUsed": ["login"] }, "then": { "lit": "the Subject ID field was used and the login button was clicked" } } ],
+        "else": { "lit": "the Subject ID field was used and no login click was recorded" }
+      },
+      "confidence": "high",
+      "note": "First, because the sign-in screen and the workshop are the same document: without this rule, typing a Subject ID would be read as writing in the chat box.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/components/ui/login.jsx" },
+          { "kind": "trace", "seq": 400, "note": "clicked the Subject ID field, typed, clicked login, and the workshop replaced the sign-in screen" }
+        ]
+      }
+    },
+    {
+      "id": "chat-submit",
+      "sub": "CHAT_SUBMIT",
+      "broad": "ACTING",
+      "priority": 20,
+      "when": {
+        "any": [
+          { "flag": "submitted" },
+          { "controlUsed": ["chat-submit"] },
+          { "all": [ { "keysIn": "enter-send" }, { "controlUsed": ["chat-input"] }, { "any": [ { "flag": "call" }, { "flag": "awaiting" } ] } ] }
+        ]
+      },
+      "description": {
+        "cond": [ { "when": { "flag": "entered" }, "then": { "join": [ { "lit": "Sent " }, { "quote": { "source": { "entered": true }, "max": 120 } }, { "lit": " to the chat." } ] } } ],
+        "else": { "lit": "Sent a message to the chat." }
+      },
+      "because": {
+        "cond": [
+          { "when": { "flag": "submitted" }, "then": { "lit": "a submit was recorded on the chat form" } },
+          { "when": { "controlUsed": ["chat-submit"] }, "then": { "lit": "the send button in the chat was clicked" } }
+        ],
+        "else": { "lit": "Enter was pressed in the chat box and a model call opened in the same stretch" }
+      },
+      "confidence": {
+        "cond": [
+          { "when": { "flag": "submitted" }, "then": "high" },
+          { "when": { "controlUsed": ["chat-submit"] }, "then": "high" }
+        ],
+        "else": "medium"
+      },
+      "note": "Enter in the chat box sends and Shift+Enter inserts a newline, but the recording does not carry modifiers, so the Enter branch also requires a model call to have opened. The application calls handleSubmit from the keydown handler with preventDefault, so an Enter send produces no form submit event at all.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "handleKeyDown: Enter submits, Shift+Enter inserts \\n; handleSubmit posts the message and opens the model call" },
+          { "kind": "trace", "seq": 443, "eventKind": "ui.submit" },
+          { "kind": "trace", "seq": 134, "eventKind": "ui.key", "note": "Enter in the textarea, no submit event, followed by a model call" }
+        ]
+      }
+    },
+    {
+      "id": "generate-game",
+      "sub": "GENERATE_GAME",
+      "broad": "ACTING",
+      "priority": 30,
+      "when": { "controlUsed": ["action-generate-game"] },
+      "description": { "lit": "Clicked Generate Game." },
+      "because": { "lit": "the Generate Game action offered in the chat was clicked" },
+      "confidence": "high",
+      "note": "Generate Game builds a game on My canvas from the requirements written so far; the recording cannot tell the LLM-written counterfactual (generateCode) from the groundtruth step code (generateCode2), so the description says only what was clicked.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [ { "kind": "repo", "path": "system/app/page.tsx", "note": "onActionClick -> generateCode()/generateCode2()" } ]
+      }
+    },
+    {
+      "id": "next-step",
+      "sub": "NEXT_STEP",
+      "broad": "ACTING",
+      "priority": 40,
+      "when": { "controlUsed": ["action-next-step"] },
+      "description": { "lit": "Clicked Next Step." },
+      "because": { "lit": "the Next Step action offered in the chat was clicked" },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [ { "kind": "repo", "path": "system/app/page.tsx", "note": "onActionClick -> nextStep(), which moves from the outline to the first step, or on to the next step" } ]
+      }
+    },
+    {
+      "id": "reset",
+      "sub": "RESET",
+      "broad": "ACTING",
+      "priority": 50,
+      "when": { "controlUsed": ["reset"] },
+      "description": { "lit": "Clicked Reset, starting the tutorial over." },
+      "because": { "lit": "the Reset button was clicked" },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [ { "kind": "repo", "path": "system/app/page.tsx", "note": "reset() clears the conversation, the document and the canvas and returns to stage 1" } ]
+      }
+    },
+    {
+      "id": "end",
+      "sub": "END",
+      "broad": "ACTING",
+      "priority": 60,
+      "when": { "controlUsed": ["end"] },
+      "description": { "lit": "Clicked End, which reveals the whole requirement document." },
+      "because": { "lit": "the End button was clicked" },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [ { "kind": "repo", "path": "system/app/page.tsx", "note": "showAll() sets every step and requirement to show, moves to stage 3 and prints the completion message" } ]
+      }
+    },
+    {
+      "id": "awaiting",
+      "sub": "AWAITING_FEEDBACK",
+      "broad": "WAITING",
+      "priority": 70,
+      "when": { "all": [ { "flag": "awaiting" }, { "not": { "flag": "submitted" } } ] },
+      "description": { "join": [ { "lit": "Waited " }, { "duration": true }, { "lit": " with a model call open." } ] },
+      "because": { "lit": "a model call was open across this stretch and no send was recorded in it" },
+      "confidence": "high",
+      "note": "Covers both waits this software has: the streamed tutor reply and the streamed Python for My canvas. They are not told apart here.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [ { "kind": "repo", "path": "system/app/action.ts", "note": "generate() streams a gpt-4o completion back into the page" } ]
+      }
+    },
+    {
+      "id": "solution-interaction",
+      "sub": "SOLUTION_GAME_INTERACTION",
+      "broad": "EXPLORING",
+      "priority": 80,
+      "when": { "all": [ { "surfaceRole": ["reference"] }, { "acts": { "of": ["keys", "clicks"], "op": "gte", "value": 1 } } ] },
+      "description": {
+        "cond": [
+          { "when": { "acts": { "of": ["keys"], "op": "eq", "value": 0 } }, "then": { "join": [ { "lit": "Clicked on " }, { "field": "surfaceLabel" }, { "lit": " (" }, { "count": { "of": ["clicks"], "one": "click", "many": "clicks" } }, { "lit": ")." } ] } },
+          { "when": { "acts": { "of": ["clicks"], "op": "eq", "value": 0 } }, "then": { "join": [ { "lit": "Pressed keys on " }, { "field": "surfaceLabel" }, { "lit": " (" }, { "count": { "of": ["keys"], "one": "key press", "many": "key presses" } }, { "lit": ")." } ] } }
+        ],
+        "else": { "join": [ { "lit": "Clicked and pressed keys on " }, { "field": "surfaceLabel" }, { "lit": " (" }, { "count": { "of": ["clicks"], "one": "click", "many": "clicks" } }, { "lit": ", " }, { "count": { "of": ["keys"], "one": "key press", "many": "key presses" } }, { "lit": ")." } ] }
+      },
+      "because": {
+        "cond": [ { "when": { "keysIn": "tetris-piece-move" }, "then": { "lit": "the arrow keys were pressed inside the Solution sandbox" } } ],
+        "else": { "lit": "clicks or key presses were recorded inside the Solution sandbox document" }
+      },
+      "confidence": "high",
+      "note": "The Solution sandbox is the groundtruth program the learner is given, and the software's own instruction is to try key presses on it and to double-check the Solution game interaction; playing it is the only thing that can be done in that document.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "opening chat message: \"Check out the solution on the right to get a sense of how Tetris works. Hint: Try different key presses ... You may need to click on the canvas first\"" },
+          { "kind": "repo", "path": "system/lib/prompts.ts", "note": "\"ask student to double-check the Solution game interaction\"" },
+          { "kind": "trace", "seq": 105, "eventKind": "ui.key", "note": "84 arrow-key presses and 4 canvas clicks, all in the id=solution sandbox" }
+        ]
+      }
+    },
+    {
+      "id": "my-canvas-interaction",
+      "sub": "MY_CANVAS_INTERACTION",
+      "broad": "EVALUATING",
+      "priority": 90,
+      "when": { "all": [ { "surfaceRole": ["own"] }, { "acts": { "of": ["keys", "clicks"], "op": "gte", "value": 1 } } ] },
+      "description": {
+        "cond": [
+          { "when": { "acts": { "of": ["keys"], "op": "eq", "value": 0 } }, "then": { "join": [ { "lit": "Clicked on the game generated onto My canvas (" }, { "count": { "of": ["clicks"], "one": "click", "many": "clicks" } }, { "lit": ")." } ] } },
+          { "when": { "acts": { "of": ["clicks"], "op": "eq", "value": 0 } }, "then": { "join": [ { "lit": "Pressed keys on the game generated onto My canvas (" }, { "count": { "of": ["keys"], "one": "key press", "many": "key presses" } }, { "lit": ")." } ] } }
+        ],
+        "else": { "join": [ { "lit": "Clicked and pressed keys on the game generated onto My canvas (" }, { "count": { "of": ["clicks"], "one": "click", "many": "clicks" } }, { "lit": ", " }, { "count": { "of": ["keys"], "one": "key press", "many": "key presses" } }, { "lit": ")." } ] }
+      },
+      "because": { "lit": "clicks or key presses were recorded inside the My canvas sandbox document" },
+      "confidence": "medium",
+      "note": "EVALUATING rather than EXPLORING because this canvas holds the program built from the learner's own requirements, and the software frames running it as checking them: \"We can check what we have so far by generating a game. Compare with the Solution game\". The recording shows the playing, not the comparing.",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/lib/prompts.ts", "note": "stepsGenerate: \"We can check what we have so far by generating a game. Compare with the Solution game, anything you would like to edit?\"" },
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "stage 3 banner: \"you can now Generate Game to check that it matches the Solution\"" }
+        ],
+        "note": "Not observed in this recording: the session never left stage 1, so My canvas was never filled."
+      }
+    },
+    {
+      "id": "writing-requirements",
+      "sub": "WRITING_REQUIREMENTS",
+      "broad": "FORMULATING",
+      "priority": 100,
+      "when": { "flag": "composing" },
+      "description": { "join": [ { "lit": "Wrote in the chat box for " }, { "duration": true }, { "lit": " without sending." } ] },
+      "because": { "lit": "the stretch was spent at the chat text area with nothing sent" },
+      "confidence": "medium",
+      "note": "What is written here is the learner's outline of the main steps in stage 1 and their requirements for the open step afterwards; the recording cannot tell which, so the rule names neither. Keystrokes are not recorded, so this rests on the composing flag alone.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "the chat textarea placeholder: \"Start discussing about {game} requirements by typing here.\"" },
+          { "kind": "repo", "path": "system/lib/prompts.ts", "note": "the tutor asks for \"a short bullet list of requirements for this step\"" }
+        ]
+      }
+    },
+    {
+      "id": "requirement-doc-filled",
+      "sub": "REQUIREMENT_DOC_UPDATED",
+      "broad": "UNDERSTANDING",
+      "priority": 108,
+      "when": { "all": [ { "channelSaid": "requirement-doc" }, { "acts": { "of": ["clicks", "keys", "typing", "submits"], "op": "eq", "value": 0 } }, { "duration": { "op": "lte", "ms": 180000 } } ] },
+      "description": { "join": [ { "lit": "New text appeared in the requirement document, and nothing was done for " }, { "duration": true }, { "lit": "." } ] },
+      "because": { "lit": "text arrived in the document panel and no act was recorded in this stretch" },
+      "confidence": "medium",
+      "note": "The document panel fills in as the model marks steps and requirements as hit, so text arriving there is the visible record of an answer being accepted. Capped at three minutes so that a long absence is not read as taking something in.",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [ { "kind": "repo", "path": "system/app/page.tsx", "note": "GameDocBox renders only the steps and doc entries whose show flag is true; processOutput writes the model's gameDoc/stepDoc into that state" } ]
+      }
+    },
+    {
+      "id": "tutorial-complete",
+      "sub": "TUTORIAL_COMPLETE",
+      "broad": "UNDERSTANDING",
+      "priority": 110,
+      "when": { "channelSaid": "tutorial-complete" },
+      "description": { "lit": "The chat announced that the tutorial was complete." },
+      "because": { "lit": "the completion message appeared in the chat" },
+      "confidence": "medium",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [ { "kind": "repo", "path": "system/app/page.tsx", "note": "printed by nextStep() past the last step and by showAll()" } ]
+      }
+    },
+    {
+      "id": "tutor-feedback",
+      "sub": "TA_FEEDBACK",
+      "broad": "UNDERSTANDING",
+      "priority": 120,
+      "when": { "all": [ { "channelSaid": "chat" }, { "acts": { "of": ["clicks", "keys", "typing", "submits"], "op": "eq", "value": 0 } }, { "duration": { "op": "lte", "ms": 180000 } } ] },
+      "description": { "join": [ { "lit": "The chat said " }, { "quote": { "source": { "channel": "chat" }, "max": 120 } }, { "lit": ", and nothing was done for " }, { "duration": true }, { "lit": "." } ] },
+      "because": { "lit": "new text arrived in the chat and no act was recorded in this stretch" },
+      "confidence": "medium",
+      "note": "The chat is where the system's hints, feedback and instructions arrive. That the text was read is not in the recording; the capped duration keeps a long absence out.",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/lib/prompts.ts", "note": "chatContent carries the Teaching Assistant's praise, hint and question" },
+          { "kind": "trace", "seq": 456, "eventKind": "ui.change", "note": "\"Great, let's start with what you've done so far...\" arrived in the chat column" }
+        ]
+      }
+    },
+    {
+      "id": "sandbox-error",
+      "sub": "SANDBOX_ERROR",
+      "broad": "UNCLEAR",
+      "priority": 125,
+      "when": { "channelSaid": "sandbox-error" },
+      "description": { "join": [ { "lit": "A Python error was shown on " }, { "field": "surfaceLabel" }, { "lit": "." } ] },
+      "because": { "lit": "text arrived in the sandbox error display" },
+      "confidence": "medium",
+      "note": "This says what the software did, not what the person did, so the class stays UNCLEAR. It is worth a row because the code on My canvas is written by a model and need not run.",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [ { "kind": "repo", "path": "system/public/sandbox/index.html", "note": "runPythonCode catches and displays Skulpt errors in #error-display" } ]
+      }
+    },
+    {
+      "id": "change-game",
+      "sub": "CHANGE_GAME",
+      "broad": "ACTING",
+      "priority": 130,
+      "when": { "controlUsed": ["change-game", "add-game", "delete-game"] },
+      "description": {
+        "cond": [
+          { "when": { "controlUsed": ["add-game"] }, "then": { "lit": "Opened the Add Game dialog." } },
+          { "when": { "controlUsed": ["delete-game"] }, "then": { "lit": "Opened the Delete Game dialog." } }
+        ],
+        "else": { "lit": "Opened the Change Game menu." }
+      },
+      "because": {
+        "cond": [
+          { "when": { "controlUsed": ["add-game"] }, "then": { "lit": "the Add Game button was clicked" } },
+          { "when": { "controlUsed": ["delete-game"] }, "then": { "lit": "the Delete Game button was clicked" } }
+        ],
+        "else": { "lit": "the Change Game button was clicked" }
+      },
+      "confidence": "high",
+      "note": "Which game was then chosen is not covered: the chooser is a native select whose options are game titles, and the recording does not carry the value.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [ { "kind": "repo", "path": "system/README.md", "note": "the Change Game menu offers Select a Game, Add Game and Delete Game" } ]
+      }
+    },
+    {
+      "id": "replay-solution",
+      "sub": "REPLAY_SOLUTION",
+      "broad": "ACTING",
+      "priority": 135,
+      "when": { "any": [ { "controlUsed": ["replay-solution"] }, { "enteredBy": ["replay-solution"] } ] },
+      "description": { "lit": "Restarted the Solution game with Replay." },
+      "because": { "lit": "the Replay button was used" },
+      "confidence": "high",
+      "note": "Below the sandbox rules on purpose: if the replay was followed by playing, the playing names the stretch.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [ { "kind": "repo", "path": "system/app/page.tsx", "note": "replaySolution() reloads the Solution iframe, which re-runs the groundtruth program from the start" } ]
+      }
+    },
+    {
+      "id": "tab-switch",
+      "sub": "CANVAS_TAB_SWITCH",
+      "broad": "ACTING",
+      "priority": 140,
+      "when": { "any": [ { "controlUsed": ["tab-solution", "tab-my-canvas"] }, { "enteredBy": ["tab-solution", "tab-my-canvas"] } ] },
+      "description": {
+        "cond": [ { "when": { "any": [ { "controlUsed": ["tab-solution"] }, { "enteredBy": ["tab-solution"] } ] }, "then": { "lit": "Switched the canvas panel to the Solution." } } ],
+        "else": { "lit": "Switched the canvas panel to My canvas." }
+      },
+      "because": { "lit": "a tab in the canvas panel was used and nothing the profile names was done afterwards in this stretch" },
+      "confidence": "high",
+      "note": "Last of the act rules, so it only names a stretch in which the switch was all that was recorded. What was looked at afterwards is not in the recording unless the canvas was clicked or keyed.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [ { "kind": "survey", "note": "screen 2 elements 24-26: a tablist of My canvas and Solution" } ]
+      }
+    },
+    {
+      "id": "page-reload",
+      "sub": "PAGE_RELOAD",
+      "broad": "UNCLEAR",
+      "priority": 142,
+      "when": { "all": [ { "flag": "discontinuity" }, { "acts": { "of": ["clicks", "keys", "typing", "submits"], "op": "eq", "value": 0 } } ] },
+      "description": { "lit": "The page was replaced and the session picked up again." },
+      "because": { "lit": "the document was replaced during this stretch and no act was recorded in it" },
+      "confidence": "high",
+      "note": "The application keeps the conversation, the document and the stage in localStorage, so a reload resumes where it left off; whether the person or something else caused the reload is not in the recording, hence UNCLEAR.",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          { "kind": "repo", "path": "system/app/page.tsx", "note": "useLocalStorageState for messages, historyMessages, gameDocs, stage, input and the selected game" },
+          { "kind": "trace", "eventKind": "frame.served", "note": "the root document was served ten times during the session" }
+        ]
+      }
+    },
+    {
+      "id": "no-activity",
+      "sub": "NO_ACTIVITY",
+      "broad": "UNCLEAR",
+      "priority": 145,
+      "when": { "not": { "flag": "observed" } },
+      "description": { "join": [ { "lit": "Nothing was recorded for " }, { "duration": true }, { "lit": "." } ] },
+      "because": { "lit": "no act and no change on screen were recorded in this stretch" },
+      "confidence": "high",
+      "generation": { "confidence": "high", "grounding": "source" }
+    }
+  ],
+  "fallback": {
+    "sub": "UNCHARACTERISED",
+    "broad": "UNCLEAR",
+    "description": { "join": [ { "lit": "Spent " }, { "duration": true }, { "lit": " on " }, { "field": "surfaceLabel" }, { "lit": " doing nothing this profile names." } ] },
+    "because": { "lit": "no rule in this profile matched the stretch" },
+    "confidence": "low"
+  }
+}
