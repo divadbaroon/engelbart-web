@@ -62,8 +62,9 @@ export function AnnotationComposer({ frame, picked, busy, error, onSave, onCance
           className="min-h-[64px] w-full resize-y rounded-md border bg-background px-2 py-1.5 text-[13px] leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         {error && <p role="alert" className="text-[11px] text-destructive">{error}</p>}
-        <div className="flex items-center gap-1.5">
-          <p className="mr-auto text-[11px] text-muted-foreground/70">Your note is stored with this repository. It reaches Anthropic only when you ask Bart about it.</p>
+        {/* justify-end, because the line that used to sit here carried
+            `mr-auto` and that is what held the buttons to the right. */}
+        <div className="flex items-center justify-end gap-1.5">
           <Button variant="ghost" size="sm" onClick={onCancel} className="h-7 px-2 font-normal text-muted-foreground">Cancel</Button>
           <Button size="sm" onClick={save} disabled={!body.trim() || busy} className="h-7 px-2.5 font-normal">{busy ? "Saving…" : "Save"}</Button>
         </div>

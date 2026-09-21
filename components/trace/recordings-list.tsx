@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Circle, Pencil, Trash2, X } from "lucide-react";
+import { Pencil, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -192,7 +192,6 @@ function Row({ rec, busy, here, chosen, onOpen, onStop, onRename, onRemove }: {
           chosen ? "border-border bg-muted/60" : "border-transparent hover:border-border hover:bg-muted/40",
         )}
       >
-        {live && <Circle className="size-2 shrink-0 self-center animate-pulse fill-red-500 text-red-500" />}
         <span className="min-w-0 flex-1 truncate text-[13px]">{rec.name}</span>
         {/* Only said when there is nothing to watch. A recording of a run
             that failed is not itself a failure, and the row used to

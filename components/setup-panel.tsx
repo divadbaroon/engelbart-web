@@ -60,7 +60,6 @@ type Props = {
 };
 
 export function SetupPanel({ repo, run, events, error, report, rows, watched, section: tab, onSection: setTab, logStep, onLogStep, onPrepare, onRelaunch }: Props) {
-  const missing = report?.missing.length ?? 0;
   // The shell is opened once and then kept, because unmounting it kills
   // the PTY on the other end — the server drops the process when the
   // stream goes, and there is no reconnect and no scrollback to restore.
@@ -107,7 +106,6 @@ export function SetupPanel({ repo, run, events, error, report, rows, watched, se
               )}
             >
               {t.label}
-              {t.key === "env" && missing > 0 && <span className="ml-1 text-destructive">· {missing}</span>}
             </button>
           </div>
         ))}

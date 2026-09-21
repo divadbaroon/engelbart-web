@@ -54,6 +54,12 @@ const CUBE = 128;
 // it did not, eyes closed when it has been stopped, and frowning when
 // there is nothing there to reach.
 //
+// `starting` is in the family and nothing draws it. The sheet gives a
+// coming-up sandbox three sparks off its corner, and on a pane whose
+// whole job is to say "wait" they were three marks doing what the word
+// under them already does. A run that is coming up draws the plain cube
+// and says which step it is on.
+//
 // Seven names, six drawings. `crashed` is the frowning cube under a
 // second name, because two of the states are the same disappointment
 // from different directions and the sheet has one face for it: a
