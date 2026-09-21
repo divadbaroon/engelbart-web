@@ -39,8 +39,6 @@ type Props = {
   // buttons where `children` does.
   facts?: ReactNode;
   actions?: (PreviewAction | null | false | undefined)[];
-  // One quiet line under the buttons saying what is behind them.
-  note?: ReactNode;
   children?: ReactNode; // anything that hangs under the actions
   className?: string;
 };
@@ -87,7 +85,7 @@ export const CUBES = {
 // The one the two "nothing has gone wrong yet" panes draw.
 export const SANDBOX_CUBE = CUBES.idle;
 
-export function PreviewState({ image, title, description, facts, actions, note, children, className }: Props) {
+export function PreviewState({ image, title, description, facts, actions, children, className }: Props) {
   const shown = (actions ?? []).filter((a): a is PreviewAction => !!a);
   return (
     // Two spacers rather than `justify-center` and a bottom padding.
@@ -141,8 +139,6 @@ export function PreviewState({ image, title, description, facts, actions, note, 
           ))}
         </div>
       )}
-
-      {note && <p className="mt-2.5 max-w-[340px] text-xs leading-[1.5] text-pretty text-muted-foreground/70">{note}</p>}
 
       {children}
       <span aria-hidden className="min-h-0 flex-[3] shrink" />

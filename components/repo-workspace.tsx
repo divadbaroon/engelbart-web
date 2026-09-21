@@ -7,7 +7,6 @@ import type { Repo } from "@/lib/repos";
 import { RunTimeline } from "@/components/run-timeline";
 import { formatDay, formatDuration, runDuration, runSteps, type StepId } from "@/lib/run-steps";
 import { useNow } from "@/hooks/use-now";
-import type { EnvReport } from "@/lib/environment";
 import { getSharedTrail, type SharedTrail } from "@/app/workspace/[workspaceId]/trail-actions";
 import { environmentFromEvents, isRunActive, isRunCloned, isRunRunning, isRunUsable, isSandboxLive, plainError, STATUS_LABEL, type PreviewService, type SandboxEvent, type SandboxRun } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
@@ -135,7 +134,7 @@ export function RepoContent({ repo, tab, run, events, error, readme, previewVers
     return <ReplayPanel run={run} recordings={recording} clock={replayClock} />;
   }
   if (tab === "preview") {
-    return <Preview repo={repo} run={run} error={error} events={events} report={envReport} version={previewVersion} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, onAskBart, recording, annotations, onAskAboutAnnotation, semantics, registerStop }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenBuild={onOpenBuild} onOpenTerminal={onOpenTerminal} onOpenLogs={onOpenLogs} onRunWithoutPatch={onRunWithoutPatch} />;
+    return <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, onAskBart, recording, annotations, onAskAboutAnnotation, semantics, registerStop }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenBuild={onOpenBuild} onOpenTerminal={onOpenTerminal} onOpenLogs={onOpenLogs} onRunWithoutPatch={onRunWithoutPatch} />;
   }
 
   if (tab === "readme") {
@@ -196,9 +195,9 @@ function BuildFacts({ rows }: { rows: [string, string][] }) {
 // The preview never launches again in place: that is the Environment
 // tab's answer to a value saved while a run is up, and it belongs where
 // the values are.
-type PreviewProps = Omit<RunControls, "onRelaunch"> & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; events: SandboxEvent[]; report: EnvReport | null; version: number; patch: RepoPatch | null; controls: TraceControls };
+type PreviewProps = Omit<RunControls, "onRelaunch"> & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; events: SandboxEvent[]; version: number; patch: RepoPatch | null; controls: TraceControls };
 
-function Preview({ repo, run, error, events, report, version, patch, controls, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenBuild, onOpenTerminal, onOpenLogs, onRunWithoutPatch }: PreviewProps) {
+function Preview({ repo, run, error, events, version, patch, controls, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenBuild, onOpenTerminal, onOpenLogs, onRunWithoutPatch }: PreviewProps) {
   const [showPatch, setShowPatch] = useState(false);
   // Restart, as asked for rather than as confirmed.
   //
@@ -286,6 +285,13 @@ function Preview({ repo, run, error, events, report, version, patch, controls, o
     ? step.summary.startsWith(step.title) ? step.summary : `${step.title} · ${step.summary}`
     : run ? STATUS_LABEL[run.status] : "";
 
+  // The run was going and then the machine under it went away, which
+  // the runtime tells apart from a run that would not go and stamps on
+  // the row. Named once here because two things below it read it and
+  // they have to agree: the cube and the sentence, and whether the
+  // pipeline's edits are worth mentioning underneath them.
+  const vanished = run?.status === "failed" && run.errorKind === "SandboxGone";
+
   // The headline, one sentence under it, and the thing to press. One
   // sentence: while the run is going that sentence is its current step,
   // so this line is the run, up to date; when it is over it is why. Where
@@ -332,7 +338,7 @@ function Preview({ repo, run, error, events, report, version, patch, controls, o
           // there is, which is also the whole of what the pane knows:
           // the sentence under the old heading said it, and the heading
           // above it said something else.
-          ? run.errorKind === "SandboxGone"
+          ? vanished
             ? [CUBES.stopped, "This sandbox is no longer running", null, again]
             : [CUBES.crashed, "Could not run " + repo.fullName, plainError(run.error) || "The run failed. See Setup’s Logs for what the tools printed.", again]
           : isRunCloned(run)
@@ -358,29 +364,30 @@ function Preview({ repo, run, error, events, report, version, patch, controls, o
   const build = run ? { label: "View build details", onClick: onOpenBuild } : null;
   const actions = preparing ? [{ ...build!, primary: true }, action] : [action, build];
 
-  // Three facts the one sentence has no room for, between it and the
-  // buttons: which step, how long, and whether the environment scan came
-  // up short. Read from the same `runSteps`/`runDuration` the Build tab
-  // is drawn from and the same `EnvReport` the Environment tab lists, so
-  // there is no second opinion about any of them here — and cut to three
-  // lines, because the whole list drawn a second time is what this pane
-  // had before and what the note below says was taken out on purpose.
+  // The one fact the sentence above cannot carry: how long this has
+  // been going on.
   //
-  // Each row appears only where there is something true to put in it. A
-  // run with nothing in its log yet has no active step; a run that has
-  // not started a step has no duration; a repository with nothing
-  // missing has no third row rather than a reassuring zero.
+  // There were three. "Current step" was the first word of the sentence
+  // directly above it, so a run scanning the environment said
+  // "Environment · Scanning…" and then "Current step  Environment"
+  // under it — the step named twice, the second time with nothing added.
+  // "Environment  1 missing" made it three times, and a count of missing
+  // values is not news about whether the build is moving; it is what the
+  // Environment tab is a list of, and the scan is still running when
+  // this is on the screen. What is left is the number nothing else on
+  // the pane can tell you, and a run that has not started a step has no
+  // duration, so it has no row either.
   const elapsed = steps && now !== null ? runDuration(steps, now) : null;
-  const missing = report?.missing.length ?? 0;
-  const facts: [string, string][] = preparing
-    ? [
-        ...(step ? ([["Current step", step.title]] as [string, string][]) : []),
-        ...(elapsed !== null ? ([["Elapsed", formatDuration(elapsed)]] as [string, string][]) : []),
-        ...(missing ? ([["Environment", `${missing} missing`]] as [string, string][]) : []),
-      ]
-    : [];
+  const facts: [string, string][] = preparing && elapsed !== null ? [["Elapsed", formatDuration(elapsed)]] : [];
 
-  const patchBox = run?.status === "failed" && patch && (
+  // Not under a sandbox that went away. The box says the pipeline's
+  // edits were made to try to make it run and it still did not start —
+  // which is true of a repository that would not go, and false here:
+  // this one went. It came up, served a page, and then lost the machine
+  // under it an hour later. Leaving the box there put the edits forward
+  // as the reason for something they had nothing to do with, under a
+  // sentence that had just said otherwise.
+  const patchBox = run?.status === "failed" && !vanished && patch && (
     <div className="flex max-w-[420px] flex-col items-start gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
       <span>The pipeline edited {patch.files.length} file{patch.files.length === 1 ? "" : "s"} in the sandbox copy to try to make it run, but it still did not start.</span>
       <Button variant="ghost" size="sm" onClick={() => setShowPatch(true)} className="h-7 px-2 font-normal">View the changes</Button>
@@ -409,11 +416,9 @@ function Preview({ repo, run, error, events, report, version, patch, controls, o
   // press. While it is building the sentence is the step it is on, which
   // with the cube above it is the whole of what this tab knows.
   //
-  // Three named facts under it while it is building, which is the one
-  // state where "what it is doing" is a question with more than one
-  // answer. Still not the list: three lines with no timings, no
-  // per-step states and no log, and they are gone the moment the run
-  // settles.
+  // With how long it has been going under it while it is building,
+  // which is the one thing the sentence cannot say and the one question
+  // it leaves. Gone the moment the run settles.
   return (
     <PreviewState
       image={image}
@@ -431,7 +436,6 @@ function Preview({ repo, run, error, events, report, version, patch, controls, o
          to do and the place to see why. */
       facts={facts.length > 0 && <BuildFacts rows={facts} />}
       actions={actions}
-      note={preparing && "Track setup progress, timings, environment status, and logs."}
     >
       {!run && <TrailInsight repo={repo} />}
       {patchBox && (
