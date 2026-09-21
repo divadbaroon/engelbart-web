@@ -240,7 +240,7 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
         : run.status === "no_service"
           ? [CUBES.unavailable, "Nothing to serve in " + repo.fullName, plainError(run.error) || "The pipeline found no web application of its own to run.", again]
         : run.status === "failed"
-          ? [CUBES.failed, "Could not run " + repo.fullName, plainError(run.error) || "The run failed. See Setup’s Logs for what the tools printed.", again]
+          ? [CUBES.crashed, "Could not run " + repo.fullName, plainError(run.error) || "The run failed. See Setup’s Logs for what the tools printed.", again]
           : isRunCloned(run)
             ? [CUBES.idle, "Live preview", "Your running project will appear here.", { label: "Start", onClick: () => onLaunch(run.id), primary: true, icon: <Play className="size-3 fill-current" /> }]
             : [CUBES.stopped, STATUS_LABEL[run.status], plainError(run.error) || "Prepare the repository again to start over.", again];
@@ -257,7 +257,12 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
   // itself (components/setup-panel.tsx), so this was the same fact
   // announced on the tab that is trying to show an application.
 
-  const briefBox = run && <BriefBox run={run} />;
+  // No brief here. It stood under every state this pane draws, which is
+  // a paragraph about what the repository is for placed under the news
+  // that it would not run — an answer to a question nobody standing in
+  // front of this pane is asking. It is still under the pane for a run
+  // that came up and had nothing to serve, where what the repository is
+  // for is exactly the next thing to know.
 
   // Nothing to preview.
   //
@@ -285,9 +290,8 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
       actions={[action, run && { label: "Open Build", onClick: onOpenBuild }]}
     >
       {!run && <TrailInsight repo={repo} />}
-      {(briefBox || patchBox) && (
+      {patchBox && (
         <div className="mt-5 flex w-full max-w-[440px] flex-col items-start gap-3 text-left">
-          {briefBox}
           {patchBox}
         </div>
       )}

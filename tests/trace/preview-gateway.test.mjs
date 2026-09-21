@@ -259,6 +259,26 @@ describe("gateway", () => {
     const streamed = await waitFor(() => of("network.response").find((l) => l.requestId === action.requestId));
     assert.equal(streamed.streamed, true);
   });
+  it("says on its health which origins the bridge it injected will obey", async () => {
+    // The one thing that tells a bridge with no picker in it apart from a
+    // current bridge refusing this workspace, which look identical from a
+    // browser and want opposite things done about them. Both config
+    // shapes are reported, the list first, deduplicated.
+    const { createPreviewGateway } = await import("../../sandbox/trace/preview-gateway.mjs");
+    const one = createPreviewGateway({
+      listenPort: 0, targetPort: appPort, bridge: BRIDGE,
+      bridgeConfig: { parentOrigin: "http://localhost:3000", parentOrigins: ["https://app.test", "http://localhost:3000"] },
+      emit: () => {}, log: () => {},
+    });
+    await new Promise((r) => one.server.listen(0, "127.0.0.1", r));
+    try {
+      const at = `http://127.0.0.1:${one.server.address().port}`;
+      const health = await (await fetch(at + "/__engelbart/health")).json();
+      assert.deepEqual(health.workspaceOrigins, ["https://app.test", "http://localhost:3000"]);
+    } finally {
+      await new Promise((r) => one.server.close(r));
+    }
+  });
   it("serves the bridge and its health, and takes batches only in the right shape", async () => {
     const js = await fetch(base + "/__engelbart/bridge.js");
     assert.equal(await js.text(), BRIDGE);
@@ -267,6 +287,10 @@ describe("gateway", () => {
     assert.equal(again.status, 304);
     const health = await (await fetch(base + "/__engelbart/health")).json();
     assert.equal(health.gateway, "preview");
+    // Nothing was configured for this gateway, so it claims no origins
+    // rather than an empty promise: a workspace reads a missing list as
+    // "this image is too old to say" and does not accuse it of refusing.
+    assert.deepEqual(health.workspaceOrigins, []);
     const preflight = await fetch(base + "/__engelbart/events", { method: "OPTIONS" });
     assert.equal(preflight.status, 204);
     assert.equal(preflight.headers.get("access-control-allow-origin"), "*");

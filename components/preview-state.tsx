@@ -53,6 +53,13 @@ const CUBE = 128;
 // wrong with it, winking with sparks while it comes up, surprised when
 // it did not, eyes closed when it has been stopped, and frowning when
 // there is nothing there to reach.
+//
+// Seven names, six drawings. `crashed` is the frowning cube under a
+// second name, because two of the states are the same disappointment
+// from different directions and the sheet has one face for it: a
+// repository that would not prepare is a surprise, and a run that came
+// up and then went away is a let-down. Named rather than reached for as
+// `unavailable`, so the branch that draws it still says what it means.
 export const CUBES = {
   idle: "/sandbox_icon.png",
   running: "/sandbox_icon_running.png",
@@ -60,6 +67,7 @@ export const CUBES = {
   failed: "/sandbox_icon_failed.png",
   stopped: "/sandbox_icon_stopped.png",
   unavailable: "/sandbox_icon_unavailable.png",
+  crashed: "/sandbox_icon_unavailable.png",
 } as const;
 
 // The one the two "nothing has gone wrong yet" panes draw.

@@ -88,6 +88,32 @@ describe("the annotate control channel", () => {
     await sleep(0);
     assert.equal(api.annotate().active, false, "with no parentOrigin the bridge only observes");
   });
+  it("takes any of the origins it was given, and no others", async () => {
+    // One workspace is served from more than one origin — a dev server
+    // and a deployment — and the sandbox is pinned by whichever process
+    // launched it. Pinned to one, it refused the other in silence: the
+    // picker never answered and a recording saved no pictures, because
+    // both ride this channel and both are dropped by this one test.
+    const other = "https://engelbart.vercel.test";
+    const { api, down } = await preview("<button>Go</button>", { parentOrigin: "", config: { parentOrigins: [WORKSPACE, other] } });
+    down({ type: "mode", on: true }, { origin: other });
+    await sleep(0);
+    assert.equal(api.annotate().active, true, "the second origin in the list drives the picker");
+    down({ type: "mode", on: false }, { origin: WORKSPACE });
+    await sleep(0);
+    assert.equal(api.annotate().active, false, "and so does the first");
+    down({ type: "mode", on: true }, { origin: "https://elsewhere.test" });
+    await sleep(0);
+    assert.equal(api.annotate().active, false, "an origin that is on neither list is still refused");
+  });
+  it("still reads the single-origin config an older worker sends", async () => {
+    // A sandbox launched before the list existed carries only
+    // parentOrigin, and must keep the channel it had.
+    const { api, down } = await preview("<button>Go</button>", { parentOrigin: WORKSPACE });
+    down({ type: "mode", on: true });
+    await sleep(0);
+    assert.equal(api.annotate().active, true);
+  });
   it("takes only the window that embeds this one", async () => {
     const { api, down, win } = await preview("<button>Go</button>");
     down({ type: "mode", on: true }, { source: win });

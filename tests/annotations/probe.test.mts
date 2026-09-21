@@ -17,6 +17,36 @@ describe("why a preview did not answer", () => {
     assert.deepEqual(await diagnose("https://43110-x.e2b.app"), { kind: "old-bridge" });
     assert.match(sayWhy({ kind: "old-bridge" }), /rebuild the runner template and start the run again/);
   });
+  it("tells a refused origin apart from a bridge with no picker in it", async () => {
+    // The two look identical from here — injected, and silent — and the
+    // advice for them is opposite: rebuild the image, or launch the run
+    // for the origin you are on. The gateway is asked which origins it
+    // handed the bridge, and the answer decides.
+    const win = globalThis.window;
+    globalThis.window = { location: { origin: "https://engelbart.vercel.app" } } as unknown as Window & typeof globalThis;
+    try {
+      serving({ ok: true, gateway: "preview", documents: 4, injected: 4, blocked: 0, workspaceOrigins: ["http://localhost:3000"] });
+      const d = await diagnose("https://43110-x.e2b.app");
+      assert.deepEqual(d, { kind: "foreign-origin", allowed: ["http://localhost:3000"], ours: "https://engelbart.vercel.app" });
+      const said = sayWhy(d);
+      assert.match(said, /launched for http:\/\/localhost:3000/);
+      assert.match(said, /ENGELBART_WORKSPACE_ORIGIN/);
+      assert.doesNotMatch(said, /rebuild the runner template/);
+
+      // Listed, so the silence is not about the origin and the older
+      // answer stands.
+      serving({ ok: true, gateway: "preview", documents: 4, injected: 4, blocked: 0, workspaceOrigins: ["https://engelbart.vercel.app"] });
+      assert.deepEqual(await diagnose("https://43110-x.e2b.app"), { kind: "old-bridge" });
+
+      // A gateway from an image built before it reported the list says
+      // nothing about origins, and is not accused of refusing us.
+      serving({ ok: true, gateway: "preview", documents: 4, injected: 4, blocked: 0 });
+      assert.deepEqual(await diagnose("https://43110-x.e2b.app"), { kind: "old-bridge" });
+    } finally {
+      if (win) globalThis.window = win; else delete (globalThis as { window?: unknown }).window;
+    }
+  });
+
   it("calls it a policy when the documents refused the injection", async () => {
     serving({ ok: true, gateway: "preview", documents: 2, injected: 0, blocked: 2 });
     assert.deepEqual(await diagnose("https://43110-x.e2b.app"), { kind: "blocked", blocked: 2, documents: 2 });
