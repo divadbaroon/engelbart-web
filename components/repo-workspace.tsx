@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Play, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
@@ -220,38 +220,6 @@ function PreviewWithReplay({ recording, clock, run, children }: { recording: Tra
   );
 }
 
-// A few named facts, centred under the sentence that names the state.
-//
-// A list and not a dashboard: no boxes, no rules, no figures set larger
-// than the words around them. Every one of these is also on the Build
-// tab, at length and with the rest of the run around it; this is the
-// three that answer "is it getting anywhere" without leaving the pane,
-// and the button under them is how you get the rest.
-//
-// `<dl>`, because that is what a list of names and values is, and it is
-// what the three places in the Visualizer that draw one already use.
-//
-// Two columns rather than three centred lines. Centring each row on its
-// own puts every name and every value at a different offset, and three
-// of those under a centred heading read as ragged rather than as a
-// list. The grid is as wide as its widest pair and centred whole, so the
-// names end together and the values begin together — and because the
-// pairs are named in a fixed order, a row that has nothing to say and
-// drops out does not move the two that remain. The value is tabular, so
-// a duration ticking up does not shift the row under it.
-function BuildFacts({ rows }: { rows: [string, string][] }) {
-  return (
-    <dl className="mx-auto grid grid-cols-[auto_auto] gap-x-2 gap-y-0.5 text-xs leading-[1.5]">
-      {rows.map(([name, value]) => (
-        <Fragment key={name}>
-          <dt className="text-right text-muted-foreground/70">{name}</dt>
-          <dd className="text-left tabular-nums text-muted-foreground">{value}</dd>
-        </Fragment>
-      ))}
-    </dl>
-  );
-}
-
 // The preview never launches again in place: that is the Environment
 // tab's answer to a value saved while a run is up, and it belongs where
 // the values are.
@@ -424,29 +392,24 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
   const build = run ? { label: "View build details", onClick: onOpenBuild } : null;
   const actions = preparing ? [{ ...build!, primary: true }, action] : [action, build];
 
-  // The one fact the sentence above cannot carry: how long this has
-  // been going on.
+  // How long this has been going, under the buttons.
   //
-  // There were three. "Current step" was the first word of the sentence
-  // directly above it, so a run scanning the environment said
-  // "Environment · Scanning…" and then "Current step  Environment"
-  // under it — the step named twice, the second time with nothing added.
-  // "Environment  1 missing" made it three times, and a count of missing
-  // values is not news about whether the build is moving; it is what the
-  // Environment tab is a list of, and the scan is still running when
-  // this is on the screen. What is left is the number nothing else on
-  // the pane can tell you, and a run that has not started a step has no
-  // duration, so it has no row either.
+  // It was three rows and it sat above them. "Current step" was the
+  // first word of the sentence directly above it, and "Environment ·
+  // 1 missing" was a count that the tab of that name is a list of. What
+  // is left is a whole-run duration — `runDuration` sums every step —
+  // and that is exactly why it cannot stay where it was: directly under
+  // a line naming the current step, a number reads as that step's.
+  // Below the buttons it is what it is, and it is the right weight
+  // there. Nobody acts on it; it is the answer to "is this getting
+  // anywhere", asked while waiting, and a figure that changes every
+  // second does not belong between the state and the way out of it.
+  //
+  // Still labelled. A bare duration under two buttons is a number with
+  // no noun, and the word is short enough not to make a line of it.
   const elapsed = steps && now !== null ? runDuration(steps, now) : null;
-  const facts: [string, string][] = preparing && elapsed !== null ? [["Elapsed", formatDuration(elapsed)]] : [];
+  const waited = preparing && elapsed !== null ? `Elapsed ${formatDuration(elapsed)}` : null;
 
-  // Not under a sandbox that went away. The box says the pipeline's
-  // edits were made to try to make it run and it still did not start —
-  // which is true of a repository that would not go, and false here:
-  // this one went. It came up, served a page, and then lost the machine
-  // under it an hour later. Leaving the box there put the edits forward
-  // as the reason for something they had nothing to do with, under a
-  // sentence that had just said otherwise.
   const patchBox = run?.status === "failed" && !vanished && patch && (
     <div className="flex max-w-[420px] flex-col items-start gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
       <span>The pipeline edited {patch.files.length} file{patch.files.length === 1 ? "" : "s"} in the sandbox copy to try to make it run, but it still did not start.</span>
@@ -476,9 +439,9 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
   // press. While it is building the sentence is the step it is on, which
   // with the cube above it is the whole of what this tab knows.
   //
-  // With how long it has been going under it while it is building,
-  // which is the one thing the sentence cannot say and the one question
-  // it leaves. Gone the moment the run settles.
+  // With how long it has been going under the buttons while it is
+  // building, which is the one thing the sentence cannot say and the
+  // one question it leaves. Gone the moment the run settles.
   return (
     <PreviewState
       image={image}
@@ -494,8 +457,8 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
          Visualizer; a third way in, on the pane that is trying to show
          an application, made the row a menu. What is left is the thing
          to do and the place to see why. */
-      facts={facts.length > 0 && <BuildFacts rows={facts} />}
       actions={actions}
+      note={waited}
     >
       {!run && <TrailInsight repo={repo} />}
       {patchBox && (
