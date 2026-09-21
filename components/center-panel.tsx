@@ -242,9 +242,15 @@ function PanelTabButton({ active, onSelect, children }: { active: boolean; onSel
       role="tab"
       aria-selected={active}
       onClick={onSelect}
+      // The fill is `bg-muted` and not `bg-background`, which is what it
+      // was: this row sits on the panel, the panel is `bg-background`, and
+      // a white chip on a white bar is not a chip. What marked the tab you
+      // were on was the weight of its name and a 5%-alpha shadow — which
+      // is to say, almost nothing. Grey on white is the same segmented
+      // control the setup row draws, and it reads.
       className={cn(
         "shrink-0 rounded-md px-2 py-1 text-[13px]",
-        active ? "bg-background font-semibold text-foreground shadow-sm" : "font-normal text-muted-foreground hover:text-foreground",
+        active ? "bg-muted font-semibold text-foreground" : "font-normal text-muted-foreground hover:text-foreground",
       )}
     >
       {children}

@@ -98,7 +98,12 @@ export function SetupPanel({ repo, run, events, error, report, rows, watched, se
               onClick={() => setTab(t.key)}
               className={cn(
                 "h-6 shrink-0 rounded px-2 text-[12px]",
-                tab === t.key ? "bg-background font-medium text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                // Grey, for the reason the panel's row is: the bar is white
+                // and so was the chip. Lighter than the panel's tabs on
+                // purpose — these are sections of one surface, not five
+                // tools — but marked the same way, because being the one
+                // you are on is the same fact in both rows.
+                tab === t.key ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
               {t.label}
