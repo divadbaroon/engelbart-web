@@ -107,6 +107,10 @@ const reference = { key: "solution", label: "the reference game", role: "referen
 const own = { key: "my-canvas", label: "their canvas", role: "own" as const, frameIds: [] };
 const heard = (channel: string, text: string, fresh = true) => [{ at: 0, channel, text, fresh }];
 const sentBefore = [episode({ subBehavior: "SUBMIT_RESPONSE" })];
+// A send, and then an answer to it. "After the tutor's answer" needs
+// both: a send alone leaves the person writing their first message
+// again, which is a different reading and a different sentence.
+const answeredBefore = [...sentBefore, episode({ evidence: { ...BLANK, appeared: heard("tutor", "Close. What about rotation near the wall?") } })];
 const RELOADED = "the page was reloaded and the session picked up again";
 
 const asked = (taxonomy: Taxonomy, over: Partial<Evidence>, ctx: Partial<Context>) => {
@@ -145,7 +149,8 @@ const CASES: { name: string; evidence: Partial<Evidence>; context?: Partial<Cont
   { name: "playing on their own canvas", evidence: { surface: own, acts: { ...BLANK.acts, keys: 9, clicks: 2 } } },
   { name: "looking over their own canvas", evidence: { surface: own } },
   { name: "writing, just back from the reference", evidence: { composing: true }, context: { before: [...sentBefore, episode({ evidence: { ...BLANK, surface: reference } })] } },
-  { name: "writing after feedback", evidence: { composing: true }, context: { before: sentBefore } },
+  { name: "writing after feedback", evidence: { composing: true }, context: { before: answeredBefore } },
+  { name: "writing again after a send that was never answered", evidence: { composing: true }, context: { before: sentBefore } },
   { name: "writing the first message", evidence: { composing: true } },
   { name: "writing the first message, with three edits", evidence: { composing: true, acts: { ...BLANK.acts, typing: 3 } } },
   { name: "writing the first message, with one edit", evidence: { acts: { ...BLANK.acts, typing: 1 } } },
@@ -212,4 +217,21 @@ describe("the ROPE profile and the ROPE taxonomy read the same evidence the same
     assert.deepEqual(missed, [], `no case reaches ${missed.join(", ")}`);
     assert.ok(reached.has(checked.profile.fallback.sub), "nothing falls through to the fallback");
   });
+});
+
+// The sentence "after the tutor's answer" asserts something. Both
+// readings have to require it, or the trace says a thing it cannot know.
+describe("writing after a send is not writing after an answer", () => {
+  for (const [name, taxonomy] of [["handwritten", ROPE_TAXONOMY], ["compiled from the profile", compiled.taxonomy]] as const) {
+    it(`${name}: only claims the tutor answered when the tutor answered`, () => {
+      const answered = asked(taxonomy, { composing: true }, { before: answeredBefore });
+      assert.equal(answered.sub, "FORMULATE_AFTER_FEEDBACK");
+      assert.match(answered.description, /after the tutor's answer/);
+
+      const unanswered = asked(taxonomy, { composing: true }, { before: sentBefore });
+      assert.equal(unanswered.sub, "FORMULATE_RESPONSE", "a send with no answer is still a first message");
+      assert.doesNotMatch(unanswered.description, /tutor's answer/);
+      assert.doesNotMatch(unanswered.because, /after the tutor answered/);
+    });
+  }
 });

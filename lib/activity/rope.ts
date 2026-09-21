@@ -325,7 +325,11 @@ const RULES: Rule[] = [
   {
     sub: "FORMULATE_AFTER_FEEDBACK",
     broad: "FORMULATING",
-    when: (c) => composing(c) && submittedBefore(c),
+    // A submit before this stretch is not an answer to it. The sentence
+    // says the tutor answered, so the tutor has to have said something:
+    // a send that failed, or one still in flight, leaves the person
+    // writing their first message again, not their next one.
+    when: (c) => composing(c) && submittedBefore(c) && lastTutorText(c) !== null,
     read: (c) => read(
       "Worked on the next message, after the tutor's answer.",
       `the message box was open for ${spell(c.durationMs)} after the tutor answered the previous message`,
