@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Below this the element is not being laid out for a reader: the panel
@@ -114,9 +115,31 @@ export default function SandboxShell({ runId, className }: { runId: string; clas
   return (
     <div className={cn("relative flex h-full min-h-0 flex-col", className)}>
       <div ref={host} className="min-h-0 flex-1 px-3 py-2 [&_.xterm]:h-full" />
-      {state.status !== "open" && (
+      {/* Coming up and already over are two different things and were
+          one line in the corner. `term.open` paints the white terminal
+          and its blinking cursor the moment this mounts, before the
+          first packet, so a shell that takes a few seconds to open read
+          as a shell that was open and had nothing to say — with the one
+          word that said otherwise pinned to the bottom-left, which is
+          where the last line of a session's output goes, not where
+          somebody waiting for it is looking.
+
+          Absolutely positioned, and it has to stay that way: `fit.fit()`
+          sizes the pty off the host div above, and `resized()` refuses
+          to measure it at all under REAL_LAYOUT, so a sibling in flow
+          would take height off it and settle the terminal at the wrong
+          cols and rows — which, once the scrollback has reflowed, is
+          not undoable. Opaque for the same reason it is centred: the
+          cursor is underneath it. */}
+      {state.status === "connecting" && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 bg-white text-[13px] text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" />
+          Opening a shell in the sandbox…
+        </div>
+      )}
+      {(state.status === "closed" || state.status === "error") && (
         <div className={cn("pointer-events-none absolute inset-x-0 bottom-0 px-3.5 py-1.5 text-[11px]", state.status === "error" ? "text-destructive" : "text-muted-foreground")}>
-          {state.status === "connecting" ? "Opening a shell in the sandbox…" : state.detail}
+          {state.detail}
         </div>
       )}
     </div>

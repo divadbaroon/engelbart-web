@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Copy } from "lucide-react";
+import { Copy, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
 import { STATUS_LABEL, isSandboxLive, terminalLines, type SandboxEvent, type SandboxRun, type TermLine } from "@/lib/sandbox";
@@ -15,7 +15,26 @@ import { InterfaceHistory, actLines, type Watched } from "@/components/interface
 import dynamic from "next/dynamic";
 
 // xterm touches the DOM as soon as it loads.
-const SandboxShell = dynamic(() => import("@/components/sandbox-shell"), { ssr: false });
+//
+// Two waits, not one, and this is the first: while the chunk is on its
+// way there is no component yet to say anything, and `dynamic` renders
+// nothing unless it is given something. On a cold tab that was a blank
+// pane of unknown duration. The second wait — the connection to the
+// sandbox — is the shell's own, and says the same sentence in the same
+// place so the two read as one.
+//
+// Written out here rather than imported from the shell: a static import
+// of that module would pull @xterm and its stylesheet into this chunk
+// and undo the split this line exists for.
+const SandboxShell = dynamic(() => import("@/components/sandbox-shell"), {
+  ssr: false,
+  loading: () => (
+    <p className="flex h-full items-center justify-center gap-2 text-[13px] text-muted-foreground">
+      <Loader2 className="size-3.5 animate-spin" />
+      Opening a shell in the sandbox…
+    </p>
+  ),
+});
 
 // What the repository is given to run with, and how the run went.
 //

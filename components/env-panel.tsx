@@ -221,7 +221,12 @@ export function EnvPanel({ repo, run, report, onPrepare, onRelaunch }: Props) {
       )}
 
       {loading ? (
-        <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+        // `flex-1` rather than `h-full`: the local-Supabase notice above
+        // is gated on its own error and not on this, so the two can
+        // share the column, and a full-height sibling would push the
+        // pane into a scrollbar over a single line. This way it takes
+        // whatever height is left and centres in it.
+        <p className="flex flex-1 items-center justify-center gap-2 text-[13px] text-muted-foreground">
           <Loader2 className="size-3.5 animate-spin" />
           Loading…
         </p>
