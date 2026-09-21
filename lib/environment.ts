@@ -30,6 +30,66 @@ export const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 export const MAX_ENV_NAME = 200;
 export const MAX_ENV_VALUE = 16384;
 
+// A value that was probably pasted from the wrong thing.
+//
+// Nothing here refuses anything. A variable may legitimately hold almost
+// any string, and a panel that argued with the person about what their
+// own key looks like would be worse than one that stays quiet. This says
+// the one sentence that would have saved the time, and the value is saved
+// either way.
+//
+// The case it was written for: a git commit subject pasted into
+// OPENAI_API_KEY. It saved without a word, the run launched with it, and
+// the only sign was a 401 from OpenAI two minutes later quoting the
+// commit message back — by which point the tab that could have said
+// something had been closed twice.
+//
+// Only checks that are nearly always right belong here. A warning that
+// cries wolf is read once and then never again, which would cost more
+// than the silence did.
+export function suspectValue(name: string, value: string): string | null {
+  // Quotes survive a copy out of a .env file or a shell. A value that
+  // wanted them would not have both, at both ends, and nothing between.
+  if (value.length > 1 && /^(["'])[\s\S]*\1$/.test(value)) {
+    return "This was saved with its quotation marks. If they are not part of the value, take them off.";
+  }
+  // A whole assignment pasted rather than the right-hand side of one.
+  const head = value.slice(0, name.length);
+  if (head.toLowerCase() === name.toLowerCase() && /^\s*=/.test(value.slice(name.length))) {
+    return `This starts with "${name}=", so a whole line may have been pasted rather than the value.`;
+  }
+  // The one that matters. Keys, tokens and passwords are issued as one
+  // opaque run of characters; prose is what arrives when something else
+  // was on the clipboard.
+  if (SECRET_NAME.test(name) && /\s/.test(value) && !KEY_MATERIAL.test(value)) {
+    return "A key or token does not usually contain spaces. Check that what was pasted is the value and nothing else.";
+  }
+  return null;
+}
+
+// Secrets that are a document rather than a token, and carry spaces by
+// construction rather than by accident.
+//
+// PEM and PGP armor is always `-----BEGIN <multi-word label>-----`, so
+// every private key, every certificate and every service-account JSON
+// with a key inside it contains a space. An SSH public key is
+// `<type> <base64> <comment>`. Structured data is spaced wherever it was
+// printed. Without this the space rule is not merely imprecise about
+// these, it is wrong about every single one of them — and a warning that
+// is always wrong about the most common multi-line secret there is would
+// be read once and then never again, which is the cost the rule above
+// exists to avoid paying.
+const KEY_MATERIAL = /-----BEGIN [A-Z0-9 ]+-----|^(ssh-[a-z0-9]+|ecdsa-sha2-[a-z0-9-]+) |^[[{][\s\S]*[\]}]$/;
+
+// Names whose values are issued rather than written. Matched on the last
+// word so ANTHROPIC_API_KEY and DATABASE_PASSWORD are in and PUBLIC_KEY_PATH
+// is out.
+//
+// CREDENTIALS is deliberately absent. GOOGLE_APPLICATION_CREDENTIALS holds
+// either a path or a whole service-account document, and both contain
+// spaces, so the space rule would be wrong every time it fired on one.
+const SECRET_NAME = /(^|_)(KEY|TOKEN|SECRET|PASSWORD|PASSWD|DSN)$/i;
+
 // What the wrapper emits, before the worker stamps it with the run.
 export type EnvReportEvent = Record<string, unknown>;
 
@@ -51,6 +111,42 @@ export function toEnvReport(ev: EnvReportEvent, runId: string, at: string): EnvR
     localError: typeof ev.localError === "string" && ev.localError ? ev.localError : null, scannedAt: at, runId,
   };
 }
+
+// What a run is running with that is no longer what is saved.
+//
+// A run reads the saved values once, at launch: the worker writes them
+// into the sandbox and the wrapper deletes the file once read. Nothing
+// re-reads them while a run is alive, so anything saved or removed
+// afterwards reaches the next run and not this one.
+//
+// Two lists, because the two cases cannot be found the same way. A
+// changed value still has a row, so its timestamp can be compared. A
+// removed one has no row left at all, so what the run was handed is read
+// from the run's own scan instead — which is also the only record that
+// survives closing the tab.
+//
+// `report` is that scan, and it must be this run's: an earlier run's
+// report standing in for it would describe an environment nobody is
+// running. The caller checks the run id, because only the caller knows
+// which run is in front of the person.
+export type PendingEnv = { stale: string[]; removed: string[] };
+
+export function pendingEnv(saved: { name: string; updatedAt: string }[], report: EnvReport | null): PendingEnv {
+  if (!report) return { stale: [], removed: [] };
+  // When the values were read, not when the run was queued. A run can
+  // spend a minute cloning first, and a requeue reuses the row without
+  // moving its start, so anything keyed to the start would report a
+  // value saved in between as missed for the life of the run.
+  const read = Date.parse(report.scannedAt);
+  return {
+    stale: saved.filter((s) => Date.parse(s.updatedAt) > read).map((s) => s.name),
+    removed: report.variables.filter((v) => v.source === SAVED_SOURCE && !saved.some((s) => s.name === v.name)).map((v) => v.name),
+  };
+}
+
+// What the wrapper writes as the source of a value that came from here,
+// as opposed to one the repository's own dotenv supplied (sandbox/hc_run.py).
+const SAVED_SOURCE = "saved";
 
 // A short line for a variable's state.
 export function describeEnv(v: EnvVariable, saved: boolean): string {

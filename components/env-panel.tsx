@@ -5,7 +5,7 @@ import { Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
 import type { SandboxRun } from "@/lib/sandbox";
-import { describeEnv, ENV_NAME, type EnvReport, type EnvVariable } from "@/lib/environment";
+import { describeEnv, ENV_NAME, pendingEnv, type EnvReport, type EnvVariable } from "@/lib/environment";
 import { getEnvironment, removeEnvValue, setEnvValue, type SavedEnv } from "@/app/workspace/[workspaceId]/env-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,7 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});   // name → value being typed
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState<{ name: string; value: string } | null>(null);
-  const [changed, setChanged] = useState(false);   // saved since the run started
+  const [warning, setWarning] = useState<string | null>(null);   // what was odd about the value just saved
 
   const load = useCallback(async () => {
     const result = await getEnvironment(repo.id);
@@ -52,6 +52,34 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
   useEffect(() => { void load(); }, [load, status]);
 
   const current = report ?? stored;
+
+  // What this run was handed, and when it was handed it.
+  //
+  // A run reads the saved values once, at launch: the worker's loadEnv
+  // writes them into the sandbox and the wrapper deletes the file once
+  // read. Nothing re-reads the table while a run is alive, so anything
+  // done here afterwards reaches the next run and not this one.
+  //
+  // The comparison is against the scan the run itself reported, not
+  // against `startedAt`. `startedAt` is when the run was queued, which
+  // can be a minute of cloning before the values were read, and a
+  // requeue reuses the row without moving it — so a value saved during
+  // the clone, or any value at all after a relaunch, would have been
+  // reported stale for the life of the run. `scannedAt` is stamped when
+  // the values were actually read, and `runId` keeps an earlier run's
+  // report from standing in for this one's.
+  const read = run && current && current.runId === run.id ? current : null;
+
+  // Saved or removed since then, and so not what this run is running
+  // with. Derived rather than remembered: this used to be a `changed`
+  // flag in this component, which went the moment the tab did — so
+  // leaving Environment and coming back showed a plain "Saved" for a
+  // value the running preview had never seen, which is how a key sat
+  // corrected in the database for seven minutes while the preview kept
+  // failing on the old one. What is on the server cannot forget, and it
+  // is also right when the change was made in another tab or by
+  // somebody else.
+  const { stale, removed } = pendingEnv(saved ?? [], read);
   const rows: Row[] = [];
   const seen = new Set<string>();
   for (const v of current?.variables ?? []) { seen.add(v.name); rows.push({ name: v.name, variable: v, saved: saved?.find((s) => s.name === v.name) ?? null }); }
@@ -66,8 +94,8 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
     withBusy(name, false);
     if (!result.ok) { setError(result.error); return false; }
     setError(null);
+    setWarning(result.warning ?? null);
     setDrafts((d) => { const next = { ...d }; delete next[name]; return next; });
-    setChanged(true);
     await load();
     return true;
   }
@@ -77,7 +105,7 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
     const result = await removeEnvValue(repo.id, name);
     withBusy(name, false);
     if (!result.ok) { setError(result.error); return; }
-    setChanged(true);
+    setWarning(null);
     await load();
   }
 
@@ -100,11 +128,28 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
         and handed to the repository the next time it starts.
       </p>
 
-      {changed && (
+      {(!!stale.length || !!removed.length) && (
         <div className="flex max-w-[560px] items-center gap-3 rounded-md border bg-[#f6f6f6] px-3.5 py-2.5 text-[13px] text-muted-foreground">
-          <span className="flex-1">Saved. Prepare the repository again to start it with the new values.</span>
-          <Button variant="outline" size="sm" onClick={() => { setChanged(false); onPrepare(); }} className="h-7 px-3 font-normal">Prepare again</Button>
+          <span className="flex-1">
+            {!!stale.length && (
+              <><span className="font-medium text-foreground">{stale.join(", ")}</span>
+                {stale.length === 1 ? " was saved" : " were saved"} after this run read its environment, so it is still using the {stale.length === 1 ? "value" : "values"} it was given. </>
+            )}
+            {!!removed.length && (
+              <><span className="font-medium text-foreground">{removed.join(", ")}</span>
+                {removed.length === 1 ? " was removed, but this run still has it" : " were removed, but this run still has them"}. </>
+            )}
+            Prepare the repository again to start it with what is saved now.
+          </span>
+          <Button variant="outline" size="sm" onClick={onPrepare} className="h-7 shrink-0 px-3 font-normal">Prepare again</Button>
         </div>
+      )}
+
+      {warning && (
+        <p className="flex max-w-[560px] items-start gap-2 text-[13px] leading-5 text-muted-foreground">
+          <span className="flex-1">Saved. {warning}</span>
+          <button type="button" onClick={() => setWarning(null)} aria-label="Dismiss" className="shrink-0 pt-0.5 text-muted-foreground/70 hover:text-foreground"><X className="size-3.5" /></button>
+        </p>
       )}
 
       {error && <p role="alert" className="max-w-[560px] text-[13px] text-destructive">{error}</p>}
