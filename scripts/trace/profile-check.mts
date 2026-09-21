@@ -11,6 +11,10 @@
 //   npm run profile:check
 //   npm run profile:check -- tests/fixtures/rope-profile.json
 //   node --env-file=.env.local --import tsx scripts/trace/profile-check.mts <profile.json> --run=<runId>
+//
+// `--export=<file>` also writes the Activity export this reading
+// produces — the same JSON the Copy button gives, carrying the stamp that
+// says which profile named the session.
 import { readFileSync } from "node:fs";
 import { frameIndex, traceRows, traceStages } from "@/lib/trace/timeline";
 import { toTraceEvent, toModelCall, MODEL_CALL_COLUMNS, type TraceEventRow, type ModelCallRow } from "@/lib/trace/types";
@@ -19,6 +23,10 @@ import { ROPE_TAXONOMY, ropeSurface } from "@/lib/activity/rope";
 import { validateProfile, renderIssues } from "@/lib/activity/profile/validate";
 import { compileProfile } from "@/lib/activity/profile/compile";
 import { fitReport, renderFit } from "@/lib/activity/profile/fit";
+import { activityExport, activityJson } from "@/lib/activity/export";
+import { DEFAULT_SEGMENTATION } from "@/lib/activity/segment";
+import { storedStamp } from "@/lib/activity/profile/stamp";
+import type { ProfileRow } from "@/lib/activity/profile/store";
 import type { Episode } from "@/lib/activity/types";
 
 const args = process.argv.slice(2);
@@ -27,6 +35,7 @@ const RUN = args.find((a) => a.startsWith("--run="))?.slice(6) ?? null;
 // The handwritten taxonomy to compare against, where there is one. Any
 // other profile is read on its own terms.
 const COMPARE = !args.includes("--no-compare");
+const EXPORT = args.find((a) => a.startsWith("--export="))?.slice(9) ?? null;
 
 const session = async () => {
   if (!RUN) {
@@ -68,6 +77,33 @@ console.log("\n──── what it read the session as ────\n");
 const clock = (e: Episode, t0: number) => `${String(Math.round((Date.parse(e.startedAt) - t0) / 1000)).padStart(5)}s`;
 const t0 = Date.parse(data[0]?.startedAt ?? new Date(0).toISOString());
 for (const e of data) console.log(`${clock(e, t0)}  ${e.broadBehavior.padEnd(13)} ${e.description}\n         ${" ".repeat(13)} ${e.confidence} · ${e.because}`);
+
+if (EXPORT) {
+  const { writeFileSync } = await import("node:fs");
+  // The stamp a stored row would carry. Written here from the profile
+  // itself so the export says which reading named the session even when
+  // the profile is still a file on disk.
+  const row = {
+    id: "-", repoId: checked.profile.artifact.repoId ?? "-", runId: RUN, signature: "-",
+    commitSha: checked.profile.artifact.commit ?? null, status: "ready" as const, profile: checked.profile,
+    schemaVersion: checked.profile.version, capabilityVersion: 1, issues: checked.issues, fit: null,
+    error: null, model: checked.profile.provenance.model ?? null, generatedBy: "script",
+    evidence: null, evidenceHash: null,
+    createdAt: new Date(0).toISOString(), updatedAt: new Date(0).toISOString(),
+    generatedAt: checked.profile.provenance.generatedAt ?? null,
+  } satisfies ProfileRow;
+  const made = activityExport({
+    episodes: data,
+    profile: storedStamp(compiled.taxonomy.name, checked.profile, row),
+    segmentation: DEFAULT_SEGMENTATION,
+    runId: RUN,
+  });
+  writeFileSync(EXPORT, activityJson(made));
+  console.log(`\n──── the export ────\n`);
+  console.log(`format ${made.format} · taxonomy "${made.taxonomy}" · ${made.episodeCount} episodes · ${made.eventCount} events`);
+  console.log(`profile ${JSON.stringify(made.profile, null, 2)}`);
+  console.log(`\n→ ${EXPORT}`);
+}
 
 if (COMPARE && checked.profile.artifact.name === ROPE_TAXONOMY.name) {
   console.log("\n──── against the handwritten taxonomy ────\n");

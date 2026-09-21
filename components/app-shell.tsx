@@ -11,6 +11,7 @@ import type { Repo } from "@/lib/repos";
 import { isRunActive, isRunCloned, isRunRunning, type SandboxRun } from "@/lib/sandbox";
 import { useSandboxRuns } from "@/hooks/use-sandbox-run";
 import { useScopedTraceView, useTraceView } from "@/hooks/use-trace-view";
+import { useArtifactProfile } from "@/hooks/use-artifact-profile";
 import { useRecordings } from "@/hooks/use-recordings";
 import { useAnnotations } from "@/hooks/use-annotations";
 import { useSemantics } from "@/hooks/use-semantics";
@@ -268,7 +269,17 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   // rows in the trace; without it every label is what the page said,
   // which is what the trace shows anyway.
   const semantics = useSemantics(repo, run);
-  const trace = useTraceView(run, semantics.index);
+  // What this artifact is, in its own words: a reading this application
+  // ships for a repository it knows, or one written for this repository
+  // from the repository and one recording of it. Until there is one the
+  // session is read blind — never in another artifact's vocabulary.
+  const profile = useArtifactProfile(repo, run);
+  const trace = useTraceView(run, semantics.index, profile.reading);
+  // The run offers what it has recorded, and the profile hook decides
+  // whether that is enough to be worth reading. Declared after the trace
+  // rather than inside it because the reading is an input to the trace,
+  // and the events are an output of it.
+  useEffect(() => { profile.offer(trace.events); }, [trace.events, profile.offer]); // eslint-disable-line react-hooks/exhaustive-deps
   const picked = useTraceSelection(run?.id);
   // The run's recordings, and where the Trace tab is: the whole run, the
   // list, or one recording, which the tab shows on the same canvas from a

@@ -32,6 +32,15 @@ const SUBSTRATE = [
   "../../../lib/activity/profile/validate.ts",
   "../../../lib/activity/profile/compile.ts",
   "../../../lib/activity/profile/fit.ts",
+  // How a profile comes to exist and how it is kept. The evidence pack
+  // and the prompt are the part a leak would do the most damage in: a
+  // noun of one artifact in the text a generator is handed is a hint
+  // about what to find, and the whole claim being made is that it was
+  // not hinted at.
+  "../../../lib/activity/profile/evidence.ts",
+  "../../../lib/activity/profile/generate.ts",
+  "../../../lib/activity/profile/prompt/schema-doc.ts",
+  "../../../lib/activity/profile/prompt/instrument-doc.ts",
   // The tests for the generic machinery are generic too. A fixture that
   // smuggled the artifact in through a test would be the same leak.
   "./schema.test.mts",
@@ -51,12 +60,15 @@ const BENEATH = [
   "../../../lib/activity/segment.ts",
   "../../../lib/activity/types.ts",
   "../../../lib/activity/graph.ts",
-  // What a stored row means, and the reading used when there is none.
-  // Their comments say which artifact's words leaked and where, because
-  // that is the reason each of them exists.
+  // The lifecycle: what makes a profile this artifact's, when it goes
+  // out of date, and what a stored row means. Their comments say which
+  // artifact's words leaked and where, because that is the reason each
+  // of them exists.
   "../../../lib/activity/profile/capability.ts",
+  "../../../lib/activity/profile/signature.ts",
   "../../../lib/activity/profile/stamp.ts",
   "../../../lib/activity/profile/store.ts",
+  "../../../lib/activity/profile/lookup.ts",
   "../../../lib/activity/blind.ts",
   "../../../lib/activity/story.ts",
   "../../../lib/activity/read.ts",

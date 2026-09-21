@@ -17,6 +17,8 @@ import { redactor } from "@/lib/bart/repo";
 import { appendMessage, createThread, threadInProject, threadMessages } from "@/lib/bart/store";
 import { RECORDING_COLUMNS, scopeTrace, toRecording, windowOf, type Recording, type RecordingRow } from "@/lib/trace/recording";
 import { ANNOTATION_COLUMNS, toAnnotation, type Annotation, type AnnotationRow } from "@/lib/annotations/model";
+import { readingForRun } from "@/lib/activity/profile/lookup";
+import { BLIND_READING, type Reading } from "@/lib/activity/reading";
 
 // One turn with Bart. The browser sends the question and what is in the
 // middle of the workspace by id; the server assembles the situation,
@@ -120,10 +122,18 @@ export async function POST(req: NextRequest) {
   // them, so Bart and the person are reading the same words.
   let loaded: Promise<TraceModel | null> | null = null;
   const index = async () => { const got = await semantics(); return buildIndex(mapsOf(got.readings)); };
+  // How this artifact is read: looked up, never chosen here and never
+  // sent with the question. It is found once with the trace and kept, so
+  // a recording is read in the same words as the run it was cut from.
+  // Until there is one the reading is blind, which says what any artifact
+  // would show rather than borrowing another artifact's vocabulary.
+  let reading: Reading = BLIND_READING;
   const fullTrace = () => (loaded ??= (async () => {
     if (!runOk || runOk.trace === "off") return null;
     const snap = await getTrace(runOk.id);
-    return snap.ok ? traceModel(snap.events, snap.calls, undefined, await index()) : null;
+    if (!snap.ok) return null;
+    reading = await readingForRun(supabase, repo, snap.events);
+    return traceModel(snap.events, snap.calls, undefined, await index(), reading);
   })());
   let notes: Promise<{ notes: Annotation[]; error: string | null }> | null = null;
   let scoped: Promise<TraceModel | null> | null = null;
@@ -131,7 +141,7 @@ export async function POST(req: NextRequest) {
     const full = await fullTrace();
     if (!full || !recording) return full;
     const cut = scopeTrace(full.events, Object.values(full.calls), windowOf(recording));
-    return traceModel(cut.events, cut.calls, full.frames, await index());
+    return traceModel(cut.events, cut.calls, full.frames, await index(), reading);
   })());
   const ctx: ToolContext = {
     repo, run: runOk, access: repo ? { repo, run: runOk, redact: await redactor(repo.id) } : null, trace, fullTrace, selection,

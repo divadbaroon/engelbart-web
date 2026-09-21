@@ -16,7 +16,8 @@
     "replay:verify": "node --import tsx scripts/trace/replay-check.mts",
     "profile:check": "node --import tsx scripts/trace/profile-check.mts",
     "capture:check": "node --import tsx scripts/trace/capture-check.mts",
-    "capture:coverage": "node --import tsx scripts/trace/capture-coverage.mts"
+    "capture:coverage": "node --import tsx scripts/trace/capture-coverage.mts",
+    "profile:write": "node --env-file-if-exists=.env.local --import tsx scripts/trace/profile-write.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
