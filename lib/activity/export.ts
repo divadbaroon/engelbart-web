@@ -35,7 +35,7 @@ export type ExportedEvent = {
   data: Record<string, unknown> | null;
 };
 
-export type ExportedStage = { id: string; kind: Stage["stage"]; title: string; at: string; endAt: string; callId: string | null };
+export type ExportedStage = { id: string; kind: Stage["stage"]; title: string; at: string; endAt: string; callId: string | null; bounds?: Stage["bounds"] };
 
 export type ExportedEpisode = Omit<Episode, "stages" | "events"> & { stages: ExportedStage[]; events: ExportedEvent[] };
 
@@ -90,7 +90,10 @@ export function eventsOf(episode: Episode): ExportedEvent[] {
   return out.sort((a, b) => a.seq - b.seq);
 }
 
-const exportStage = (s: Stage): ExportedStage => ({ id: s.id, kind: s.stage, title: s.title, at: s.at, endAt: s.endAt, callId: s.callId ?? null });
+// `bounds` rides along when a stage's end was worked out rather than
+// read off an event, so a reader can see the correction and the browser
+// instant it was made from.
+const exportStage = (s: Stage): ExportedStage => ({ id: s.id, kind: s.stage, title: s.title, at: s.at, endAt: s.endAt, callId: s.callId ?? null, ...(s.bounds ? { bounds: s.bounds } : {}) });
 
 export function exportEpisode(episode: Episode): ExportedEpisode {
   const rest = { ...episode } as Partial<Episode>;

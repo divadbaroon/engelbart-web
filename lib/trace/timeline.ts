@@ -87,6 +87,20 @@ export type NetworkRow = { kind: "network"; id: string; at: string; request: Tra
 export type TraceRow = CallRow | NoteRow | InteractionRow | KeyGroupRow | NetworkRow;
 
 export type StageKind = "explore" | "submit" | "call" | "response" | "navigate";
+
+// A stage whose end had to be worked out rather than read off an event
+// says here how. The browser reports when its mutations happened on its
+// own clock; the gateway stamps each event on the server's. Subtracting
+// one from the other is how a stage came to end before it began, so the
+// end is now the burst's own length added to its corrected start — a
+// duration, which no clock disagrees about — and what the browser said
+// is kept beside it rather than thrown away.
+export type StageBounds = {
+  from: "durationMs" | "mutationSpan" | "start";
+  rawEndAt: string | null;       // the browser's own last-mutation instant, as it reported it
+  offsetMs: number | null;       // what the two clocks differed by, when the event carried it
+  spanMs: number;                // the length that was used
+};
 export type Stage = {
   kind: "stage";
   id: string;
@@ -96,6 +110,7 @@ export type Stage = {
   label: string;
   detail: string | null;
   link: { correlation: Correlation; text: string } | null;  // how it is tied to what came before
+  bounds?: StageBounds;    // how `at` and `endAt` were arrived at, when they were not simply an event's own
   callId: string | null;   // the model call the stage is about: its own, the first tied to the submit, the last before the response
   title: string;           // the short form, for a chip: "Explored solution", "Submitted text", "gpt-4o call", "Response appeared"
   rows: TraceRow[];        // the rows folded into it, in order
@@ -844,14 +859,40 @@ function responseStage(changes: TraceEvent[], owner: InteractionRow, call: CallR
   if (removed.length) parts.push(`−${quote(removed[0], 40)}${removed.length > 1 ? ` and ${removed.length - 1} more` : ""}`);
   const mutations = changes.reduce((n, c) => n + (num(c.data?.mutations) ?? 0), 0);
   const container = descriptor(changes[0].data?.container);
-  const first = changes[0];
-  const end = Math.max(...changes.map((c) => num(c.data?.lastMutationAt) ?? ms(c.at)));
+  // The bursts are collected in sequence order, and an effect can carry
+  // a lower sequence number than the act that caused it, so the stage's
+  // bounds are the envelope of its events on the clock rather than the
+  // first and the last of them.
+  const first = changes.reduce((earliest, c) => (ms(c.at) < ms(earliest.at) ? c : earliest), changes[0]);
+  // How long each burst took, from the burst itself. Never the distance
+  // between a browser instant and a server one: those are two clocks.
+  const spanOf = (c: TraceEvent) => {
+    const reported = num(c.data?.durationMs);
+    if (reported !== null) return { span: Math.max(0, reported), from: "durationMs" as const };
+    const opened = num(c.data?.firstMutationAt);
+    const closed = num(c.data?.lastMutationAt);
+    if (opened !== null && closed !== null) return { span: Math.max(0, closed - opened), from: "mutationSpan" as const };
+    return { span: 0, from: "start" as const };
+  };
+  const ends = changes.map((c) => { const span = spanOf(c); return { at: ms(c.at) + span.span, ...span }; });
+  const end = Math.max(ms(first.at), ...ends.map((e) => e.at));
+  const widest = ends.reduce((most, e) => (e.span > most.span ? e : most), ends[0]);
+  const lastMutation = changes.reduce<number | null>((latest, c) => {
+    const reported = num(c.data?.lastMutationAt);
+    return reported === null ? latest : latest === null || reported > latest ? reported : latest;
+  }, null);
+  const bounds: StageBounds = {
+    from: widest.from,
+    rawEndAt: lastMutation === null ? null : new Date(lastMutation).toISOString(),
+    offsetMs: num(first.data?.clock_offset_ms),
+    spanMs: end - ms(first.at),
+  };
   const callEnd = call.result ? ms(call.result.at) : null;
   const when = callEnd === null ? "while the model call was in flight" : ms(first.at) < callEnd ? "while the model was still answering" : `${formatMs(ms(first.at) - callEnd)} after the model answered`;
   const label = `Response appeared: ${parts.join(" ")}`;
   const rows: NoteRow[] = changes.map((c) => { const { label, detail } = describeNote(c); return { kind: "note", id: String(c.id), at: c.at, event: c, label, detail }; });
   return {
-    kind: "stage", id: `stage:response:${owner.id}`, stage: "response", at: first.at, endAt: new Date(end).toISOString(), callId: call.id, title: "Response appeared",
+    kind: "stage", id: `stage:response:${owner.id}`, stage: "response", at: first.at, endAt: new Date(end).toISOString(), bounds, callId: call.id, title: "Response appeared",
     label, detail: `${plural(mutations, "mutation")} in ${changes.length > 1 ? `${changes.length} bursts` : "one burst"}${container ? ` · in ${describeContainer(container)}` : ""}`,
     link: { correlation: "temporal", text: `${formatMs(num(first.data?.sinceInteractionMs) ?? ms(first.at) - ms(owner.at))} after ${actNoun(owner)}, ${when} · by timing` },
     rows, events: changes,

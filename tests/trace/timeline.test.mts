@@ -201,3 +201,66 @@ describe("stages", () => {
     assert.ok(submit.events.some((e) => e.data?.rerendered === 1));
   });
 });
+
+// A stage's end came from the browser's clock while its start came from
+// the server's, so a response that took no time at all ended before it
+// began. Reproduced from run 06c6dab1: the two clocks were 29 ms apart
+// and the burst reported a duration of 0.
+describe("a response stage's bounds", () => {
+  const change = (over: Record<string, unknown>) => browser(6, "ui.change", at(4, 433), PAGE, "i_page000001_1", {
+    part: 1, mutations: 17, addedNodes: 8, sinceInteractionMs: 2827,
+    added: ["0 of 4 steps"], removed: ["Generating plan…"],
+    container: { tag: "div", id: "root", selector: "#root" },
+    browser_at: Date.UTC(2026, 8, 19, 10, 0, 4, 404), clock_offset_ms: 29,
+    ...over,
+  }, "temporal");
+
+  const stageFrom = (c: TraceEvent) => {
+    const list: TraceEvent[] = [
+      gateway(0, "frame.served", at(0), { requestId: "r_doc" }, { frameId: PAGE, path: "/", dest: "document" }),
+      browser(1, "frame.loaded", at(0, 500), PAGE, null, { url: "/", title: "Cocoa", embedded: false }),
+      browser(2, "ui.click", at(1, 611), PAGE, "i_page000001_1", { target: { tag: "button", text: "Create", selector: "#root button" }, trusted: true }),
+      gateway(3, "network.request", at(1, 607), { requestId: "r_plan", interactionId: "i_page000001_1", correlation: "explicit" }, { method: "POST", path: "/api/notebooks/plan", category: "api" }),
+      gateway(4, "model.request", at(1, 659), { callId: "mc_1", requestId: "r_plan", interactionId: "i_page000001_1", correlation: "explicit" }, { model: "gpt-4.1", host: "api.openai.com", path: "/v1/responses", stream: false, messageCount: 1 }, "model-gateway"),
+      gateway(5, "model.response", at(4, 333), { callId: "mc_1", requestId: "r_plan", interactionId: "i_page000001_1", correlation: "explicit" }, { status: 200, latencyMs: 2683, outputChars: 712, usageAvailable: true, streamed: false }, "model-gateway"),
+      c,
+    ];
+    const stages = traceStages(traceRows(list, [], frameIndex(list))).primary;
+    const response = stages.find((s) => s.stage === "response");
+    assert.ok(response, "the burst after the answer should be a response stage");
+    return response;
+  };
+
+  it("never ends before it begins, and says how its end was found", () => {
+    // The browser's last mutation is 29 ms EARLIER than the corrected
+    // start. Read as an instant it inverts; read as a length it does not.
+    const s = stageFrom(change({ durationMs: 0, firstMutationAt: Date.UTC(2026, 8, 19, 10, 0, 4, 404), lastMutationAt: Date.UTC(2026, 8, 19, 10, 0, 4, 404) }));
+    assert.ok(Date.parse(s.endAt) >= Date.parse(s.at), `${s.endAt} must not precede ${s.at}`);
+    assert.equal(s.at, at(4, 433));
+    assert.equal(s.endAt, at(4, 433));
+    assert.equal(s.bounds?.from, "durationMs");
+    assert.equal(s.bounds?.spanMs, 0);
+    assert.equal(s.bounds?.offsetMs, 29);
+    // What the browser said is kept, not thrown away.
+    assert.equal(s.bounds?.rawEndAt, at(4, 404));
+  });
+
+  it("keeps a burst's real length instead of the distance between two clocks", () => {
+    const s = stageFrom(change({ durationMs: 2800, firstMutationAt: Date.UTC(2026, 8, 19, 10, 0, 4, 404), lastMutationAt: Date.UTC(2026, 8, 19, 10, 0, 7, 204) }));
+    assert.equal(s.endAt, at(7, 233), "2.8 s after the corrected start, not 2.8 s after the browser's");
+    assert.equal(s.bounds?.spanMs, 2800);
+  });
+
+  it("falls back to the span between the first and last mutation", () => {
+    const s = stageFrom(change({ firstMutationAt: Date.UTC(2026, 8, 19, 10, 0, 4, 404), lastMutationAt: Date.UTC(2026, 8, 19, 10, 0, 5, 404) }));
+    assert.equal(s.bounds?.from, "mutationSpan");
+    assert.equal(s.bounds?.spanMs, 1000);
+    assert.equal(s.endAt, at(5, 433));
+  });
+
+  it("gives a burst that reported nothing a zero length rather than a guess", () => {
+    const s = stageFrom(change({}));
+    assert.equal(s.bounds?.from, "start");
+    assert.equal(s.endAt, s.at);
+  });
+});
