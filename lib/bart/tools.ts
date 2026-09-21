@@ -1,5 +1,5 @@
 // What Bart can look up: the run's moments and model calls through the
-// same derivations the Trace tab shows, and the repository through
+// same derivations the Visualizer shows, and the repository through
 // lib/bart/repo. Each tool answers with bounded text that names things
 // by id, so an answer can cite them. Server only.
 import type Anthropic from "@anthropic-ai/sdk";

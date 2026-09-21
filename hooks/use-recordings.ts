@@ -17,6 +17,12 @@ export type Recordings = {
   earlier: RecordingOnRun[];
   active: Recording | null;          // the one open on the run, if any
   loaded: boolean;
+  // And separately for `earlier`, which is fetched on its own and is
+  // allowed to be slower. Without a flag of its own, a fresh run whose
+  // own list comes back empty reads as "no recordings at all" for as
+  // long as the second fetch takes — which is the exact moment `earlier`
+  // exists to cover.
+  earlierLoaded: boolean;
   busy: boolean;
   error: string | null;              // the last failure, load or mutation; the list itself survives one
   dismissError: () => void;
@@ -36,23 +42,34 @@ export function useRecordings(run: SandboxRun | undefined): Recordings {
   const traced = !!run && run.trace !== "off";
   const [list, setList] = useState<Recording[]>([]);
   const [earlier, setEarlier] = useState<RecordingOnRun[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  // Which run's list has come back, rather than a bare flag. A flag is
+  // reset in the effect below, so the first render after the run changes
+  // still carries the previous run's `true` over an empty list, and the
+  // list asserts "no recordings yet" about a run it has not asked about.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [earlierLoadedFor, setEarlierLoadedFor] = useState<string | null>(null);
+  const loaded = loadedFor === (runId ?? null);
+  const earlierLoaded = earlierLoadedFor === (runId ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastStopped, setLastStopped] = useState<Recording | null>(null);
 
   useEffect(() => {
-    setList([]); setEarlier([]); setLoaded(false); setError(null); setLastStopped(null);
-    if (!runId || !traced) { setLoaded(true); return; }
+    setList([]); setEarlier([]); setError(null); setLastStopped(null);
+    if (!runId || !traced) { setLoadedFor(runId ?? null); setEarlierLoadedFor(runId ?? null); return; }
     let stale = false;
     listRecordings(runId).then((r) => {
       if (stale) return;
       if (r.ok) setList(r.recordings); else setError(r.error);
-      setLoaded(true);
+      setLoadedFor(runId);
     });
     // Separately, and allowed to be slower: the list is usable without
-    // it, and it must never be the reason the list shows an error.
-    listEarlierRecordings(runId).then((e) => { if (!stale) setEarlier(e); }).catch(() => {});
+    // it, and it must never be the reason the list shows an error. It
+    // still has to be able to say it has answered — including when it
+    // fails, or the list waits on it for ever.
+    listEarlierRecordings(runId)
+      .then((e) => { if (!stale) { setEarlier(e); setEarlierLoadedFor(runId); } })
+      .catch(() => { if (!stale) setEarlierLoadedFor(runId); });
     return () => { stale = true; };
   }, [runId, traced]);
 
@@ -97,5 +114,5 @@ export function useRecordings(run: SandboxRun | undefined): Recordings {
     if (r.ok) setError(null); else { setList(before); setError(r.error); }
   }, [list]);
 
-  return { list, earlier, active, loaded, busy, error, dismissError: () => setError(null), lastStopped, dismissStopped: () => setLastStopped(null), start, stop, rename, remove };
+  return { list, earlier, active, loaded, earlierLoaded, busy, error, dismissError: () => setError(null), lastStopped, dismissStopped: () => setLastStopped(null), start, stop, rename, remove };
 }

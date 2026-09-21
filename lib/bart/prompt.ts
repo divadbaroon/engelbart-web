@@ -51,7 +51,7 @@ export type Situation = {
   selection: SelectionRef | null;
   trace: TraceModel | null;
   source: "sandbox" | "github" | "none";
-  recording: Recording | null;   // open in the Trace tab; `trace` is already cut to it
+  recording: Recording | null;   // open in the Visualizer; `trace` is already cut to it
   annotation: Annotation | null; // a note the person asked about
 };
 

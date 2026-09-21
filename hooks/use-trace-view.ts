@@ -12,7 +12,7 @@ import { BLIND_READING, type Reading } from "@/lib/activity/reading";
 import type { Episode } from "@/lib/activity/types";
 
 // A run's trace as the interface reads it, derived once and shared by
-// everything that shows it: the Trace tab's canvas, the right rail's
+// everything that shows it: the Visualizer's canvas, the right rail's
 // inspector and its live list. The events and calls come from the one
 // subscription in `useTrace`; the rows, stages and frames are the
 // existing derivations, nothing more.

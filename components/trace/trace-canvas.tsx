@@ -3,12 +3,12 @@
 import "@xyflow/react/dist/base.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Background, BackgroundVariant, MarkerType, Panel, ReactFlow, ReactFlowProvider, useReactFlow, useStore, useStoreApi, type Edge, type NodeChange } from "@xyflow/react";
-import { Hand, LocateFixed, Maximize2, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowRightToLine, LocateFixed, Maximize2, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { contextCards, type CardId } from "@/lib/trace/context";
 import { BRANCH_W, MOMENT_W, layoutTrace, type Box, type Point, type Rect } from "@/lib/trace/layout";
 import { cardLines, relationWord, type Relation } from "@/lib/trace/moments";
-import { stageIdOf, type GraphNode } from "@/lib/activity/graph";
+import { stageIdOf, type GraphNode, type Shown } from "@/lib/activity/graph";
 import { formatMs, type CallRow, type Stage } from "@/lib/trace/timeline";
 import { edgeTypes, nodeTypes, type TraceNode } from "@/components/trace/nodes";
 
@@ -42,6 +42,21 @@ type Props = {
   relation: Relation | null;    // how the selected moment is tied to a model call, if the trace says
   onPick: (pick: Pick) => void;
   empty: string | null;         // what to say when there is nothing to draw
+  // Which side of the session the graph above was drawn from. It does
+  // not decide which moments are drawn — that was settled before this
+  // got here — but two things here still turn on it. The camera: a
+  // moment's place on the line is its index (lib/trace/layout.ts), so
+  // hiding a side moves every card that stays, and a camera that does
+  // not hear about it is left looking at where something used to be.
+  // And the branches, below: what a call carried belongs to the side
+  // that made it.
+  shown: Shown;
+  // Whether the camera keeps the newest card in frame as it arrives.
+  // Held by the run rather than here (components/app-shell.tsx) so that
+  // clearing the canvas, which remounts this, does not quietly put it
+  // back on while somebody is reading an earlier moment.
+  follow: boolean;
+  onFollow: (follow: boolean) => void;
 };
 
 const ORIGIN: Point = { x: 0, y: 0 };
@@ -69,7 +84,9 @@ const quiet = { selectable: false, focusable: false, interactionWidth: 0 };
 type Branches = { anchor: string; cardIds: string[]; outputId: string | null };
 type Spec = { nodes: TraceNode[]; edges: Edge[]; momentIds: string[]; branches: Branches | null; selectedNodeId: string | null; relatedNodeId: string | null };
 
-function buildSpec({ graph, stages, calls, selectedId, relation }: Omit<Props, "onPick" | "empty">): Spec {
+// What the canvas draws. Not the camera: following the newest card is
+// a question about where you are looking, not about what is there.
+function buildSpec({ graph, stages, calls, selectedId, relation, shown }: Omit<Props, "onPick" | "empty" | "follow" | "onFollow">): Spec {
   const nodes: TraceNode[] = [];
   const edges: Edge[] = [];
   const momentIds: string[] = [];
@@ -116,8 +133,15 @@ function buildSpec({ graph, stages, calls, selectedId, relation }: Omit<Props, "
 
   // A selected model call opens beside itself: what its request carried,
   // feeding it; what it produced, hanging from it. Data flow, drawn as such.
+  //
+  // Not while the software is hidden. The ring can still be on a call
+  // stage there — a stretch of waiting is the person's moment and the
+  // call it waited on is its evidence — but what the call carried and
+  // what it produced are the software's side, and a canvas that says it
+  // is showing only the person must not have the model's output hanging
+  // off it.
   let branches: Branches | null = null;
-  const row = selected?.stage === "call" && selected.callId ? calls.get(selected.callId) : undefined;
+  const row = shown !== "person" && selected?.stage === "call" && selected.callId ? calls.get(selected.callId) : undefined;
   if (selected && row) {
     const anchor = drawn.get(selected.id)?.[0] ?? `moment:${selected.id}`;
     const cards = row.call ? contextCards(row.call) : [];
@@ -223,19 +247,21 @@ export function TraceCanvas(props: Props) {
   );
 }
 
-function Canvas({ graph, stages, calls, selectedId, relation, onPick, empty }: Props) {
-  const spec = useMemo(() => buildSpec({ graph, stages, calls, selectedId, relation }), [graph, stages, calls, selectedId, relation]);
+function Canvas({ graph, stages, calls, selectedId, relation, onPick, empty, shown, follow, onFollow }: Props) {
+  const spec = useMemo(() => buildSpec({ graph, stages, calls, selectedId, relation, shown }), [graph, stages, calls, selectedId, relation, shown]);
   const [sizes, setSizes] = useState(() => new Map<string, Box>());
-  // Where cards were put by hand, and whether the camera belongs to the
-  // person. Free view is off by default: while a run is going the newest
-  // moment appears off the right edge, and following it is what someone
-  // watching one actually wants. Turning it on stops the canvas moving
-  // under them for any reason but their own.
+  // Where cards were put by hand. Whether the camera follows the newest
+  // card is `follow`, which is the run's rather than this component's.
+  //
+  // It used to be the other way round — a "free view" switch that meant
+  // "stop following" — and a control is easier to understand named after
+  // what it does than after what it stops. The button reads the same way
+  // now: pressed means the canvas is following.
   const [moved, setMoved] = useState(() => new Map<string, Point>());
-  const [free, setFree] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const fitted = useRef(false);
-  const ensured = useRef<string | null>(null);
+  const ensured = useRef<string | null>(null);   // the moment the camera was last taken to
+  const framed = useRef<Shown | null>(null);     // the side it last framed the line for
   const { fitView, getViewport, setViewport, setCenter, zoomIn, zoomOut } = useReactFlow();
   const store = useStoreApi();
   // The size React Flow itself works with; when it changes, the check below runs again.
@@ -271,6 +297,21 @@ function Canvas({ graph, stages, calls, selectedId, relation, onPick, empty }: P
     });
   }, []);
   const placed = useMemo(() => place(spec, sizes, moved), [spec, sizes, moved]);
+  // Whether the opening camera has landed.
+  //
+  // Where a card stands needs no measuring, but the camera that holds the
+  // first one at the left margin is set a frame or more later, once React
+  // Flow's own measurements agree with the container's (below). Until it
+  // does, the viewport is React Flow's default {0,0,1} and the first card
+  // is at layout ORIGIN — so the line paints flush against the top-left
+  // corner and then jumps into place, which is what you see the first
+  // time the Visualizer is opened.
+  //
+  // Keyed off `placed.first`, so a canvas with nothing to frame is never
+  // held back: a run that has only just started, or one just cleared, has
+  // no opening camera coming and its empty sentence must not wait for one.
+  const [aimed, setAimed] = useState(false);
+  const aiming = !aimed && !!placed.first;
   const focusRef = useRef<Rect | null>(null);
   const lastRef = useRef<Rect | null>(null);
   useEffect(() => {
@@ -290,6 +331,17 @@ function Canvas({ graph, stages, calls, selectedId, relation, onPick, empty }: P
   const centerOn = useCallback((b: Rect, zoom: number) => {
     const { width: w, height: h } = store.getState();
     void setViewport({ x: w / 2 - (b.x + b.w / 2) * zoom, y: h / 2 - (b.y + b.h / 2) * zoom, zoom }, { duration: 250 });
+  }, [store, setViewport]);
+  // A moment held against the left margin, with the line reading away to
+  // the right of it: where the canvas opens, and where it goes again
+  // when what it is drawing changes under it.
+  const frameFrom = useCallback((b: Rect, zoom: number, duration: number) => {
+    const { width: w, height: h } = store.getState();
+    if (!w || !h) return null;
+    // Life size unless the card is taller than the canvas, in which case
+    // its top is what is held.
+    const y = b.h * zoom <= h - 2 * MARGIN ? h / 2 - (b.y + b.h / 2) * zoom : MARGIN - b.y * zoom;
+    return setViewport({ x: MARGIN - b.x * zoom, y, zoom }, { duration });
   }, [store, setViewport]);
   const ensureVisible = useCallback((b: Rect) => {
     const { width: w, height: h } = store.getState();
@@ -319,6 +371,12 @@ function Canvas({ graph, stages, calls, selectedId, relation, onPick, empty }: P
   // The last moment on the line, and the last one the camera went to. A
   // moment already on screen moves nothing: following means never having
   // to pan after the run, not the canvas twitching at every arrival.
+  //
+  // The last on the line, note, not the last to arrive — the line is in
+  // clock order (lib/activity/graph.ts sorts on `at`). They are the same
+  // moment for everything a run produces as it goes; they part only when
+  // a participant episode is re-segmented to a time earlier than a call
+  // already drawn, and that one is not followed to.
   const newest = spec.momentIds.length ? spec.momentIds[spec.momentIds.length - 1] : null;
   const followed = useRef<string | null>(null);
 
@@ -333,6 +391,7 @@ function Canvas({ graph, stages, calls, selectedId, relation, onPick, empty }: P
       if (!b) return;
       fitted.current = true;
       ensured.current = selectedId;
+      framed.current = shown;
       // Opening a run that is already over still opens on its first
       // moment: only moments that arrive after this are followed.
       followed.current = newest;
@@ -345,32 +404,59 @@ function Canvas({ graph, stages, calls, selectedId, relation, onPick, empty }: P
         const s = store.getState();
         if (c && (s.width !== c.clientWidth || s.height !== c.clientHeight) && tries++ < 30) { requestAnimationFrame(attempt); return; }
         const { width: w, height: h } = store.getState();
-        if (!w || !h) { void fitView({ padding: 0.1, maxZoom: 1 }).then(() => { settled.current = true; }); return; }
-        // Life size unless the card is taller than the canvas, and held
-        // at the left margin so the session reads away to the right.
-        const zoom = Math.max(MIN_ZOOM, Math.min(START_ZOOM, fitZoom(b, w, h)));
-        const y = b.h * zoom <= h - 2 * MARGIN ? h / 2 - (b.y + b.h / 2) * zoom : MARGIN - b.y * zoom;
-        void setViewport({ x: MARGIN - b.x * zoom, y, zoom }).then(() => { settled.current = true; });
+        // Revealed in the same batch as the move, not in its `.then`: at
+        // a duration of 0 the transform is already written to the store
+        // when `frameFrom` returns, so the line appears framed rather
+        // than one more blank frame later. Both arms reveal, so there is
+        // no path that measures and aims without letting go.
+        if (!w || !h) { void fitView({ padding: 0.1, maxZoom: 1 }).then(() => { settled.current = true; }); setAimed(true); return; }
+        // Life size, and held at the left margin so the session reads
+        // away to the right.
+        void frameFrom(b, Math.max(MIN_ZOOM, Math.min(START_ZOOM, fitZoom(b, w, h))), 0)?.then(() => { settled.current = true; });
+        setAimed(true);
       };
       requestAnimationFrame(attempt);
       return;
     }
+    // A side was hidden or brought back. Every card that stays has moved
+    // — a moment's place on the line is its index — so the canvas frames
+    // what it now holds from the start of it, at the zoom it was being
+    // read at. The same thing clearing the canvas does, which is the
+    // control beside this one and the same kind of act: what is drawn
+    // has changed, so the view of it is taken again rather than left
+    // pointing at where something used to be.
+    //
+    // Not the ring: in a session of any length that is somewhere near
+    // the end, and asking to see one side of a run is not asking to be
+    // taken to the last thing in it.
+    if (framed.current !== shown) {
+      framed.current = shown;
+      ensured.current = selectedId;
+      // The newest moment is a different moment on a re-packed line;
+      // without this the follow below would immediately pull the camera
+      // to the end of it.
+      followed.current = newest;
+      letGo();
+      const b = placed.first;
+      if (b && follow) void frameFrom(b, getViewport().zoom, 250);
+      return;
+    }
     if (ensured.current === selectedId) return;
     ensured.current = selectedId;
-    if (free) return;
+    if (!follow) return;
     // The opened card and its branches are measured a frame after they
     // appear; read the focus then, not now.
     requestAnimationFrame(() => requestAnimationFrame(() => { const f = focusRef.current; if (f) ensureVisible(f); }));
-  }, [placed, selectedId, fitView, setViewport, store, ensureVisible, free, newest]);
+  }, [placed, selectedId, shown, fitView, frameFrom, getViewport, store, ensureVisible, follow, newest]);
 
   // A moment that was not there a moment ago. Measured a frame later,
   // like the branches, because a card that has not been measured has no
   // box to bring into view.
   useEffect(() => {
-    if (free || !settled.current || !placed.ready || !newest || followed.current === newest) return;
+    if (!follow || !settled.current || !placed.ready || !newest || followed.current === newest) return;
     followed.current = newest;
     requestAnimationFrame(() => requestAnimationFrame(() => { const b = lastRef.current; if (b) ensureVisible(b); }));
-  }, [free, placed, newest, ensureVisible]);
+  }, [follow, placed, newest, ensureVisible]);
 
   // When the canvas itself changes size (a panel opens or closes beside
   // it, the window changes), keep the selected moment in view, and give
@@ -379,14 +465,16 @@ function Canvas({ graph, stages, calls, selectedId, relation, onPick, empty }: P
   useEffect(() => {
     const was = sized.current;
     sized.current = { w: flowWidth, h: flowHeight };
-    if (free || !settled.current || !was.w || !was.h || (was.w === flowWidth && was.h === flowHeight)) return;
+    if (!follow || !settled.current || !was.w || !was.h || (was.w === flowWidth && was.h === flowHeight)) return;
     const focus = focusRef.current;
     if (focus) requestAnimationFrame(() => (pulled.current !== null ? restore(focus) : ensureVisible(focus)));
-  }, [flowWidth, flowHeight, ensureVisible, restore, free]);
+  }, [flowWidth, flowHeight, ensureVisible, restore, follow]);
 
-  // Leaving free view catches up with what happened while it was on;
-  // entering it changes nothing, which is the point.
-  const toggleFree = () => setFree((was) => { if (was) followed.current = null; return !was; });
+  // Turning following back on catches up with whatever arrived while it
+  // was off — `followed` forgets where the camera got to, so the effect
+  // above runs once and goes to the end of the line. Turning it off
+  // changes nothing on screen, which is the point.
+  const toggleFollow = () => { if (!follow) followed.current = null; onFollow(!follow); };
   const putBack = () => setMoved(new Map());
 
   // Whether the pointer that is finishing on a card carried it there.
@@ -410,6 +498,10 @@ function Canvas({ graph, stages, calls, selectedId, relation, onPick, empty }: P
         edges={spec.edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        // The library's own mark in the corner of the canvas. The canvas
+        // is a reading of somebody's session, and a vendor's name sitting
+        // in the corner of it reads as part of what is being said.
+        proOptions={{ hideAttribution: true }}
         onNodesChange={onNodesChange}
         onNodeClick={(_, node) => {
           // A drag ends in a click as far as the DOM is concerned. A card
@@ -419,7 +511,10 @@ function Canvas({ graph, stages, calls, selectedId, relation, onPick, empty }: P
           if (pick) onPick(pick);
         }}
         onNodeDrag={() => { carried.current = true; }}
-        onMoveStart={(event) => { if (event) letGo(); }}
+        // A pan or a pinch is the person taking the camera. `event` is
+        // null for every move this component makes itself — fitView, the
+        // zoom buttons, the follow above — so those do not switch it off.
+        onMoveStart={(event) => { if (!event) return; letGo(); onFollow(false); }}
         nodeDragThreshold={2}
         nodesDraggable
         nodesConnectable={false}
@@ -435,7 +530,10 @@ function Canvas({ graph, stages, calls, selectedId, relation, onPick, empty }: P
         deleteKeyCode={null}
         multiSelectionKeyCode={null}
         selectionKeyCode={null}
-        className="bg-background"
+        // The cards and the edges live inside `.react-flow__viewport`;
+        // the dotted ground and the toolbar are its siblings, so they
+        // stay up and only the trace itself waits to be aimed at.
+        className={cn("bg-background", aiming && "[&_.react-flow__viewport]:invisible")}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#e6e6e6" />
         <Panel position="bottom-left" className="m-3 flex gap-0.5 rounded-md border bg-background p-0.5 shadow-sm">
@@ -444,10 +542,10 @@ function Canvas({ graph, stages, calls, selectedId, relation, onPick, empty }: P
           <Tool label="Fit the trace" onClick={() => { letGo(); void fitView({ padding: 0.1, maxZoom: 1, duration: 250 }); }}><Maximize2 className="size-3.5" /></Tool>
           <Tool label="Reset to the selected moment" onClick={reset}><LocateFixed className="size-3.5" /></Tool>
           <Tool
-            label={free ? "Free view is on — the camera stays where you put it" : "Free view — stop the camera following the newest moment"}
-            active={free}
-            onClick={toggleFree}
-          ><Hand className="size-3.5" /></Tool>
+            label={follow ? "Following the newest moment — click to leave the camera where you put it" : "Follow the newest moment as it arrives"}
+            active={follow}
+            onClick={toggleFollow}
+          ><ArrowRightToLine className="size-3.5" /></Tool>
           {moved.size > 0 && <Tool label="Put the cards back where the layout had them" onClick={putBack}><Undo2 className="size-3.5" /></Tool>}
         </Panel>
       </ReactFlow>

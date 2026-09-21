@@ -1,11 +1,11 @@
 import { Sandbox } from "e2b";
 import { createClient } from "@/lib/supabase/server";
+import { REACHABLE } from "@/lib/sandbox";
 
 // Reaching into a run's sandbox from the server: the Code tab's file reads
 // and writes, and the Terminal's shell. The run is looked up through
 // row-level security, so only the project's members get a connection.
 
-const LIVE = ["cloned", "launching", "running"];
 const CACHE_MS = 30_000;
 
 export type OpenedSandbox = { sandbox: Sandbox; workdir: string };
@@ -28,7 +28,7 @@ export async function openSandbox(runId: string): Promise<OpenedSandbox | { erro
   const { data, error } = await supabase
     .from("engelbart_sandbox_runs").select("sandbox_id, workdir, status").eq("id", runId).maybeSingle();
   if (error) return { error: error.message };
-  if (!data?.sandbox_id || !data.workdir || !LIVE.includes(data.status)) return { error: "The sandbox is not running." };
+  if (!data?.sandbox_id || !data.workdir || !(REACHABLE as string[]).includes(data.status)) return { error: "The sandbox is not running." };
   try {
     const opened = { sandbox: await Sandbox.connect(data.sandbox_id), workdir: data.workdir };
     recent.set(key, { opened, until: Date.now() + CACHE_MS });

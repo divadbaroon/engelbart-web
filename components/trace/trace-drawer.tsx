@@ -1,24 +1,24 @@
 "use client";
 
-import { ChevronUp, PanelRight } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import type { TraceView } from "@/hooks/use-trace-view";
-import { describeSelection, selectedEpisode, selectedStage, type Selection } from "@/lib/trace/selection";
-import { callOwner, momentKind, relatedCall } from "@/lib/trace/moments";
-import { CorrelationTag } from "@/components/trace/rows";
-import { behaviorIcon } from "@/components/trace/nodes";
+import { selectedEpisode, selectedStage, type Selection } from "@/lib/trace/selection";
+import { callOwner } from "@/lib/trace/moments";
 import type { Episode } from "@/lib/activity/types";
 import { EventDetails } from "@/components/trace/event-details";
 import { ModelCallInspector } from "@/components/trace/model-call-inspector";
 
 // The selected moment's details: the concise account of a human or
 // observed moment with its evidence folded, or the model call inspector
-// with its panes. `DrawerBody` is the same either way; where it stands
-// is the caller's: beside the canvas in the middle, under it on the
-// side. `DrawerBar` is the closed state of the drawer under the canvas
-// — what the moment is, when, and one line, with the way to open the
-// details.
+// with its panes.
+//
+// There used to be a closed state of this drawer as well — a bar along
+// the bottom of the canvas repeating the chosen card's badge, title,
+// clock and duration, with a Details button on the end. It was a second
+// account of the card the person had just clicked, standing between them
+// and the account that has everything. Choosing a card opens this
+// directly now (components/trace/behavior-trace.tsx), and the related
+// call it used to offer is in `EventDetails` where the rest of the
+// evidence is.
 type Props = {
   trace: TraceView;
   // The session's behaviour, read once above and passed down. The drawer
@@ -29,38 +29,6 @@ type Props = {
   onSelect: (selection: Selection, options?: { detail?: boolean }) => void;
   onAskBart: () => void;
 };
-
-export function DrawerBar({ trace, episodes, selection, onSelect, onAskBart, onOpen, beside }: Props & { onOpen: () => void; beside: boolean }) {
-  const stage = selectedStage(trace.stages, selection);
-  const text = describeSelection(trace.stages, trace.callRows, selection, episodes);
-  if (!stage || !text) return null;
-  const kind = momentKind(stage);
-  const Icon = behaviorIcon(text.badge, stage.stage);
-  const related = relatedCall(stage, trace.stages, trace.callRows);
-  return (
-    <div className="flex h-9 shrink-0 items-center gap-2.5 border-t bg-[#fafafa] pl-[18px] pr-2 text-[13px]">
-      <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-sm", kind === "model" ? "bg-foreground text-background" : kind === "observed" ? "border border-dashed border-foreground/40 text-muted-foreground" : "bg-[#e6e6e6] text-muted-foreground")}>
-        <Icon className="size-2.5" />
-      </span>
-      {text.badge && <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{text.badge}</span>}
-      <span className="min-w-0 shrink truncate font-medium">{text.title}</span>
-      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{text.at}</span>
-      {text.line && <span className="min-w-0 truncate text-muted-foreground">{text.line}</span>}
-      {related && (
-        <span className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground lg:flex">
-          · <button type="button" onClick={() => onSelect({ kind: "call", callId: related.callId, jump: { pane: "overview", focus: null } })} className="text-foreground underline-offset-2 hover:underline">{related.model ?? "model call"}</button>
-          <CorrelationTag how={related.correlation} title={related.text ?? undefined} />
-        </span>
-      )}
-      <span className="ml-auto flex shrink-0 items-center gap-0.5">
-        <Button variant="ghost" size="sm" onClick={onAskBart} className="h-7 px-2 font-normal text-muted-foreground">Ask Bart</Button>
-        <Button variant="ghost" size="sm" onClick={onOpen} title={beside ? "Open the details beside the canvas" : "Open the details under the canvas"} className="h-7 gap-1 px-2 font-normal text-muted-foreground">
-          Details {beside ? <PanelRight className="size-3" /> : <ChevronUp className="size-3" />}
-        </Button>
-      </span>
-    </div>
-  );
-}
 
 export function DrawerBody({ trace, episodes, selection, onSelect, onAskBart, onClose }: Props & { onClose: () => void }) {
   const stage = selectedStage(trace.stages, selection);

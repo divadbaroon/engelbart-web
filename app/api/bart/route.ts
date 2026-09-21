@@ -7,6 +7,7 @@ import { getRun } from "@/lib/sandbox-server";
 import { isSandboxLive } from "@/lib/sandbox";
 import { getModelCall, getTrace } from "@/app/workspace/[workspaceId]/trace-actions";
 import { isBartModel } from "@/lib/bart/models";
+import { callOptions, readAttachments, readOptions, withAttachments } from "@/lib/bart/options";
 import { MAX_MESSAGE_CHARS, refsIn, type BartEvent, type BartRequest, type MessageContext, type SelectionRef } from "@/lib/bart/protocol";
 import { traceModel, type TraceModel } from "@/lib/bart/grounding";
 import { buildIndex } from "@/lib/semantics/lookup";
@@ -31,7 +32,6 @@ import { BLIND_READING, type Reading } from "@/lib/activity/reading";
 
 const MAX_ROUNDS = 8;         // tool rounds in one turn
 const HISTORY = 30;           // prior messages sent along
-const MAX_TOKENS = 4096;
 
 type Body = Partial<BartRequest>;
 const PANEL_ERROR = (message: string, status: number) => Response.json({ error: message }, { status });
@@ -55,6 +55,12 @@ export async function POST(req: NextRequest) {
   if (message.length > MAX_MESSAGE_CHARS) return PANEL_ERROR(`Keep a message under ${MAX_MESSAGE_CHARS.toLocaleString("en-US")} characters.`, 413);
   if (!isBartModel(body.model)) return PANEL_ERROR("That model is not on Bart's list.", 400);
   const model = body.model;
+  // How to answer, and what the question carries. Both are read through
+  // lib/bart/options.ts, which clamps rather than refuses: a knob out of
+  // range is the composer's problem to get right, not a reason to lose
+  // somebody's question.
+  const options = readOptions(body.options);
+  const attachments = readAttachments(body.attachments);
   if (typeof body.projectId !== "string" || !isUuid(body.projectId)) return PANEL_ERROR("No workspace.", 400);
   const projectId = body.projectId;
   const repoId = typeof body.repoId === "string" && isUuid(body.repoId) ? body.repoId : null;
@@ -82,7 +88,7 @@ export async function POST(req: NextRequest) {
   const repo = repoId ? await getRepo(projectId, repoId).catch(() => null) : null;
   const run = repo && runId ? await getRun(runId).catch(() => null) : null;
   const runOk = run && run.repoId === repo?.id ? run : null;
-  // The recording open in the Trace tab, if it is this run's: the trace
+  // The recording open in the Visualizer, if it is this run's: the trace
   // tools then read inside it unless asked for the whole run.
   let recording: Recording | null = null;
   if (recordingId && runOk) {
@@ -118,7 +124,7 @@ export async function POST(req: NextRequest) {
 
   // The trace is read once per turn, when the situation is written; the
   // same model serves every tool call of the turn. The rows are named
-  // with the reading where there is one, exactly as the Trace tab names
+  // with the reading where there is one, exactly as the Visualizer names
   // them, so Bart and the person are reading the same words.
   let loaded: Promise<TraceModel | null> | null = null;
   const index = async () => { const got = await semantics(); return buildIndex(mapsOf(got.readings)); };
@@ -174,7 +180,12 @@ export async function POST(req: NextRequest) {
   const situation = situationBlock({ repo, run: runOk, selection, trace: await trace(), source: isSandboxLive(runOk ?? undefined) ? "sandbox" : repo ? "github" : "none", recording, annotation });
 
   const history = (await threadMessages(threadId, HISTORY).catch(() => [])).map((m) => ({ role: m.role, content: m.content }));
-  const userMessage = await appendMessage(threadId, { role: "user", content: message, context, refs: [], model: null }).catch(() => null);
+  // The files go into the message itself rather than beside it, so the
+  // thread keeps them: a second question about an attached file has to
+  // be able to see it, and a transcript that hides what was sent is a
+  // transcript you cannot check.
+  const asked = withAttachments(message, attachments);
+  const userMessage = await appendMessage(threadId, { role: "user", content: asked, context, refs: [], model: null }).catch(() => null);
   if (!userMessage) return PANEL_ERROR("The message could not be saved.", 500);
 
   const encoder = new TextEncoder();
@@ -185,15 +196,18 @@ export async function POST(req: NextRequest) {
       const finish = () => { if (!closed) { closed = true; try { controller.close(); } catch { /* closed */ } } };
       send({ type: "thread", threadId, userMessageId: userMessage.id });
 
-      const messages: Anthropic.Messages.MessageParam[] = mergeTurns([...history, { role: "user", content: message }]);
+      const messages: Anthropic.Messages.MessageParam[] = mergeTurns([...history, { role: "user", content: asked }]);
       const system: Anthropic.Messages.TextBlockParam[] = [
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
         { type: "text", text: situation },
       ];
+      // max_tokens, and — when an effort was asked for — the thinking
+      // block instead of a temperature. The two cannot both be set.
+      const call = callOptions(options);
       let answer = "";
       try {
         for (let round = 0; round <= MAX_ROUNDS; round++) {
-          const s = client.messages.stream({ model, max_tokens: MAX_TOKENS, system, tools: TOOLS, messages }, { signal: req.signal });
+          const s = client.messages.stream({ model, ...call, system, tools: TOOLS, messages }, { signal: req.signal });
           s.on("text", (delta) => { answer += delta; send({ type: "text", delta }); });
           const final = await s.finalMessage();
           const blocks: Anthropic.Messages.ContentBlockParam[] = [];

@@ -16,7 +16,15 @@ export function useTrace(run: SandboxRun | undefined) {
   const [events, setEvents] = useState<TraceEvent[]>([]);
   const [calls, setCalls] = useState<Record<string, ModelCall>>({});   // by call id
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Which run's trace has come back. `loading` is derived from it rather
+  // than being a flag raised inside the effect below, because an effect
+  // runs after the commit it belongs to has been painted: a surface
+  // mounted in the same commit as a run id would render once with an
+  // empty event list and nothing to say it was still being read, and
+  // would say "nothing was recorded" about a run nobody had looked at
+  // yet. Derived, the answer is right on the first render.
+  const [loadedRun, setLoadedRun] = useState<string | null>(null);
+  const loading = !!runId && loadedRun !== runId;
   const lastSeq = useRef(-1);
 
   const mergeEvents = useCallback((incoming: TraceEvent[]) => {
@@ -56,10 +64,13 @@ export function useTrace(run: SandboxRun | undefined) {
     setEvents([]); setCalls({}); setError(null); lastSeq.current = -1;
     if (!runId) return;
     let cancelled = false;
-    setLoading(true);
     getTrace(runId).then((result) => {
       if (cancelled) return;
-      setLoading(false);
+      // In the same flush as the merges below, so the events and the end
+      // of the wait land in one commit and there is no frame between
+      // them with neither a trace nor a reason for its absence. A run
+      // that answered with an error is still a run that has been read.
+      setLoadedRun(runId);
       if (!result.ok) { setError(result.error); return; }
       mergeEvents(result.events);
       mergeCalls(result.calls);

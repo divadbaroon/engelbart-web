@@ -6,7 +6,7 @@ import { ChevronRight, File as FileIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
 import { isSandboxLive, type SandboxRun } from "@/lib/sandbox";
-import type { FileContent, FileTree, TreeEntry } from "@/lib/code-files";
+import { readmeIn, type FileContent, type FileTree, type TreeEntry } from "@/lib/code-files";
 import { Button } from "@/components/ui/button";
 import { fetchFile, fetchTree } from "@/app/workspace/[workspaceId]/repo-actions";
 import { listSandboxFiles, readSandboxFile, writeSandboxFile } from "@/app/workspace/[workspaceId]/sandbox-files";
@@ -17,9 +17,10 @@ const CodeEditor = dynamic(() => import("@/components/code-editor").then((m) => 
 });
 
 // The repository's files: a tree on the left, the selected file in an
-// editor on the right. While the application is running the files come
-// from its sandbox and can be edited in place; the running dev server
-// picks up saves. Otherwise they come from GitHub, read-only.
+// editor on the right. As soon as the repository has a sandbox that can
+// be reached the files come from it and can be edited in place; if a dev
+// server is up it picks up the saves. Otherwise they come from GitHub,
+// read-only, and the column header says which of the reasons it is.
 //
 // Trees, files and what was open are kept per source for the session, so
 // switching tabs and back costs nothing.
@@ -30,6 +31,44 @@ const views = new Map<string, { selected: string | null; expanded: Set<string> }
 
 const sourceFor = (repo: Repo, run: SandboxRun | undefined): Source =>
   isSandboxLive(run) ? { kind: "sandbox", key: `sb:${run.id}`, runId: run.id } : { kind: "github", key: `gh:${repo.id}` };
+
+// What the file column says it is showing, and whether you can type in
+// it. Editing has never been switched off here: a file is editable
+// exactly when the repository has a sandbox that can still be reached
+// (`REACHABLE` in lib/sandbox.ts — cloned, launching, running, usable),
+// because that is the only place there is to write to.
+//
+// Two facts, and they are the whole of it: where these files come from,
+// and whether you can change them. The reason you cannot was on the face
+// of it for a while — "GitHub · read-only · the sandbox is not up yet" —
+// and a header that grows a third clause to explain the second one is a
+// header doing a tooltip's job. It is a tooltip's job: `whyThisIs` is
+// what the hover says, so the answer is still a pointer away and the
+// strip stays two words wide.
+function whatThisIs(run: SandboxRun | undefined, editable: boolean): string {
+  if (!editable) return "GitHub · read-only";
+  if (run?.status === "running") return "Sandbox · edits go live";
+  return "Sandbox · edits are saved to the sandbox";
+}
+
+// The same line, and then the thing somebody read the line to find out:
+// why they cannot type, and what would make it so they could.
+//
+// "Edits go live" is only true of one of the four editable states. A dev
+// server that is up reloads the page on save (the Live preview follows,
+// via previewVersion); a sandbox that has been cloned but not launched,
+// or is set up but serving nothing, takes the write to disk and there is
+// nothing running to notice. Either way an edit lives in that one
+// sandbox and nowhere else: it is not committed, it does not reach
+// GitHub, and it goes when the sandbox does.
+function whyThisIs(run: SandboxRun | undefined, editable: boolean): string {
+  const head = whatThisIs(run, editable);
+  if (editable) return `${head}. The edit stays in this sandbox: it is not committed and it goes when the sandbox does.`;
+  if (!run) return `${head}. Start the repository to edit it.`;
+  if (run.status === "failed" || run.status === "no_service") return `${head}. The run did not come up, so there is no sandbox to write to.`;
+  if (run.status === "killed" || run.status === "paused") return `${head}. The sandbox has gone, so there is nothing to write to.`;
+  return `${head}. The sandbox is not up yet.`;
+}
 
 type Node = { name: string; path: string; type: "blob" | "tree"; children: Node[] };
 
@@ -81,12 +120,14 @@ export function CodeBrowser({ repo, run, onSaved, open }: { repo: Repo; run: San
     const cached = trees.get(source.key);
     setTree(cached);
     const restored = views.get(source.key);
-    setSelected(restored?.selected ?? null);
+    setSelected(restored?.selected ?? (cached ? readmeIn(cached) : null));
     setExpanded(restored?.expanded ?? new Set());
     if (cached) return;
     let stale = false;
     const load = source.kind === "sandbox" ? listSandboxFiles(source.runId) : fetchTree(repo.owner, repo.name, repo.defaultBranch);
-    load.then((t) => { trees.set(source.key, t); if (!stale) setTree(t); });
+    // The README only if nothing was chosen while the tree was on its
+    // way: a click during the load is a choice and outranks the default.
+    load.then((t) => { trees.set(source.key, t); if (!stale) { setTree(t); setSelected((chosen) => chosen ?? readmeIn(t)); } });
     return () => { stale = true; };
   }, [source.key, source.kind, source.kind === "sandbox" ? source.runId : "", repo.owner, repo.name, repo.defaultBranch]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -161,7 +202,7 @@ export function CodeBrowser({ repo, run, onSaved, open }: { repo: Repo; run: San
     <section aria-label="Code" className="flex h-full min-h-0">
       <nav aria-label="Files" className="flex w-[260px] shrink-0 flex-col border-r">
         <div className="flex h-9 shrink-0 items-center border-b px-3 text-xs text-muted-foreground">
-          {editable ? "Sandbox · edits go live" : "GitHub · read-only"}
+          <span className="truncate" title={whyThisIs(run, editable)}>{whatThisIs(run, editable)}</span>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto py-2 pr-1">
           {tree === undefined ? (
@@ -184,14 +225,17 @@ export function CodeBrowser({ repo, run, onSaved, open }: { repo: Repo; run: San
               <span role="status" className={cn("ml-auto shrink-0 font-sans", save.kind === "error" && "text-destructive")}>
                 {save.kind === "saving" ? "Saving…" : save.kind === "saved" ? "Saved" : save.kind === "error" ? save.message : save.kind === "dirty" ? "Unsaved changes" : ""}
               </span>
-              {editable && file && "text" in file ? (
+              {/* Save, on the files that can be saved. The other half of
+                  this used to be an "Open on GitHub" link on every
+                  read-only file — a way out of the workspace offered
+                  from the middle of it, and offered most often on the
+                  files somebody was reading rather than the ones they
+                  could do anything with. The repository's own link is
+                  still on its row in the sidebar. */}
+              {editable && file && "text" in file && (
                 <Button variant="outline" size="sm" onClick={onSave} disabled={save.kind !== "dirty" && save.kind !== "error"} className="h-6 shrink-0 px-2 font-sans font-normal">
                   Save
                 </Button>
-              ) : (
-                <a href={`${repo.url}/blob/${repo.defaultBranch || "HEAD"}/${selected}`} target="_blank" rel="noreferrer" className="shrink-0 hover:text-foreground">
-                  Open on GitHub
-                </a>
               )}
             </div>
             {file === undefined ? (
@@ -208,7 +252,9 @@ export function CodeBrowser({ repo, run, onSaved, open }: { repo: Repo; run: San
           </>
         ) : (
           <p className="flex h-full items-center justify-center px-8 text-center text-[13px] text-muted-foreground">
-            {editable ? "Select a file to read or edit it." : "Select a file to read it. Files can be edited once the application is running."}
+            {editable
+              ? "Select a file to read or edit it. Edits live in this sandbox until it goes; nothing reaches GitHub."
+              : "Select a file to read it. Files become editable as soon as the repository has a sandbox — from the moment it is cloned, not from the moment it serves."}
           </p>
         )}
       </div>

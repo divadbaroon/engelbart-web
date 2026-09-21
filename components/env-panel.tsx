@@ -15,6 +15,10 @@ type Props = {
   run: SandboxRun | undefined;
   report: EnvReport | null;   // the scan from the current run's log, else the last saved one
   onPrepare: () => void;
+  // Launch again in the sandbox this run is already in. Absent when there
+  // is no sandbox to launch in, which is when preparing again is the only
+  // thing there is.
+  onRelaunch: (() => void) | null;
 };
 
 type Row = { name: string; variable: EnvVariable | null; saved: SavedEnv | null };
@@ -32,7 +36,7 @@ const rank = (r: Row) =>
 // The values a repository reads from its environment. What the pipeline's
 // scan found is listed, blank fields for anything missing; values are
 // stored with the project and handed to the next run, never shown again.
-export function EnvPanel({ repo, run, report, onPrepare }: Props) {
+export function EnvPanel({ repo, run, report, onPrepare, onRelaunch }: Props) {
   const [saved, setSaved] = useState<SavedEnv[] | null>(null);
   const [stored, setStored] = useState<EnvReport | null>(null);   // the repository's copy, when the run has none
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +83,16 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
   // failing on the old one. What is on the server cannot forget, and it
   // is also right when the change was made in another tab or by
   // somebody else.
-  const { stale, removed } = pendingEnv(saved ?? [], read);
+  // Until the saved values have arrived this panel knows nothing, and an
+  // empty `saved` is not the same as none saved. Read as one, every value
+  // the run is holding looks like a value somebody has just deleted, and
+  // the notice below announced the removal of a key nobody had touched —
+  // by name, at the top of the tab, for as long as the fetch took. So the
+  // comparison does not happen until there is something to compare
+  // against, and `loading` is about that list rather than about the scan,
+  // which arrives with the run and says nothing about what is stored.
+  const loading = saved === null && !error;
+  const { stale, removed, unread } = loading ? { stale: [] as string[], removed: [] as string[], unread: [] as string[] } : pendingEnv(saved ?? [], read);
   const rows: Row[] = [];
   const seen = new Set<string>();
   for (const v of current?.variables ?? []) { seen.add(v.name); rows.push({ name: v.name, variable: v, saved: saved?.find((s) => s.name === v.name) ?? null }); }
@@ -121,15 +134,40 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
     if (e.key === "Escape") { e.preventDefault(); setDrafts((d) => { const next = { ...d }; delete next[name]; return next; }); }
   };
 
+  // Nothing to show is not the same as nothing to read, and this used to
+  // claim the second when it only knew the first: a repository whose scan
+  // had not run yet was told it "reads nothing from its environment",
+  // which is a finding rather than an absence, and it was told so under a
+  // paragraph about where its values are kept and above a button for
+  // adding one. So when there is no list there is no chrome about a list
+  // either — one sentence, and whatever went wrong if something did.
+  const nothing = rows.length === 0 && !adding;
+  const bare = loading || nothing;
+
   return (
     <section aria-label="Environment" className="flex h-full flex-col gap-5 overflow-y-auto px-[22px] py-[18px]">
-      <p className="max-w-[560px] text-[13px] leading-5 text-muted-foreground">
-        Values {repo.name} reads from its environment. They are kept with this project, visible to its members,
-        and handed to the repository the next time it starts.
-      </p>
+      {/* A paragraph used to stand here explaining what the tab was —
+          the values the repository reads, kept with the project, handed
+          over next time it starts. It is a tab called Environment with a
+          list of names and values under it, and it said the same thing
+          every time anybody opened it. What is worth saying is said
+          where it is not already obvious: the stale-value notice below,
+          and the empty state. */}
+      {/* What this run is running with that is no longer what is saved,
+          and the two ways out of it — which are not the same way.
 
-      {(!!stale.length || !!removed.length) && (
-        <div className="flex max-w-[560px] items-center gap-3 rounded-md border bg-[#f6f6f6] px-3.5 py-2.5 text-[13px] text-muted-foreground">
+          Launching again reuses the sandbox: the clone and everything
+          installed into it stay, the application is started over, and it
+          reads what is saved now. That is the whole answer for a value
+          that was added or changed. It is not the answer for one that was
+          removed: hc keeps its saved values in a store in the sandbox and
+          only ever merges into it, so a name taken away here is still in
+          there and the next launch in that sandbox will still be handed
+          it. Only a new sandbox is without it. So the sentence about
+          removal says which button clears it rather than leaving both
+          looking equivalent. */}
+      {!loading && (!!stale.length || !!removed.length) && (
+        <div className="flex max-w-[620px] items-center gap-3 rounded-md border bg-[#f6f6f6] px-3.5 py-2.5 text-[13px] text-muted-foreground">
           <span className="flex-1">
             {!!stale.length && (
               <><span className="font-medium text-foreground">{stale.join(", ")}</span>
@@ -139,10 +177,31 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
               <><span className="font-medium text-foreground">{removed.join(", ")}</span>
                 {removed.length === 1 ? " was removed, but this run still has it" : " were removed, but this run still has them"}. </>
             )}
-            Prepare the repository again to start it with what is saved now.
+            {onRelaunch
+              ? <>Launch again to start the application with what is saved now, in the sandbox it is already in — nothing is cloned or installed a second time.{removed.length ? " Clearing a removed value takes a new sandbox: prepare again for that." : ""}</>
+              : <>Prepare the repository again to start it with what is saved now.</>}
           </span>
+          {onRelaunch && <Button size="sm" onClick={onRelaunch} className="h-7 shrink-0 px-3 font-normal">Launch again</Button>}
           <Button variant="outline" size="sm" onClick={onPrepare} className="h-7 shrink-0 px-3 font-normal">Prepare again</Button>
         </div>
+      )}
+
+      {/* Saved, and read by nothing. The pipeline's scan reports the names
+          it could not find in the code and the wrapper drops them before
+          the application starts, so these are not waiting for a launch —
+          they are waiting for the code to read them, or for the name to be
+          the one the code actually reads. Said here because it was said
+          nowhere: the value saved, the row appeared, and every notice on
+          this tab offered to prepare again, which would have changed
+          nothing. */}
+      {!loading && !!unread.length && (
+        <p className="max-w-[620px] text-[13px] leading-5 text-muted-foreground">
+          <span className="font-medium text-foreground">{unread.join(", ")}</span>
+          {unread.length === 1 ? " is saved, but nothing in " : " are saved, but nothing in "}
+          {repo.name} reads {unread.length === 1 ? "it" : "them"}, so {unread.length === 1 ? "it was" : "they were"} not handed to the
+          application. Launching again will not change that. Check the spelling against the names listed below, which are the ones the
+          scan found.
+        </p>
       )}
 
       {warning && (
@@ -161,11 +220,14 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
         </p>
       )}
 
-      {saved === null && !current ? (
-        <p className="text-[13px] text-muted-foreground">Loading…</p>
-      ) : rows.length === 0 && !adding ? (
+      {loading ? (
+        <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" />
+          Loading…
+        </p>
+      ) : nothing ? (
         <p className="max-w-[560px] text-[13px] leading-5 text-muted-foreground">
-          {current ? "This repository reads nothing from its environment." : "Nothing is known yet. Missing values show up here once the repository has been prepared, or add one now."}
+          The environment variables haven&apos;t been read yet.
         </p>
       ) : (
         <ul className="flex max-w-[720px] flex-col divide-y rounded-lg border">
@@ -179,7 +241,18 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="truncate font-mono text-[13px] text-foreground">{row.name}</span>
                   <span className={cn("text-xs", row.variable?.status === "missing" && !row.saved ? "text-destructive" : "text-muted-foreground")}>
-                    {row.variable ? describeEnv(row.variable, !!row.saved) : "Saved · not read by the last run"}
+                    {/* A saved name with no variable beside it is one the
+                        scan did not report. There are two reasons for
+                        that and they are not the same: the scan found the
+                        code and this name is not in it, which is what
+                        `ignored` says, or there has been no scan of this
+                        repository at all. The first is a name that will
+                        never take; the second is a name nobody has looked
+                        for yet. They read identically until they are
+                        told apart. */}
+                    {row.variable ? describeEnv(row.variable, !!row.saved)
+                      : current?.ignored.includes(row.name) ? `Saved · ${repo.name} does not read it`
+                      : "Saved · not read by the last run"}
                     {row.variable?.public && " · sent to the browser"}
                   </span>
                 </div>
@@ -249,7 +322,7 @@ export function EnvPanel({ repo, run, report, onPrepare }: Props) {
         </ul>
       )}
 
-      {!adding && (
+      {!adding && !bare && (
         <Button variant="ghost" size="sm" onClick={() => setAdding({ name: "", value: "" })} className="w-fit px-3 font-normal text-muted-foreground">
           + Add a variable
         </Button>

@@ -114,7 +114,8 @@ class Worker {
     record.event("status", `picked up by runner ${WORKER_ID}`, { worker: WORKER_ID });
     try {
       // A run that still has its sandbox (asked to launch again) skips the clone.
-      let launchable: SandboxRun | null = run.sandboxId && run.workdir ? { ...run, status: "cloned" } : null;
+      const again = !!(run.sandboxId && run.workdir);
+      let launchable: SandboxRun | null = again ? { ...run, status: "cloned" } : null;
       if (!launchable) {
         // The sandbox's size is fixed at creation, so what the repository
         // will need is read off its file list first.
@@ -130,10 +131,17 @@ class Worker {
         const { recipe, origin } = launchable.fresh
           ? (record.event("status", "starting over without the saved trail, as asked; the pipeline will analyze it", { phase: "trail", status: "fresh" }), { recipe: null, origin: null })
           : await this.pickRecipe(repo, repoRow.launch_recipe, launchable.commit, record);
+        // Launching again into the sandbox the last launch left: the plan
+        // is replayed, the edits are not. They are already on disk there,
+        // and the wrapper applies a recipe's patch with `git apply`, which
+        // stops on a tree that already has it — taking the whole run down
+        // with it, since nothing above it catches that.
+        const replaying = again && recipe && recipe.patch ? { ...recipe, patch: null } : recipe;
+        if (again && recipe?.patch) record.event("status", "the saved edits are already in this sandbox, so only the plan is replayed", { phase: "trail", status: "patched-already" });
         let patch: RepoPatch | null = null;
         const brief = launchable.fresh ? null : await this.pickBrief(repo.id, launchable.commit);
         const launched = await this.runtime.launch(repo, launchable, record, {
-          recipe, env, hint: repo.hint, brief,
+          recipe: replaying, env, hint: repo.hint, brief,
           trace: collector && launchable.trace !== "off" ? { capture: launchable.trace, collector } : null,
           onEnvironment: (report) => void this.saveEnvReport(repo.id, report),
           // A patch made in this run has no origin; one replayed from a recipe does.
@@ -141,7 +149,11 @@ class Worker {
         });
         if (patch) await this.savePatch(repo.id, { ...(patch as RepoPatch), worked: launched.ok });
         log({ event: launched.ok ? "running" : "failed", run: run.id, repo: repo.fullName, replayed: !!recipe && !launched.recipeFailed, ...(launched.ok ? { previewUrl: launched.previewUrl } : { kind: launched.kind, message: launched.message }) });
-        await this.saveRecipe(repo, run.id, launched.ok ? launched.recipe : null, launched.recipeFailed, launchable.commit, origin, record);
+        // What a relaunch captures is not the trail. It ran in a sandbox
+        // that was already patched and already installed, so its recipe
+        // would carry neither the edits a fresh clone needs nor the proof
+        // that the plan works from nothing. What is stored stays stored.
+        if (!again) await this.saveRecipe(repo, run.id, launched.ok ? launched.recipe : null, launched.recipeFailed, launchable.commit, origin, record);
         if (launched.ok) {
           this.inFlight.set(run.id, { ...launchable, status: launched.usable ? "usable" : "running", previewUrl: launched.previewUrl, port: launched.port, services: launched.services });
           await launched.done;   // stay attached until the app stops
@@ -307,8 +319,17 @@ class Worker {
     }
   }
 
-  // Every sandbox we created carries its run id. Any whose run is gone,
-  // failed or stopped is costing sandbox time for nothing: kill it.
+  // Every sandbox we created carries the id of the run that created it.
+  // Any sandbox no run needs any more is costing sandbox time for nothing:
+  // kill it.
+  //
+  // "No run needs it" is asked of the sandbox, not of the run that made
+  // it. A sandbox can outlive the run it was created for: launching again
+  // with new environment values hands the same machine to a new run and
+  // marks the old one killed, and keying this on the creating run's status
+  // would have swept the machine out from under the run now using it. So
+  // every run pointing at the sandbox is read, and one that is still going
+  // keeps it.
   private async sweepSandboxes() {
     try {
       const paginator = Sandbox.list({ query: { state: ["running", "paused"] } });
@@ -316,16 +337,17 @@ class Worker {
       while (paginator.hasNext) infos.push(...(await paginator.nextItems()));
       const ours = infos.filter((i) => typeof i.metadata?.runId === "string");
       if (!ours.length) return;
-      const { data, error } = await this.supabase.from("engelbart_sandbox_runs").select("id, status").in("id", ours.map((i) => i.metadata!.runId));
+      const { data, error } = await this.supabase.from("engelbart_sandbox_runs").select("id, sandbox_id, status").in("sandbox_id", ours.map((i) => i.sandboxId));
       if (error) { log({ level: "error", event: "sweep-query", message: error.message }); return; }
-      const status = new Map((data ?? []).map((r) => [r.id as string, r.status as string]));
+      const rows = (data ?? []) as { id: string; sandbox_id: string; status: string }[];
+      const needed = new Set(rows.filter((r) => r.status !== "failed" && r.status !== "killed").map((r) => r.sandbox_id));
       for (const info of ours) {
+        if (needed.has(info.sandboxId)) continue;
         const runId = info.metadata!.runId;
-        const s = status.get(runId);
-        if (s && s !== "failed" && s !== "killed") continue;
+        const over = rows.filter((r) => r.sandbox_id === info.sandboxId).map((r) => r.status);
         this.inFlight.delete(runId);
         this.watching.delete(runId);
-        try { await Sandbox.kill(info.sandboxId); log({ event: "swept", run: runId, sandbox: info.sandboxId, status: s ?? "gone" }); } catch { /* already gone */ }
+        try { await Sandbox.kill(info.sandboxId); log({ event: "swept", run: runId, sandbox: info.sandboxId, status: over.join(",") || "gone" }); } catch { /* already gone */ }
       }
     } catch (err) {
       log({ level: "error", event: "sweep", message: errorMessage(err) });

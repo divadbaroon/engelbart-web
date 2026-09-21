@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { Loader2, MessageSquare, PanelRight, X } from "lucide-react";
+import { Loader2, PanelRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Repo } from "@/lib/repos";
 import type { SelectionText } from "@/lib/trace/selection";
@@ -9,6 +9,7 @@ import type { MessageContext, Ref } from "@/lib/bart/protocol";
 import type { BartSession } from "@/hooks/use-bart-session";
 import { BartConversation } from "@/components/bart/conversation";
 import { BartComposer } from "@/components/bart/composer";
+import { BartMark } from "@/components/bart/mark";
 
 // Bart over the trace canvas: the same conversation as the right panel,
 // in the corner, for asking about the moment under the cursor without
@@ -127,7 +128,7 @@ export function TraceBart({ session, context, repo, open, onOpenChange, placehol
             <h2 className="mr-auto font-semibold">Bart</h2>
             {/* The same Clear the panel has, over the same conversation:
                 clearing here leaves the panel on a new thread too. */}
-            {!empty && (
+            {session.loaded && !empty && (
               <Button variant="ghost" size="sm" onClick={() => void session.reset()} title="Start a new conversation" className="h-7 px-1.5 text-xs font-normal text-muted-foreground/70 hover:text-muted-foreground">
                 Clear
               </Button>
@@ -154,13 +155,37 @@ export function TraceBart({ session, context, repo, open, onOpenChange, placehol
           </div>
         </section>
       ) : (
+        // Two words and the same two words every time. It used to name
+        // what was selected — "Ask Bart about this exploring…" — which is
+        // the right thing for the input you are about to type into, and
+        // the wrong thing for a button, whose job is to be recognised
+        // from across the panel rather than read. What "this" will mean
+        // is still on the button's tooltip and still in the composer's
+        // placeholder, a click away.
+        // Bigger than it was, and marked rather than iconned. It stands
+        // on a canvas full of nodes and lines, a long way from the eye's
+        // resting place, and at the old size — a 14px word behind a
+        // generic speech bubble — it read as another piece of the graph.
+        // The mark is Bart's own, so the corner is recognised before it
+        // is read; the label stays, because a bare mark in a corner is a
+        // thing you have to try.
         <button
           type="button"
           onClick={() => onOpenChange(true)}
-          className="pointer-events-auto flex max-w-[280px] items-center gap-1.5 rounded-full border bg-background/95 py-1.5 pr-3 pl-2.5 text-[13px] text-muted-foreground shadow-sm backdrop-blur hover:text-foreground"
+          title={placeholder}
+          className="pointer-events-auto flex items-center gap-2.5 rounded-full border bg-background/95 py-2 pr-5 pl-2 text-[15px] font-medium text-foreground shadow-sm backdrop-blur hover:bg-background"
         >
-          {session.busy ? <Loader2 className="size-3.5 shrink-0 animate-spin" /> : <MessageSquare className="size-3.5 shrink-0" />}
-          <span className="min-w-0 truncate">{placeholder}</span>
+          {/* The mark, with no tile under it — the same treatment the
+              empty state gives it, because it is the same mark and two
+              treatments of one mark is the inconsistency this pass was
+              about. A fixed box so the pill does not change shape when
+              the spinner takes its place while Bart is answering. */}
+          <span className="flex h-7 w-5 shrink-0 items-center justify-center">
+            {session.busy
+              ? <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              : <BartMark className="h-7 w-auto" />}
+          </span>
+          Ask Bart
         </button>
       )}
     </div>

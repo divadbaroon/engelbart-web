@@ -8,9 +8,9 @@ import type { BartSession } from "@/hooks/use-bart-session";
 import { BartConversation } from "@/components/bart/conversation";
 import { BartComposer } from "@/components/bart/composer";
 
-// Bart in the right panel, where it shares a tab bar with whatever tab
-// was sent over from the middle: the conversation about the work, at
-// full size. It is
+// Bart in the right panel, where it is one of three fixed tabs beside
+// the Terminal and the Trace (lib/workspace-slots): the conversation
+// about the work, at full size. It is
 // told which repository and run are open and which moment of the trace is
 // selected, so "this" in a question means that moment; the selection is a
 // referent, never a constraint. Answers cite the trace, the captured
@@ -23,7 +23,7 @@ export type BartPanelProps = {
   context: MessageContext;              // what a question asked here is about
   repo: Repo | null;
   selectionText: SelectionText | null;
-  recording: { id: string; name: string } | null;   // open in the Trace tab: Bart's trace questions read inside it
+  recording: { id: string; name: string } | null;   // open in the Visualizer: Bart's trace questions read inside it
   onClearSelection: () => void;
   onOpenRef: (ref: Ref) => void;        // a reference in an answer, opened in the middle
   labelRef: (ref: Ref) => string;       // what a reference chip says
@@ -31,15 +31,20 @@ export type BartPanelProps = {
 
 export function BartPanel({ session, context, repo, selectionText, recording, onClearSelection, onOpenRef, labelRef }: BartPanelProps) {
   const empty = session.messages.length === 0 && !session.pending;
-  const placeholder = selectionText
-    ? "Ask about this moment, or anything else..."
-    : repo
-      ? "Ask about the run, its model calls, or the code..."
-      : "Message Bart...";
+  // One line when nothing is selected. It used to name what you could
+  // ask about — the run, its model calls, the code — which is a list of
+  // the things Bart happens to be able to reach, and reading it before
+  // asking a question is work the question does not need. With a moment
+  // selected the line still says so, because that is the one thing about
+  // the box you cannot otherwise see.
+  const placeholder = selectionText ? "Ask about this moment, or anything else..." : "Ask Bart about anything...";
   return (
     <section aria-label="Bart" className="flex h-full min-w-0 flex-col bg-[#f6f6f6] px-5 pt-2 pb-3">
       <div className="flex h-7 shrink-0 items-center justify-end">
-        {!empty && (
+        {/* And not while the thread is still being read: an empty
+            header that grows a Clear a moment later is the same flash
+            the conversation below stopped having. */}
+        {session.loaded && !empty && (
           <Button variant="ghost" size="sm" onClick={() => void session.reset()} className="h-7 px-1.5 text-xs font-normal text-muted-foreground/70 hover:text-muted-foreground">Clear</Button>
         )}
       </div>

@@ -26,15 +26,31 @@ export type Replay = {
   error: string | null;
 };
 
+// What there is to say about a recording before anything has been asked
+// of the network: whether there is a stream to fetch, and whether there
+// is a recording to fetch it for. Both are on the recording itself, so
+// the first render can say them — it used to start at "not loading,
+// nothing absent, no error", which reads as "ready, and empty", and put
+// "Preparing the replay…" on the screen for a frame even when the
+// recording had no replay at all and never would.
+const NO_REPLAY = "This recording has no replay: the preview was not being captured while it ran.";
+
+const first = (recording: Recording | null): Replay =>
+  !recording ? { stored: null, loading: false, absent: null, error: null }
+  : !recording.replayPath ? { stored: null, loading: false, absent: NO_REPLAY, error: null }
+  : { stored: null, loading: true, absent: null, error: null };
+
 export function useReplay(recording: Recording | null): Replay {
-  const [state, setState] = useState<Replay>({ stored: null, loading: false, absent: null, error: null });
+  // The same function the effect below uses, so the frame before it runs
+  // and the frame after it cannot disagree.
+  const [state, setState] = useState<Replay>(() => first(recording));
   const path = recording?.replayPath ?? null;
   const open = !!recording;
 
   useEffect(() => {
-    if (!open) { setState({ stored: null, loading: false, absent: null, error: null }); return; }
+    if (!open) { setState(first(null)); return; }
     if (!path) {
-      setState({ stored: null, loading: false, absent: "This recording has no replay: the preview was not being captured while it ran.", error: null });
+      setState({ stored: null, loading: false, absent: NO_REPLAY, error: null });
       return;
     }
     let stale = false;

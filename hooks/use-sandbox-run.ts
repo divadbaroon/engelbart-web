@@ -6,7 +6,7 @@ import {
   EVENT_COLUMNS, RUN_COLUMNS, isLaterStatus, isRunActive, mergeEvents, statusFromEvents, toEvent, toRun,
   type EventRow, type RunRow, type SandboxEvent, type SandboxRun,
 } from "@/lib/sandbox";
-import { getRun, requeueRun, startRun, stopRun } from "@/app/workspace/[workspaceId]/sandbox-actions";
+import { getRun, relaunchRun, requeueRun, startRun, stopRun } from "@/app/workspace/[workspaceId]/sandbox-actions";
 
 // The latest run per repository and the events of the runs on screen. The
 // browser only queues runs; the worker process does the work and everything
@@ -16,6 +16,14 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
   const [events, setEvents] = useState<Record<string, SandboxEvent[]>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const loaded = useRef(new Set<string>());
+
+  // What `runs` holds right now, for the guards below. They are asked
+  // inside a click handler, after an await — the state a callback closed
+  // over when it was built is the state before the await, and a restart
+  // that has just stopped its sandbox would be declined by a snapshot
+  // that still says the run is going.
+  const latest = useRef(runs);
+  latest.current = runs;
 
   const applySnapshot = useCallback((run: SandboxRun, incoming: SandboxEvent[]) => {
     setRuns((all) => ({ ...all, [run.repoId]: run }));
@@ -75,13 +83,26 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
 
   // Queue a fresh run: clone into a new sandbox and launch.
   const prepare = useCallback(async (repoId: string, options: { fresh?: boolean } = {}) => {
-    if (isRunActive(runs[repoId])) return;
+    if (isRunActive(latest.current[repoId])) return;
     clearError(repoId);
     const started = await startRun(repoId, options);
     if (!started.ok) { setErrors((e) => ({ ...e, [repoId]: started.error })); return; }
     loaded.current.add(started.run.id);
     applySnapshot(started.run, []);
-  }, [runs, applySnapshot]);
+  }, [applySnapshot]);
+
+  // Bring the application up again in the sandbox it is already in, with
+  // what is saved for the repository now. A new run, like a restart, but
+  // without the machine, the clone or the install: the answer to adding an
+  // environment value to something that is already running.
+  const relaunch = useCallback(async (runId: string, repoId: string) => {
+    if (isRunActive(latest.current[repoId])) return;
+    clearError(repoId);
+    const started = await relaunchRun(runId);
+    if (!started.ok) { setErrors((e) => ({ ...e, [repoId]: started.error })); return; }
+    loaded.current.add(started.run.id);
+    applySnapshot(started.run, []);
+  }, [applySnapshot]);
 
   const stop = useCallback(async (runId: string, repoId: string) => {
     clearError(repoId);
@@ -143,5 +164,5 @@ export function useSandboxRuns(initial: Record<string, SandboxRun>) {
     return () => { clearInterval(timer); channels.forEach((c) => supabase.removeChannel(c)); };
   }, [activeIds, pollMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { runs, events, errors, prepare, launch, stop, load };
+  return { runs, events, errors, prepare, launch, relaunch, stop, load };
 }

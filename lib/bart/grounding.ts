@@ -1,5 +1,5 @@
 // What Bart is told when it asks about a run: the same derivations the
-// Trace tab reads, written out as text a model can use, each thing named
+// Visualizer reads, written out as text a model can use, each thing named
 // by the id the workspace can open. Nothing here reads the application,
 // and nothing here infers a cause: a tie is reported the way the trace
 // recorded it, with its correlation. Pure: no DOM, no React, no network.
@@ -24,7 +24,7 @@ export type TraceModel = {
   diagnostics: TraceRow[];
   frames: Map<string, FrameInfo>;
   callRows: Map<string, CallRow>;
-  // What the person was doing, read from the same events the Trace tab
+  // What the person was doing, read from the same events the Visualizer
   // reads them from. Derived here rather than sent with the question:
   // a selection travels as identities, so the only way Bart can be told
   // the same sentence the screen shows is to arrive at it again from the

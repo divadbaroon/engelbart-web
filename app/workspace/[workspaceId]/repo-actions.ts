@@ -108,6 +108,12 @@ export async function dropPatch(repoId: string): Promise<{ ok: true } | { ok: fa
 
 // One line from the person about what to run, kept on the repository and
 // handed to the planner on the next run. Empty removes it.
+//
+// Nothing in the workspace calls this: the field that used to sit under
+// the Live preview was taken out. The rest of the path is untouched —
+// `worker/index.ts` still passes `repo.hint` and `hc_run.py` still reads
+// `HC_PROJECT_HINT` — so a hint already on a row is still honoured, and
+// giving one a way back in is this function and a field.
 export async function setRepoHint(repoId: string, hint: string): Promise<{ ok: true; hint: string | null } | { ok: false; error: string }> {
   const value = hint.trim().slice(0, 500) || null;
   const supabase = await createClient();

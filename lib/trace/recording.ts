@@ -37,19 +37,6 @@ export const byRunThenMade = (a: RecordingOnRun, b: RecordingOnRun) =>
 export const REPLAYS_BUCKET = "engelbart-replays";
 export const replayStoragePath = (projectId: string, recordingId: string) => `${projectId}/${recordingId}.json`;
 
-// Where the Trace tab is: what somebody was doing, the whole run, the
-// list of recordings, one recording open on the same canvas, the notes
-// written on this repository's interface, or what has been read about
-// that interface.
-export type TraceNav = { kind: "activity" } | { kind: "full" } | { kind: "list" } | { kind: "recording"; id: string } | { kind: "annotations" } | { kind: "interface" };
-
-// Which of them are drawn on the canvas. The others are read top to
-// bottom and have no viewport, so a moment chosen from outside has to
-// bring the canvas back before it can be shown. One definition, because
-// the header and the reveal path both need the same answer and a view
-// added to one and not the other is a moment that silently goes nowhere.
-export const hasCanvas = (nav: TraceNav) => nav.kind === "full" || nav.kind === "recording";
-
 // ---- the window
 export type Window = { start: string; end: string | null };   // end null: still recording
 export const windowOf = (rec: Recording): Window => ({ start: rec.startedAt, end: rec.stoppedAt });
@@ -133,5 +120,26 @@ export function formatElapsed(ms: number): string {
   return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-// "Sep 19, 1:24 AM", in the viewer's clock
-export const formatWhen = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+// "Sep 19, 1:24 AM", in the viewer's clock. A date it cannot read gives
+// nothing rather than throwing: `toLocaleString` with options raises on an
+// Invalid Date, and this is called from inside a render, so one bad
+// timestamp would take the whole view down rather than one line of it.
+export const formatWhen = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+};
+
+// How long a finished recording ran for. Null while it is still going —
+// that length is the clock ticking, which only the browser can say.
+export function recordingLength(rec: Recording): number | null {
+  if (!rec.stoppedAt) return null;
+  const ms = Date.parse(rec.stoppedAt) - Date.parse(rec.startedAt);
+  return Number.isFinite(ms) && ms >= 0 ? ms : null;
+}
+
+// Whether there is a replay to watch, as distinct from how the run it was
+// made on went. These are two different facts that the list used to
+// answer with one word: every row said "failed", which was the run's
+// status, beside a recording that played perfectly well. A recording
+// still running has no file yet and is not missing one.
+export const hasReplay = (rec: Recording) => rec.status === "recording" || !!rec.replayPath;

@@ -6,6 +6,11 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { cn } from "@/lib/utils";
 
+// Below this the element is not being laid out for a reader: the panel
+// around it is collapsing, or it has just been hidden behind another of
+// the panel's tabs. Roughly fifteen columns and three rows at this font.
+const REAL_LAYOUT = { width: 120, height: 48 };
+
 // A shell in the run's sandbox, in the repository's directory. Output
 // arrives over a server-sent event stream; keystrokes go up in small
 // batches, one request at a time so they stay in order. Closing the tab
@@ -60,6 +65,11 @@ export default function SandboxShell({ runId, className }: { runId: string; clas
 
     let resizeTimer: ReturnType<typeof setTimeout> | undefined;
     const resized = () => {
+      // A box too small to be a shell anybody asked for is a panel on its
+      // way to being closed or hidden, not a layout. Fitting to it would
+      // clamp the terminal to a couple of columns and tell the PTY so,
+      // and the scrollback reflow that follows cannot be undone.
+      if (el.clientWidth < REAL_LAYOUT.width || el.clientHeight < REAL_LAYOUT.height) return;
       fit.fit();
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => { if (pid !== null && !gone) void post({ resize: { cols: term.cols, rows: term.rows } }); }, 150);

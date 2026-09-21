@@ -45,6 +45,45 @@ const GATEWAY_START_MS = 15_000;
 // deletes the first once read.
 const PREVIEW_GATEWAY = "/opt/engelbart/trace/preview-gateway.mjs";
 const PREVIEW_REDACT_FILE = "/home/user/.engelbart-redact-preview.json";
+const STOP_LAUNCH_TIMEOUT_MS = 30_000;
+
+// Take down everything a launch started inside a sandbox, and leave the
+// sandbox itself exactly where it is: the clone, what was installed into
+// it, and hc's own record of the project all stay.
+//
+// This is what makes relaunching cheaper than preparing again. The
+// expensive parts of a run are the machine, the clone and the install,
+// and none of them change when somebody adds an environment value, so
+// none of them are repeated; only the processes go.
+//
+// It has to be thorough in two directions. A second wrapper started
+// beside a first one finds hc holding a live process for this project and
+// refuses to start, and the proxy's public port is already bound — so the
+// first set must really be gone. And the application itself must go, not
+// just its supervisor: a server left listening would answer the new run's
+// health check in place of the one it started, and the run would come up
+// green still holding the value that was just changed.
+//
+// Everything the runtime starts lives under /opt/engelbart — the wrapper,
+// the proxy and the two gateways — so one pattern reaches all four. The
+// application is not one of them: it is a child the pipeline spawned, and
+// it is taken by the ports it serves on, which the run row already
+// records. The bracket in the pattern keeps pkill from matching the shell
+// that is running it, which otherwise kills this command mid-sentence.
+export async function stopLaunch(sandboxId: string, ports: number[]): Promise<void> {
+  const sandbox = await Sandbox.connect(sandboxId);
+  const byPort = [...new Set(ports.filter((p) => Number.isInteger(p) && p > 0))]
+    .map((p) => `fuser -k ${p}/tcp || true; `).join("");
+  // Quoted, and it has to be: unquoted, the shell expands the bracket
+  // against the directory that is actually there and hands pkill the
+  // plain path, which then matches the command line pkill is being run
+  // from — and the stop kills itself halfway through.
+  const pattern = "'/opt/engelbar[t]/'";
+  await sandbox.commands.run(
+    `pkill -f ${pattern} || true; ${byPort}sleep 1; pkill -9 -f ${pattern} || true; true`,
+    { timeoutMs: STOP_LAUNCH_TIMEOUT_MS },
+  );
+}
 
 const errorKind = (err: unknown) => (err instanceof Error ? err.constructor.name : "Error");
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));

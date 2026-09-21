@@ -3,25 +3,29 @@
 import { PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SidebarMode } from "@/components/nav-rail";
-import { PlanGoals, type PlanActions } from "@/components/plan-goals";
 import { RepoList, type RepoListActions } from "@/components/repo-list";
 import { PaperList, type PaperListActions } from "@/components/paper-list";
 
-const TITLES: Record<SidebarMode, string> = { plan: "Plan", github: "GitHub", papers: "Papers" };
+// What the panel lists, not where it came from. The rail beside it is
+// already showing a GitHub mark, pressed, with "GitHub" on its tooltip;
+// the heading repeating the source said nothing the icon had not, and
+// said nothing at all about what was under it.
+const TITLES: Record<SidebarMode, string> = { github: "Repositories", papers: "Papers" };
 
 type ProjectSidebarProps = {
   mode: SidebarMode;
   onCollapse: () => void;
-  plan: PlanActions;
   papers: PaperListActions;
   repos: RepoListActions;
 };
 
-export function ProjectSidebar({ mode, onCollapse, plan, papers, repos }: ProjectSidebarProps) {
+export function ProjectSidebar({ mode, onCollapse, papers, repos }: ProjectSidebarProps) {
   return (
-    <aside className="flex h-full min-w-0 flex-col gap-[18px] overflow-y-auto bg-[#f6f6f6] px-4 pt-4 pb-6">
+    <aside className="flex h-full min-w-0 flex-col gap-2 overflow-y-auto bg-[#f6f6f6] px-4 pt-4 pb-6">
       <div className="flex h-7 shrink-0 items-center justify-between">
-        <p className="px-3 text-[13px] font-medium">{TITLES[mode]}</p>
+        {/* 13px, not 12: a row is a 1px border and then px-3, so this is
+            the pixel its icon starts at and the heading sits over it. */}
+        <p className="px-[13px] text-[13px] font-medium">{TITLES[mode]}</p>
         <Button
           variant="ghost"
           size="icon"
@@ -33,7 +37,6 @@ export function ProjectSidebar({ mode, onCollapse, plan, papers, repos }: Projec
           <PanelLeft className="size-4" />
         </Button>
       </div>
-      {mode === "plan" && <PlanGoals {...plan} />}
       {mode === "github" && <RepoList {...repos} />}
       {mode === "papers" && <PaperList {...papers} />}
     </aside>

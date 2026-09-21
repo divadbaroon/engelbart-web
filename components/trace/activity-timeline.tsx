@@ -50,8 +50,20 @@ export function ActivityTimeline({ trace, episodes, onOpenMoment }: Props) {
   // session was read with. Above the early returns because it is a hook.
   const says = useMemo(() => saysOf(trace.reading.taxonomy), [trace.reading.taxonomy]);
 
-  if (trace.loading && !episodes.length) return <p className="p-8 text-center text-[13px] text-muted-foreground">Reading the trace…</p>;
+  // Nothing said about the reading being under way, for the reason the
+  // recordings list says nothing about its fetch: a run with no activity
+  // in it is the ordinary case, and "Reading the trace…" told somebody
+  // to wait for episodes that were never going to appear.
+  //
+  // Saying nothing is not the same as saying the wrong thing, though.
+  // While the trace is still being fetched there are no episodes because
+  // there is no trace, and the card below is a statement about the run —
+  // so it waits for the fetch rather than asserting an absence nobody
+  // has checked. `trace.loading` is true from the first render that has
+  // a run id (hooks/use-trace.ts), which is the render this branch is
+  // reached on.
   if (!episodes.length) {
+    if (trace.loading) return null;
     return (
       <div className="flex h-full flex-col items-center justify-center gap-1.5 p-8 text-center">
         <p className="text-[13px] font-medium">Nothing to read yet</p>
@@ -78,11 +90,11 @@ export function ActivityTimeline({ trace, episodes, onOpenMoment }: Props) {
         <SectionTitle>Timeline</SectionTitle>
         <CopyJson text={whole} label="Copy JSON" title="The whole timeline: every episode, the evidence it was read from, and the raw events under it" />
       </div>
-      {/* Whose words these rows are in. It is one quiet line and it is
-          always there, because the alternative — saying nothing — is how
-          a reading written for one artifact came to be printed over
-          another's session with nothing to mark it. */}
-      <p className="mb-2 text-[11px] leading-4 text-muted-foreground">{trace.reading.detail}</p>
+      {/* Whose words these rows are in used to be a line here. It is
+          still on the wire and still in the JSON this copies — the
+          `profile` stamp in `whole` above — so a reading printed over the
+          wrong artifact's session is still findable; it is no longer the
+          first thing said about a timeline nobody has read yet. */}
       <ol aria-label="Activity timeline" className="flex flex-col">
         {episodes.map((e) => (
           <Row key={e.id} episode={e} start={start} says={says} open={open === e.id} onToggle={() => setOpen(open === e.id ? null : e.id)} onOpenMoment={onOpenMoment} />

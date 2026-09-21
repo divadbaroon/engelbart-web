@@ -16,6 +16,25 @@ export function decodeFile(bytes: Uint8Array): FileContent {
   return { text: new TextDecoder("utf-8", { fatal: false }).decode(bytes) };
 }
 
+// The README at the top of the repository, if it has one.
+//
+// What the pane opens on when nothing has been chosen. A file browser
+// whose first screen is "Select a file" asks a question nobody came here
+// to answer; the README is the file a repository is written to be read
+// from, so it is the answer, and a repository without one keeps the
+// prompt rather than being given some other file to stand in for it.
+//
+// Only the top level: a `docs/README.md` is documentation about a folder,
+// not the thing the repository opens with. `README.md` is preferred over
+// the rarer spellings, and the case is whatever the repository used.
+export function readmeIn(tree: FileTree): string | null {
+  if ("error" in tree) return null;
+  const top = tree.entries.filter((e) => e.type === "blob" && !e.path.includes("/"));
+  return top.find((e) => /^readme\.md$/i.test(e.path))?.path
+    ?? top.find((e) => /^readme(\.|$)/i.test(e.path))?.path
+    ?? null;
+}
+
 // A path inside the repository: relative, no empty or parent segments.
 export function isSafeRepoPath(path: string): boolean {
   if (!path || path.startsWith("/") || path.includes("\\") || path.includes("\0")) return false;

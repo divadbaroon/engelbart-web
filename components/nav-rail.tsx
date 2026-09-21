@@ -1,14 +1,13 @@
 "use client";
 
-import { CircleHelp, FileText, Github, ListTodo, Settings2 } from "lucide-react";
+import { FileText, Github } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-export type SidebarMode = "plan" | "github" | "papers";
+export type SidebarMode = "github" | "papers";
 
-const MODES: { key: SidebarMode; label: string; icon: typeof ListTodo }[] = [
-  { key: "plan", label: "Plan", icon: ListTodo },
+const MODES: { key: SidebarMode; label: string; icon: typeof Github }[] = [
   { key: "github", label: "GitHub", icon: Github },
   { key: "papers", label: "Papers", icon: FileText },
 ];
@@ -52,7 +51,7 @@ export function NavRail({ mode, onSelect }: NavRailProps) {
   return (
     <nav
       aria-label="Project navigation"
-      className="flex w-12 shrink-0 flex-col items-center justify-between border-r bg-background py-3"
+      className="flex w-12 shrink-0 flex-col items-center border-r bg-background py-3"
     >
       <div className="flex flex-col gap-1">
         {MODES.map(({ key, label, icon: Icon }) => (
@@ -60,14 +59,6 @@ export function NavRail({ mode, onSelect }: NavRailProps) {
             <Icon className="size-4" />
           </RailButton>
         ))}
-      </div>
-      <div className="flex flex-col gap-1">
-        <RailButton label="Settings">
-          <Settings2 className="size-4" />
-        </RailButton>
-        <RailButton label="Help">
-          <CircleHelp className="size-4" />
-        </RailButton>
       </div>
     </nav>
   );

@@ -141,10 +141,21 @@ export const isRunActive = (run: SandboxRun | undefined) =>
 // own; it can be asked to launch.
 export const isRunCloned = (run: SandboxRun | undefined) => !!run && run.status === "paused";
 
+// The statuses in which a run's sandbox still has the repository on disk
+// and will accept a connection.
+//
+// One list, because there are two sides to every reach into a sandbox and
+// they have to agree: this one decides what the Code tab offers, and the
+// server reads the same list before it connects (lib/sandbox-access.ts).
+// They were two lists and they had drifted — the server's was missing
+// "usable", so a run in that state showed an editable Code tab whose
+// every read and write came back "The sandbox is not running."
+export const REACHABLE: RunStatus[] = ["cloned", "launching", "running", "usable"];
+
 // There is a sandbox with the repository on disk that can be reached:
 // files can be read and written and a shell opened.
 export const isSandboxLive = (run: SandboxRun | undefined): run is SandboxRun & { sandboxId: string } =>
-  !!run?.sandboxId && (run.status === "cloned" || run.status === "launching" || run.status === "running" || run.status === "usable");
+  !!run?.sandboxId && REACHABLE.includes(run.status);
 
 // Set up for use: installed and checked, with a shell open, but no page.
 export const isRunUsable = (run: SandboxRun | undefined) => !!run && run.status === "usable";
@@ -198,6 +209,32 @@ export const STATUS_LABEL: Record<RunStatus, string> = {
   failed: "Failed",
   killed: "Stopped",
 };
+
+// A run's error as the workspace says it: the sentence this codebase
+// wrote, without the tail the SDK appended to it.
+//
+// `lib/runtime/e2b.ts` stores "The sandbox is no longer running: " and
+// then whatever the E2B client said, which is a gRPC status in brackets,
+// the sandbox's id, and two sentences of advice about passing `timeoutMs`
+// — addressed to whoever wrote this code, not to whoever is reading the
+// run. The row keeps all of it, because that is what a support question
+// needs, and the whole text is in the run's `error` event in Logs. This
+// is what the workspace shows.
+//
+// Only the vendor's own shapes are cut, and nothing is cut by length: a
+// sentence we did not write is where a real reason lives, and trimming
+// one to a size that looked about right is how it disappears.
+const VENDOR = /:\s*\[[^\]]{0,40}\]|(?:^|\s)This error is likely due to/;
+
+export function plainError(error: string | null | undefined): string {
+  const said = error?.trim();
+  if (!said) return "";
+  const at = said.search(VENDOR);
+  // The cut can land on the colon that joined the two — "no longer
+  // running:" — or after it, depending on which shape matched.
+  const head = at > 0 ? said.slice(0, at).replace(/[\s:;,-]+$/, "") : said;
+  return /[.!?]$/.test(head) ? head : `${head}.`;
+}
 
 // Insert new events into a list, keeping order by seq and dropping duplicates.
 // Realtime delivery and a later full fetch can both hand over the same rows.

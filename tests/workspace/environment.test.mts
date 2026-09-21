@@ -107,12 +107,12 @@ describe("what a run is running with that is no longer what is saved", () => {
   const AFTER = savedAt("OPENAI_API_KEY", "2026-09-21T03:38:32.919Z");
 
   it("names a value saved after the run read its environment", () => {
-    assert.deepEqual(pendingEnv([BEFORE, AFTER], report()), { stale: ["OPENAI_API_KEY"], removed: [] });
+    assert.deepEqual(pendingEnv([BEFORE, AFTER], report()), { stale: ["OPENAI_API_KEY"], removed: [], unread: [] });
   });
 
   it("says nothing when everything was saved before the run read it", () => {
     const early = savedAt("OPENAI_API_KEY", "2026-09-21T03:00:00.000Z");
-    assert.deepEqual(pendingEnv([BEFORE, early], report()), { stale: [], removed: [] });
+    assert.deepEqual(pendingEnv([BEFORE, early], report()), { stale: [], removed: [], unread: [] });
   });
 
   it("compares against the scan, not the launch", () => {
@@ -128,7 +128,7 @@ describe("what a run is running with that is no longer what is saved", () => {
   it("names a value that was removed, which the run still holds", () => {
     // The row is gone, so there is no timestamp left to compare. The
     // run's own scan is the only record of what it was handed.
-    assert.deepEqual(pendingEnv([BEFORE], report()), { stale: [], removed: ["OPENAI_API_KEY"] });
+    assert.deepEqual(pendingEnv([BEFORE], report()), { stale: [], removed: ["OPENAI_API_KEY"], unread: [] });
   });
 
   it("does not call a value removed when the repository supplies it itself", () => {
@@ -137,8 +137,27 @@ describe("what a run is running with that is no longer what is saved", () => {
     assert.deepEqual(pendingEnv([], report()).removed, ["OPENAI_API_KEY"]);
   });
 
+  it("does not call a value stale when nothing in the repository reads it", () => {
+    // The scan reported this name as one it could not find in the code,
+    // so the wrapper dropped it before the application started. It is not
+    // waiting for a launch: launching again would drop it again, and the
+    // notice that offers to do that would be an instruction to waste a
+    // few minutes. It goes in its own list, which says so instead.
+    const unread = savedAt("OPENAPI_KEY", "2026-09-21T03:38:32.919Z");
+    assert.deepEqual(pendingEnv([BEFORE, AFTER, unread], report({ ignored: ["OPENAPI_KEY"] })), {
+      stale: ["OPENAI_API_KEY"], removed: [], unread: ["OPENAPI_KEY"],
+    });
+  });
+
+  it("names an unread value even when it was saved before the run read its environment", () => {
+    // Being older than the scan is what makes a value current, and this
+    // one is not current and never was. Time is the wrong question for it.
+    const old = savedAt("OPENAPI_KEY", "2026-09-21T03:00:00.000Z");
+    assert.deepEqual(pendingEnv([BEFORE, old], report({ ignored: ["OPENAPI_KEY"] })).unread, ["OPENAPI_KEY"]);
+  });
+
   it("says nothing at all when the run has not reported a scan", () => {
     // Nothing has been read yet, so nothing can be behind.
-    assert.deepEqual(pendingEnv([AFTER], null), { stale: [], removed: [] });
+    assert.deepEqual(pendingEnv([AFTER], null), { stale: [], removed: [], unread: [] });
   });
 });

@@ -129,18 +129,29 @@ export function toEnvReport(ev: EnvReportEvent, runId: string, at: string): EnvR
 // report standing in for it would describe an environment nobody is
 // running. The caller checks the run id, because only the caller knows
 // which run is in front of the person.
-export type PendingEnv = { stale: string[]; removed: string[] };
+// A third list, and the one that is not about time at all. The pipeline's
+// scan reports the saved names it could not find anywhere in the code,
+// and the wrapper drops them before the application is ever started —
+// hc takes only names its own scan knows. Such a value is not stale and
+// never will be: launching again will not apply it, and neither will
+// preparing from scratch. It was in the report from the beginning and
+// nothing read it out, so the panel said "Saved", the notice above said
+// to prepare again, and the name sat there looking like it had taken.
+export type PendingEnv = { stale: string[]; removed: string[]; unread: string[] };
 
 export function pendingEnv(saved: { name: string; updatedAt: string }[], report: EnvReport | null): PendingEnv {
-  if (!report) return { stale: [], removed: [] };
+  if (!report) return { stale: [], removed: [], unread: [] };
   // When the values were read, not when the run was queued. A run can
   // spend a minute cloning first, and a requeue reuses the row without
   // moving its start, so anything keyed to the start would report a
   // value saved in between as missed for the life of the run.
   const read = Date.parse(report.scannedAt);
+  const unread = new Set(report.ignored);
   return {
-    stale: saved.filter((s) => Date.parse(s.updatedAt) > read).map((s) => s.name),
+    // A name nothing reads is left out: it is not waiting for a launch.
+    stale: saved.filter((s) => !unread.has(s.name) && Date.parse(s.updatedAt) > read).map((s) => s.name),
     removed: report.variables.filter((v) => v.source === SAVED_SOURCE && !saved.some((s) => s.name === v.name)).map((v) => v.name),
+    unread: saved.filter((s) => unread.has(s.name)).map((s) => s.name),
   };
 }
 

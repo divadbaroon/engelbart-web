@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState, type DragEvent } from "react";
-import { FileText, GitBranch, Link as LinkIcon, Loader2, X } from "lucide-react";
+import { FileText, GitBranch, Link as LinkIcon, Loader2, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { paperMeta, type Paper } from "@/lib/papers";
+import { ACTIVE, HOVER, ICON, META, NAME, REMOVE, ROW, SURFACE, TITLE, TITLE_ON } from "@/components/sidebar-row";
 import type { PendingPaper, RepoSuggestion } from "@/hooks/use-papers";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,10 +27,25 @@ export type PaperListActions = {
   onDismissSuggestion: (paperId: string) => void;
 };
 
+// Each of the pair at the foot of the list: the row's height, type and
+// icon column — the wrapper's px-[7px] and this px-1.5 put the first Plus
+// at the 13px the rows above start their icons at, which is their border
+// plus their padding — but only as wide as its own label, so the two sit
+// on one line.
+const ADD = "flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-2 text-left text-sm text-muted-foreground hover:text-foreground";
+
 const pdfsOf = (files: FileList | null) => Array.from(files ?? []).filter((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
 
 // The project's papers. Drop PDFs anywhere on the panel, pick them with
 // the button, or paste a link; each shows up as it uploads.
+//
+// The same row as a repository (components/sidebar-row.ts), and for the
+// same reason: the rail switches between two lists of things in this
+// project, and the panel under it should not change shape when it does.
+// Papers were bordered cards with the list’s own gaps between them while
+// repositories were flat rows, so GitHub and Papers looked like two
+// different panels rather than one panel showing two things. They are
+// both contained rows now, and still one shape.
 export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFromUrl, onRename, onRemove, onDismiss, analyzing, suggestion, onAcceptSuggestion, onDismissSuggestion }: PaperListActions) {
   const [over, setOver] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
@@ -69,19 +85,19 @@ export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFr
       onDragOver={(e) => e.preventDefault()}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={cn("relative flex min-h-0 flex-1 flex-col gap-[18px] rounded-lg transition-colors", over && "bg-neutral-200/60")}
+      className={cn("relative flex min-h-0 min-w-0 flex-1 flex-col rounded-md transition-colors", over && "bg-neutral-200/60")}
     >
       {over && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-neutral-400 text-[13px] text-neutral-600">
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-neutral-400 text-[13px] text-neutral-600">
           Drop PDFs to add them
         </div>
       )}
 
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-1.5">
         {papers.map((paper) =>
           editing?.id === paper.id ? (
-            <li key={paper.id} className="flex items-start gap-2.5 rounded-lg border bg-background px-3.5 py-3">
-              <FileText className="mt-0.5 size-[15px] shrink-0 text-muted-foreground" />
+            <li key={paper.id} className={cn(ROW, SURFACE)}>
+              <FileText className={ICON} />
               <Input
                 autoFocus
                 value={editing.title}
@@ -92,7 +108,7 @@ export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFr
                   if (e.key === "Enter") { e.preventDefault(); commitRename(); }
                   if (e.key === "Escape") { e.preventDefault(); setEditing(null); }
                 }}
-                className="h-5 border-0 bg-transparent p-0 text-sm font-medium shadow-none focus-visible:ring-0"
+                className="h-auto min-w-0 border-0 bg-transparent p-0 text-sm font-medium shadow-none focus-visible:ring-0"
               />
             </li>
           ) : (
@@ -102,25 +118,33 @@ export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFr
                 onClick={() => onOpen(paper.id)}
                 onDoubleClick={() => setEditing({ id: paper.id, title: paper.title })}
                 aria-pressed={activeId === paper.id}
-                title="Open in workspace · double-click to rename"
+                // The title is drawn to one line like a repository's name,
+                // so the whole of it is here — with what a double click
+                // does, which is the one thing about this row you cannot
+                // see.
+                title={`${paper.title}\nOpen in workspace · double-click to rename`}
                 className={cn(
-                  "flex w-full items-start gap-2.5 rounded-lg border bg-background px-3.5 py-3 pr-8 text-left transition-colors hover:border-neutral-300",
-                  activeId === paper.id && "border-neutral-400",
-                  suggestion?.paperId === paper.id && "rounded-b-none border-b-0",
+                  ROW,
+                  SURFACE,
+                  activeId === paper.id && ACTIVE,
+                  // The suggestion hangs off the bottom of this row, so
+                  // the two share an edge rather than each keeping their
+                  // own and drawing a seam.
+                  suggestion?.paperId === paper.id && "rounded-b-none",
                 )}
               >
-                <FileText className="mt-0.5 size-[15px] shrink-0 text-muted-foreground" />
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <span className="text-sm leading-5 font-medium text-pretty">{paper.title}</span>
+                <FileText className={ICON} />
+                <span className={NAME}>
+                  <span className={activeId === paper.id ? TITLE_ON : TITLE}>{paper.title}</span>
                   {analyzing.has(paper.id) ? (
-                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Loader2 className="size-3 animate-spin" />
+                    <span className="flex items-center gap-1.5 truncate text-xs leading-4 text-muted-foreground">
+                      <Loader2 className="size-3 shrink-0 animate-spin" />
                       Reading the paper…
                     </span>
                   ) : (
-                    <span className="text-xs text-muted-foreground">{paperMeta(paper)}</span>
+                    <span className={META}>{paperMeta(paper)}</span>
                   )}
-                </div>
+                </span>
               </button>
               <Button
                 variant="ghost"
@@ -128,7 +152,7 @@ export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFr
                 aria-label={`Remove ${paper.title}`}
                 title="Remove from project"
                 onClick={() => onRemove(paper.id)}
-                className="absolute top-2.5 right-1.5 size-6 rounded text-muted-foreground/60 opacity-0 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                className={REMOVE}
               >
                 <X className="size-3" />
               </Button>
@@ -140,20 +164,20 @@ export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFr
         )}
 
         {pending.map((p) => (
-          <li key={p.id} className="group relative flex items-start gap-2.5 rounded-lg border border-dashed bg-background px-3.5 py-3 pr-8">
+          <li key={p.id} className={cn(ROW, "relative border-dashed bg-background")}>
             {p.status === "error" ? (
-              <FileText className="mt-0.5 size-[15px] shrink-0 text-destructive" />
+              <FileText className={cn(ICON, "text-destructive")} />
             ) : (
-              <Loader2 className="mt-0.5 size-[15px] shrink-0 animate-spin text-muted-foreground" />
+              <Loader2 className={cn(ICON, "animate-spin")} />
             )}
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="truncate text-sm leading-5 font-medium">{p.title}</span>
-              <span className={cn("text-xs", p.status === "error" ? "text-destructive" : "text-muted-foreground")}>
+            <span className={NAME}>
+              <span className={TITLE}>{p.title}</span>
+              <span className={cn("truncate text-xs leading-4", p.status === "error" ? "text-destructive" : "text-muted-foreground")}>
                 {p.status === "uploading" ? "Uploading…" : p.status === "fetching" ? "Fetching…" : p.error}
               </span>
-            </div>
+            </span>
             {p.status === "error" && (
-              <Button variant="ghost" size="icon" aria-label="Dismiss" onClick={() => onDismiss(p.id)} className="absolute top-2.5 right-1.5 size-6 rounded text-muted-foreground/60 hover:text-foreground">
+              <Button variant="ghost" size="icon" aria-label="Dismiss" onClick={() => onDismiss(p.id)} className={cn(REMOVE, "opacity-100")}>
                 <X className="size-3" />
               </Button>
             )}
@@ -161,8 +185,8 @@ export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFr
         ))}
 
         {draft !== null && (
-          <li className="flex items-center gap-2.5 rounded-lg border bg-background px-3.5 py-3">
-            <LinkIcon className="size-[15px] shrink-0 text-muted-foreground" />
+          <li className={cn(ROW, SURFACE)}>
+            <LinkIcon className={ICON} />
             <Input
               autoFocus
               value={draft}
@@ -175,37 +199,51 @@ export function PaperList({ papers, pending, activeId, onOpen, onUpload, onAddFr
                 if (e.key === "Enter") { e.preventDefault(); commitDraft(); }
                 if (e.key === "Escape") { e.preventDefault(); setDraft(null); }
               }}
-              className="h-5 border-0 bg-transparent p-0 text-sm font-medium shadow-none focus-visible:ring-0"
+              className="h-auto min-w-0 border-0 bg-transparent p-0 text-sm font-medium shadow-none focus-visible:ring-0"
             />
+            {adding && <span className="shrink-0 text-xs text-muted-foreground">Checking…</span>}
           </li>
         )}
       </ul>
 
       {!papers.length && !pending.length && draft === null && (
-        <p className="px-3 text-[13px] text-muted-foreground">No papers yet. Drop PDFs here, or add one below.</p>
+        <p className="px-[13px] py-1.5 text-[13px] leading-5 text-muted-foreground">No papers yet. Drop PDFs here, or add one below.</p>
       )}
 
-      <div className="flex flex-wrap gap-1">
-        <Button variant="ghost" size="sm" onClick={() => picker.current?.click()} className="w-fit px-3 font-normal text-muted-foreground">
-          + Upload PDF
-        </Button>
-        <Button variant="ghost" size="sm" disabled={draft !== null} onClick={() => setDraft("")} className="w-fit px-3 font-normal text-muted-foreground">
-          + Add from link
-        </Button>
-        <input
-          ref={picker}
-          type="file"
-          accept="application/pdf,.pdf"
-          multiple
-          hidden
-          onChange={(e) => { const files = pdfsOf(e.target.files); e.target.value = ""; if (files.length) onUpload(files); }}
-        />
+      {/* The two ways in, side by side at the end of the column where
+          "Add repository" is in the other list. They are one thing —
+          bring a paper into the project — with two doors, so they belong
+          on one line; the wrap is there because a narrow panel cannot
+          hold both, and a button that runs off the edge is worse than a
+          button on the next line. */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-1 px-[7px]">
+        <button type="button" onClick={() => picker.current?.click()} className={cn(ADD, HOVER)}>
+          <Plus className={ICON} />
+          <span className="truncate">Upload PDF</span>
+        </button>
+        <button
+          type="button"
+          disabled={draft !== null}
+          onClick={() => setDraft("")}
+          className={cn(ADD, HOVER, "disabled:pointer-events-none disabled:opacity-50")}
+        >
+          <Plus className={ICON} />
+          <span className="truncate">Add link</span>
+        </button>
       </div>
+      <input
+        ref={picker}
+        type="file"
+        accept="application/pdf,.pdf"
+        multiple
+        hidden
+        onChange={(e) => { const files = pdfsOf(e.target.files); e.target.value = ""; if (files.length) onUpload(files); }}
+      />
     </div>
   );
 }
 
-// Hangs off the bottom of its paper's card: "links to these repositories,
+// Hangs off the bottom of its paper's row: "links to these repositories,
 // add them?" Each is checked to start with; adding clones and starts them
 // like a pasted URL would.
 function SuggestionCard({ suggestion, onAccept, onDismiss }: { suggestion: RepoSuggestion; onAccept: (paperId: string, urls: string[]) => void; onDismiss: (paperId: string) => void }) {
@@ -213,8 +251,8 @@ function SuggestionCard({ suggestion, onAccept, onDismiss }: { suggestion: RepoS
   const toggle = (url: string) => setChosen((prev) => { const next = new Set(prev); if (next.has(url)) next.delete(url); else next.add(url); return next; });
   const many = suggestion.repos.length > 1;
   return (
-    <div role="dialog" aria-label="Repositories found in the paper" className="rounded-b-lg border border-t-0 bg-neutral-50 px-3.5">
-      <div className="flex flex-col gap-2.5 border-t border-dashed py-3">
+    <div role="dialog" aria-label="Repositories found in the paper" className="rounded-md rounded-t-none border border-t-0 bg-[#f0f0f0] px-3">
+      <div className="flex flex-col gap-2.5 py-3">
       <p className="text-[13px] leading-5 text-pretty text-muted-foreground">
         Links to {many ? `${suggestion.repos.length} repositories` : "a repository"}.
       </p>
@@ -232,7 +270,10 @@ function SuggestionCard({ suggestion, onAccept, onDismiss }: { suggestion: RepoS
           );
         })}
       </ul>
-      <div className="flex gap-1.5">
+      {/* Wraps, like the pair at the foot of the list: at the panel's
+          minimum width the two do not fit on one line, and a button
+          hanging off the edge is worse than a button on the next. */}
+      <div className="flex flex-wrap gap-1.5">
         <Button size="sm" disabled={!chosen.size} onClick={() => onAccept(suggestion.paperId, suggestion.repos.filter((u) => chosen.has(u)))} className="h-7 px-3 font-normal">
           Add and start
         </Button>

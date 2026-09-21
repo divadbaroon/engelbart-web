@@ -4,6 +4,7 @@
 // path and lines, the README), never by copied text, so the workspace can
 // open it. Pure: no DOM, no React, no network.
 import type { Pane } from "@/lib/trace/selection";
+import type { Attachment, BartOptions } from "@/lib/bart/options";
 
 export type Ref =
   | { kind: "moment"; stageId: string }
@@ -34,11 +35,15 @@ export type BartRequest = {
   projectId: string;
   repoId: string | null;
   runId: string | null;
-  recordingId: string | null;  // the recording open in the Trace tab: trace tools read inside it
+  recordingId: string | null;  // the recording open in the Visualizer: trace tools read inside it
   annotationId: string | null; // a note the person asked about, if the question came from one
   selection: SelectionRef | null;
   model: string;
   message: string;
+  // How the question is to be answered, and the files it carries. Both
+  // are clamped on the route (lib/bart/options.ts) rather than trusted.
+  options?: BartOptions | null;
+  attachments?: Attachment[] | null;
 };
 
 export type ToolState = "running" | "done" | "failed";

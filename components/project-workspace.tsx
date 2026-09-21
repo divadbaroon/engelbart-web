@@ -1,18 +1,11 @@
 "use client";
 
-import { FileText, X } from "lucide-react";
+import { FileText, Plus, X } from "lucide-react";
 import { isPaperTab, paperMeta, paperTabValue, type Paper } from "@/lib/papers";
-import type { Goal } from "@/lib/plan";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { NotesPad } from "@/components/notes-pad";
 import { TAB_LIST, TAB_TRIGGER } from "@/components/repo-workspace";
-
-export const PROJECT_TABS = [
-  { value: "preview", label: "Live preview" },
-  { value: "terminal", label: "Terminal" },
-  { value: "notes", label: "Notes" },
-] as const;
+import { PreviewState, SANDBOX_CUBE } from "@/components/preview-state";
 
 type ProjectTabsProps = {
   tab: string;
@@ -21,16 +14,19 @@ type ProjectTabsProps = {
   onClosePaper: (id: string) => void;
 };
 
-// Project tab bar: Live preview / Terminal / Notes plus closable tabs for opened papers.
+// With no repository open, the only thing this project has to show is the
+// papers that have been opened, so the bar is those and nothing else. It
+// used to carry Live preview, Terminal and Notes as well: the first two
+// rendered nothing but their own label, and Notes went with the goal
+// picker it wrote against.
 export function ProjectTabs({ tab, onTabChange, openPapers, onClosePaper }: ProjectTabsProps) {
+  // An empty bar is not an empty bar: `TabsList` carries a bottom border,
+  // so with no papers it would draw a hairline across the panel under
+  // nothing at all.
+  if (!openPapers.length) return null;
   return (
     <Tabs value={tab} onValueChange={onTabChange}>
       <TabsList className={TAB_LIST}>
-        {PROJECT_TABS.map((t) => (
-          <TabsTrigger key={t.value} value={t.value} className={TAB_TRIGGER}>
-            {t.label}
-          </TabsTrigger>
-        ))}
         {openPapers.map((paper) => (
           <div key={paper.id} className="flex min-w-0 items-center gap-1">
             <TabsTrigger value={paperTabValue(paper.id)} title={paper.title} className={`${TAB_TRIGGER} max-w-[200px] gap-1.5`}>
@@ -55,14 +51,17 @@ export function ProjectTabs({ tab, onTabChange, openPapers, onClosePaper }: Proj
 }
 
 type ProjectContentProps = {
+  // The project's own repositories, and the way to add one. With none,
+  // this pane is the first thing somebody sees of a project, so it says
+  // what to do rather than where to look.
+  hasRepos?: boolean;
+  onAddRepo?: () => void;
   tab: string;
   openPapers: Paper[];
   paperUrls: Record<string, string>;   // signed links, fetched when a paper is opened
-  notesGoal: Goal | null;
-  onNotesSaved: (goalId: string, notes: string, updatedAt: string) => void;
 };
 
-export function ProjectContent({ tab, openPapers, paperUrls, notesGoal, onNotesSaved }: ProjectContentProps) {
+export function ProjectContent({ tab, openPapers, paperUrls, hasRepos, onAddRepo }: ProjectContentProps) {
   const activePaper = isPaperTab(tab) ? openPapers.find((p) => paperTabValue(p.id) === tab) : undefined;
 
   if (activePaper) {
@@ -84,12 +83,21 @@ export function ProjectContent({ tab, openPapers, paperUrls, notesGoal, onNotesS
     );
   }
 
-  if (tab === "notes") return <NotesPad goal={notesGoal} onSaved={onNotesSaved} />;
-
-  const label = PROJECT_TABS.find((t) => t.value === tab)?.label ?? "";
+  // Nothing is open. There is nothing to show and nothing to pretend to
+  // show, so this says what there is to do instead — and in a project
+  // with no repositories at all, "choose one from the sidebar" was
+  // pointing at an empty list.
+  if (!hasRepos && onAddRepo) {
+    return (
+      <PreviewState
+        image={SANDBOX_CUBE}
+        title="Add a repository"
+        description="Add a repository to see your project here."
+        actions={[{ label: "Add a repo", onClick: onAddRepo, primary: true, icon: <Plus className="size-3.5" /> }]}
+      />
+    );
+  }
   return (
-    <section className="flex h-full items-center justify-center text-[13px] text-muted-foreground">
-      {label}
-    </section>
+    <PreviewState title="Nothing open" description="Choose a repository or a paper from the sidebar." />
   );
 }

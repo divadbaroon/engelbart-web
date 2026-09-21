@@ -195,3 +195,99 @@ describe("order and provenance", () => {
     assert.deepEqual(graphOf(episodes, stages, ROPE_TAXONOMY).map((n) => n.id), graph.map((n) => n.id));
   });
 });
+
+// Which side of the session is drawn.
+//
+// A display rule like the fold above it, and the same danger: a canvas
+// showing one stream must go on saying what happened in the stretches the
+// other one filled, or the session reads as shorter than it was.
+describe("showing one side of the session", () => {
+  const person = graphOf(episodes, stages, ROPE_TAXONOMY, { ...DEFAULT_GRAPH, shown: "person" });
+  const software = graphOf(episodes, stages, ROPE_TAXONOMY, { ...DEFAULT_GRAPH, shown: "software" });
+
+  it("draws both by default, and the rule changes nothing when it is at both", () => {
+    const both = graphOf(episodes, stages, ROPE_TAXONOMY, { ...DEFAULT_GRAPH, shown: "both" });
+    assert.deepEqual(both.map((n) => n.id), graph.map((n) => n.id));
+    assert.equal(DEFAULT_GRAPH.shown, "both");
+  });
+
+  it("keeps only the person's moments on the person's side", () => {
+    assert.ok(person.length > 0);
+    assert.ok(person.every((n) => n.kind === "participant"), "no model or observed node survives");
+  });
+
+  it("keeps only the software's moments on the software's side", () => {
+    assert.ok(software.length > 0);
+    assert.ok(software.every((n) => n.kind === "model" || n.kind === "observed"), "no participant node survives");
+    assert.ok(software.some((n) => n.kind === "model"));
+  });
+
+  it("counts what appeared as the software's side, not the person's", () => {
+    // The recorded session has no response stage in it — ROPE's answers
+    // arrive as mutations the reading folds elsewhere — so this is the
+    // one claim the fixture cannot make on its own. What appeared is the
+    // system's side of the exchange even though it is not a model call,
+    // and a toggle that said "software" while leaving the answers on the
+    // person's side would be showing something other than what it says.
+    const appeared: Stage = {
+      kind: "stage", id: "response-1", stage: "response",
+      at: stages[stages.length - 1].endAt, endAt: stages[stages.length - 1].endAt,
+      label: "Response appeared", detail: null, link: null, callId: null,
+      title: "Response appeared", rows: [], events: [],
+    };
+    const withOne = [...stages, appeared];
+    const onSoftware = graphOf(episodes, withOne, ROPE_TAXONOMY, { ...DEFAULT_GRAPH, shown: "software" });
+    const onPerson = graphOf(episodes, withOne, ROPE_TAXONOMY, { ...DEFAULT_GRAPH, shown: "person" });
+    assert.equal(onSoftware.filter((n) => n.kind === "observed").length, 1);
+    assert.equal(onPerson.filter((n) => n.kind === "observed").length, 0);
+  });
+
+  it("gives every wait back when the call it was folded into is not drawn", () => {
+    // The fold is only honest while the call is on the canvas. Hiding
+    // the software takes the calls away, so the waits must come back as
+    // nodes of their own — otherwise both the call and the wait go, and
+    // that stretch of the session disappears with nothing saying so.
+    const waits = person.filter((n) => n.kind === "participant" && n.broad === "WAITING");
+    assert.equal(waits.length, episodes.filter((e) => e.broadBehavior === "WAITING").length);
+    assert.ok(waits.length > 0, "the recording has waits to give back");
+    // And they are still the reading's own words, not the canvas's.
+    for (const w of waits) {
+      const episode = episodes.find((e) => e.id === (w as { episodeId: string }).episodeId);
+      assert.equal(w.kind === "participant" && w.description, episode!.description);
+    }
+  });
+
+  it("loses nothing between the two sides but the folded waits", () => {
+    // Every node of the whole canvas is on one side or the other. The
+    // waits are the one exception and they are an addition, not a loss:
+    // they exist on the person's side because the call they were folded
+    // into is not there to carry them.
+    const whole = new Set(graph.map((n) => n.id));
+    const apart = [...person, ...software].map((n) => n.id);
+    const extra = apart.filter((id) => !whole.has(id));
+    const missing = [...whole].filter((id) => !apart.includes(id));
+    assert.deepEqual(missing, [], "no moment of the run falls between the two sides");
+    assert.ok(extra.every((id) => person.some((n) => n.id === id && n.kind === "participant" && n.broad === "WAITING")), "the only additions are the unfolded waits");
+  });
+
+  it("keeps the order the whole canvas had", () => {
+    // The line between two cards is drawn from the node before it in the
+    // array (components/trace/trace-canvas.tsx), so a filter that
+    // reordered anything would re-link the spine wrongly.
+    for (const side of [person, software]) {
+      const times = side.map((n) => Date.parse(n.at));
+      assert.deepEqual(times, [...times].sort((a, b) => a - b), "still in clock order");
+    }
+    const kept = graph.filter((n) => software.some((s) => s.id === n.id)).map((n) => n.id);
+    assert.deepEqual(software.map((n) => n.id), kept, "and in the order the whole canvas had them");
+  });
+
+  it("still leads every moment back to the trace", () => {
+    // The route from a card to its evidence is the node id, and it must
+    // survive a filter untouched or the inspector opens on nothing.
+    for (const n of [...person, ...software]) {
+      assert.ok(stages.some((s) => s.id === stageIdOf(n.id)), `${n.id} leads to a stage`);
+      assert.equal(stageIdOf(n.id), n.stageId);
+    }
+  });
+});

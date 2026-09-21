@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { loadBartThread, startBartThread } from "@/app/workspace/[workspaceId]/bart-actions";
 import type { BartEvent, BartMessage, MessageContext, Ref, ToolState } from "@/lib/bart/protocol";
+import { withAttachments, type Attachment, type BartOptions } from "@/lib/bart/options";
 
 // The conversation with Bart for a workspace: loaded from the thread on
 // arrival, so a refresh keeps it; one turn at a time streamed from the
@@ -34,14 +35,14 @@ export function useBart(projectId: string) {
 
   const stop = useCallback(() => { controller.current?.abort(); controller.current = null; }, []);
 
-  const send = useCallback(async (message: string, model: string, context: MessageContext) => {
+  const send = useCallback(async (message: string, model: string, context: MessageContext, options?: BartOptions, attachments?: Attachment[]) => {
     const text = message.trim();
     if (!text || controller.current) return;
     const ac = new AbortController();
     controller.current = ac;
     setError(null);
     setPending({ text: "", tools: [] });
-    const local: BartMessage = { id: `local:${Date.now()}`, role: "user", content: text, refs: [], context, model: null, createdAt: new Date().toISOString() };
+    const local: BartMessage = { id: `local:${Date.now()}`, role: "user", content: withAttachments(text, attachments ?? []), refs: [], context, model: null, createdAt: new Date().toISOString() };
     setMessages((ms) => [...ms, local]);
     let answer = "";
     let refs: Ref[] = [];
@@ -49,7 +50,7 @@ export function useBart(projectId: string) {
     try {
       const res = await fetch("/api/bart", {
         method: "POST", headers: { "content-type": "application/json" }, signal: ac.signal,
-        body: JSON.stringify({ threadId, projectId, repoId: context.repoId, runId: context.runId, recordingId: context.recordingId ?? null, annotationId: context.annotationId ?? null, selection: context.selection, model, message: text }),
+        body: JSON.stringify({ threadId, projectId, repoId: context.repoId, runId: context.runId, recordingId: context.recordingId ?? null, annotationId: context.annotationId ?? null, selection: context.selection, model, message: text, options: options ?? null, attachments: attachments ?? null }),
       });
       if (!res.ok || !res.body) {
         const body = await res.json().catch(() => ({}));

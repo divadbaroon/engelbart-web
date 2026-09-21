@@ -7,12 +7,17 @@ import "@rrweb/replay/dist/style.css";
 import { ArrowLeft, Circle, Loader2, Pause, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { formatElapsed, type Recording } from "@/lib/trace/recording";
+import { formatElapsed, formatWhen, type Recording } from "@/lib/trace/recording";
+import type { SandboxRun } from "@/lib/sandbox";
 import { allFrames, framesAt, replayClock, streamStart, toReplayTime, toTraceTime, usedPointer } from "@/lib/trace/replay";
 import { useReplay, usePlayer } from "@/hooks/use-replay";
 
 export type ReplayProps = {
   recording: Recording;
+  // The run it was cut from, for the line saying which session this is
+  // and how that session ended. A recording can only be read against its
+  // own run, so this is always that run and never another.
+  run: SandboxRun | undefined;
   // How far the sandbox's clock runs ahead of this browser's, as the
   // gateway measured it on the run's own events. The replay keeps the
   // browser's clock and the trace keeps the sandbox's, so this is what
@@ -20,7 +25,7 @@ export type ReplayProps = {
   // answer — no reading — and the two are then shown side by side
   // without being lined up, rather than lined up wrongly.
   offset: number | null;
-  onBackToLive: () => void;
+  onBack: () => void;
   // Both directions are in the trace's own clock, because that is the
   // clock every other thing in the workspace speaks. The conversion lives
   // here, beside the stream that decides where zero is.
@@ -28,13 +33,13 @@ export type ReplayProps = {
   seekTo: { at: string; key: number } | null;
 };
 
-// A recording, played back where the running application usually is.
+// A recording, played back.
 //
-// The live preview is still mounted underneath this — hidden, never
-// unmounted, because unmounting the iframe would reload the artifact and
-// "back to live" would come back to a different page than the one that was
-// left. So this draws over it and goes away again.
-export function ReplaySurface({ recording, offset, onBackToLive, onMoment, seekTo }: ReplayProps) {
+// It scales whatever was recorded into whatever box it is given, so it
+// does not care where it is drawn: today the Replay tab in the right-hand
+// panel, and the middle of the workspace if these tools are ever given
+// the choice. Nothing in it reads the panel.
+export function ReplaySurface({ recording, run, offset, onBack, onMoment, seekTo }: ReplayProps) {
   const stage = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const replay = useReplay(recording);
@@ -136,7 +141,17 @@ export function ReplaySurface({ recording, offset, onBackToLive, onMoment, seekT
   // So it is scaled to fit rather than scrolled, and re-scaled when either
   // changes. rrweb writes the recorded size onto its own wrapper, which is
   // where it is read from.
-  const [scale, setScale] = useState(1);
+  //
+  // `null` until it has been worked out once, and the stage stays hidden
+  // until then. rrweb sizes its own wrapper a tick after it reports
+  // ready — the Meta event and the first snapshot are both rebuilt from
+  // timers — so the first fit measures 0x0, bails on the guard below,
+  // and leaves the scale at whatever it started as. At `1` that is the
+  // recorded page at full size, a zoomed-in corner of the interface
+  // clipped by the pane, for about an eighth of a second before it
+  // snapped down. `invisible` still lays out, so what the fit is waiting
+  // to measure is measurable while it waits.
+  const [scale, setScale] = useState<number | null>(null);
   useLayoutEffect(() => {
     const outer = box.current, inner = stage.current;
     if (!outer || !inner || !ready) return;
@@ -149,33 +164,55 @@ export function ReplaySurface({ recording, offset, onBackToLive, onMoment, seekT
     fit();
     const observer = new ResizeObserver(fit);
     observer.observe(outer);
+    // The stage as well as the pane: the wrapper is sized by rrweb after
+    // this effect runs, and again if the recorded window was resized
+    // mid-stream, and the pane never hears about either. It cannot loop —
+    // the observer reports the untransformed content box and `fit` only
+    // writes a transform.
+    observer.observe(inner);
     const settle = setTimeout(fit, 120);
     return () => { observer.disconnect(); clearTimeout(settle); };
   }, [ready]);
+  const fitted = ready && scale !== null;
 
   const problem = replay.error ?? player.error;
+  // Said only when the picture cannot say it: a replay that is playing
+  // needs no label announcing that it is a replay.
+  const note = replay.loading ? "Loading the replay…" : replay.absent ? "No replay" : problem ? "Replay unavailable" : !ready ? "Preparing…" : null;
 
   return (
     <section aria-label={`Replay of ${recording.name}`} className="flex h-full min-h-0 flex-col bg-background">
+      {/* Back, then what is being watched, then when the session it was
+          cut from was — three different facts, in that order of
+          importance. What became of that run is not among them: a
+          recording of a run that failed plays exactly as well as any
+          other, and a red "Failed" beside the name of the thing you are
+          watching reads as a verdict on the thing you are watching. The
+          run's own state is in Build, on the step it stopped in. */}
       <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3 text-xs">
-        <Button variant="ghost" size="sm" onClick={onBackToLive} className="h-6 gap-1.5 px-2 font-normal text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="size-3.5" /> Back to live
+        <Button variant="ghost" size="sm" onClick={onBack} className="h-6 gap-1.5 px-2 font-normal text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="size-3.5" /> Recordings
         </Button>
-        <span className="h-4 w-px bg-border" />
-        <Circle className="size-2 shrink-0 fill-red-500 text-red-500" />
-        <span className="min-w-0 truncate font-medium" title={recording.name}>{recording.name}</span>
-        <span className="ml-auto shrink-0 text-muted-foreground">
-          {replay.loading ? "Loading the replay…" : ready ? "Replay · not live" : replay.absent ? "No replay" : problem ? "Replay unavailable" : "Preparing…"}
-        </span>
+        <span className="h-4 w-px shrink-0 bg-border" />
+        <span title="A recording of the application, not the application" className="flex shrink-0 items-center"><Circle className="size-2 fill-red-500 text-red-500" /></span>
+        {/* What is being watched gets the slack; the date gives way before
+            it does, and the state of the replay itself is only said while
+            it is something you cannot see — the picture being there is
+            the report that it worked. The panel can be three hundred
+            pixels wide and Tailwind's breakpoints are the window's, not
+            this column's, so the order has to do it. */}
+        <span className="min-w-0 flex-1 truncate font-medium" title={recording.name}>{recording.name}</span>
+        {run && <span className="min-w-0 shrink truncate text-muted-foreground">{formatWhen(run.startedAt)}</span>}
+        {note && <span className="shrink-0 text-muted-foreground">{note}</span>}
       </div>
 
       {replay.absent && (
-        <p role="status" className="shrink-0 border-b bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">{replay.absent} The trace of it is on the right.</p>
+        <p role="status" className="shrink-0 border-b bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">{replay.absent} Its trace is under Visualizer.</p>
       )}
       {problem && <p role="alert" className="shrink-0 border-b px-3 py-1.5 text-xs text-destructive">{problem}</p>}
       {ready && !clock && (
         <p role="status" className="shrink-0 border-b bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
-          This replay and the trace beside it cannot be lined up: nothing in this run recorded the difference between the two clocks. Both are complete; they just do not move together.
+          This replay and the trace cannot be lined up: nothing in this run recorded the difference between the two clocks. Both are complete; they just do not move together.
         </p>
       )}
       {replay.stored?.truncated && (
@@ -188,15 +225,15 @@ export function ReplaySurface({ recording, offset, onBackToLive, onMoment, seekT
       <div ref={box} className="relative min-h-0 flex-1 overflow-hidden bg-[#f6f6f6]">
         <div
           ref={stage}
-          className={cn("absolute top-1/2 left-1/2 origin-center", !ready && "invisible")}
-          style={{ transform: `translate(-50%, -50%) scale(${scale})` }}
+          className={cn("absolute top-1/2 left-1/2 origin-center", !fitted && "invisible")}
+          style={{ transform: `translate(-50%, -50%) scale(${scale ?? 1})` }}
         />
         {replay.loading && (
           <p className="absolute inset-0 flex items-center justify-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" /> Loading the replay…
           </p>
         )}
-        {!replay.loading && !ready && !problem && !replay.absent && (
+        {!replay.loading && !fitted && !problem && !replay.absent && (
           <p className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">Preparing the replay…</p>
         )}
       </div>

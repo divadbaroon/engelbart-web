@@ -37,6 +37,21 @@ import { appearances } from "@/lib/activity/segment";
 import type { Taxonomy } from "@/lib/activity/taxonomy";
 import type { Broad, Episode } from "@/lib/activity/types";
 
+// Which side of the session the canvas draws.
+//
+// This module's first sentence is that a session is two streams; this
+// says which of them is on. A display rule like the two below it, and a
+// value for the same reason: nothing is deleted, the episodes and the
+// stages are handed over untouched, and the timeline, the evidence and
+// the export still hold both sides whatever this says.
+//
+// "software" is the model's calls AND what appeared on the screen. An
+// observed moment is not a model call — it is text the browser bridge
+// watched arrive — but it is the system's side of the exchange, and
+// somebody asking to see what the software did means the answer as well
+// as the asking.
+export type Shown = "both" | "person" | "software";
+
 export type GraphRules = {
   // A wait is drawn as its model call rather than as a node of its own.
   foldWaitIntoCall: boolean;
@@ -47,8 +62,10 @@ export type GraphRules = {
   // `gapMs`, so "long enough to end an episode" and "long enough to be
   // one" are the same number.
   minUnclearMs: number;
+  // Which of the two streams to draw.
+  shown: Shown;
 };
-export const DEFAULT_GRAPH: GraphRules = { foldWaitIntoCall: true, minUnclearMs: 20_000 };
+export const DEFAULT_GRAPH: GraphRules = { foldWaitIntoCall: true, minUnclearMs: 20_000, shown: "both" };
 
 // What the person was doing. An Episode, carried whole.
 export type ParticipantNode = {
@@ -88,7 +105,15 @@ export function graphOf(episodes: Episode[], stages: Stage[], taxonomy: Taxonomy
 
   // The system's side first, so that folding a wait can ask whether its
   // call is really going to be drawn.
-  const callStages = stages.filter((s) => s.stage === "call" && s.callId);
+  //
+  // With the software hidden there are no call stages and so no drawn
+  // calls, which the fold below reads: it stops firing, and every wait
+  // comes back as a node of its own. That is the point rather than a
+  // side effect. A wait is folded into its call because the two are one
+  // stretch of clock and drawing both draws it twice — but with the call
+  // gone, folding the wait too would take that stretch of the session
+  // off the canvas with nothing left to say it happened.
+  const callStages = rules.shown === "person" ? [] : stages.filter((s) => s.stage === "call" && s.callId);
   const drawnCalls = new Set(callStages.map((s) => s.callId as string));
   for (const stage of callStages) {
     out.push({ kind: "model", id: `moment:${stage.id}`, at: stage.at, endAt: stage.endAt, stageId: stage.id, callId: stage.callId as string });
@@ -100,7 +125,7 @@ export function graphOf(episodes: Episode[], stages: Stage[], taxonomy: Taxonomy
   // happened, so they are different nodes. They share the stage they were
   // read from, because that is where the evidence is.
   const named = new Map(taxonomy.channels.map((c) => [c.id, c]));
-  for (const stage of stages.filter((s) => s.stage === "response")) {
+  for (const stage of rules.shown === "person" ? [] : stages.filter((s) => s.stage === "response")) {
     const seen = new Map<string, string>();
     for (const a of appearances(stage.events)) {
       const channel = taxonomy.channels.find((c) => c.is(a));
@@ -132,7 +157,7 @@ export function graphOf(episodes: Episode[], stages: Stage[], taxonomy: Taxonomy
   }
 
   // And the person's side, from the episodes, unaltered.
-  episodes.forEach((e, i) => {
+  if (rules.shown !== "software") episodes.forEach((e, i) => {
     // A stretch in which nothing was recorded has no stage behind it,
     // because nothing happened in it. There is no moment to draw and no
     // moment to lead back to, and the line between the moments on either
