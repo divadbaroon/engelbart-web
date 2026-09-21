@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { formatDuration, runDuration, runState, runSteps, stepDuration, type RunState, type RunStep, type StepId, type StepState } from "@/lib/run-steps";
 import { terminalLines, type SandboxEvent, type SandboxRun } from "@/lib/sandbox";
 import { RunLog } from "@/components/run-log";
+import { useNow } from "@/hooks/use-now";
 
 type Props = {
   run: SandboxRun | undefined;
@@ -69,15 +70,10 @@ export function RunTimeline({ run, events, repoName, open: initiallyOpen = true,
   // column this narrow leaves no list to read them against.
   const [expanded, setExpanded] = useState<StepId | null>(null);
   const open = unfolded || !header;   // with no strip there is nothing to fold it with
-  const ticking = steps.some((s) => s.since);
   // The clock starts on the browser, so the server's render matches.
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    setNow(Date.now());
-    if (!ticking) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [ticking]);
+  // Shared with the Live preview's preparing state, which draws the same
+  // duration from the same helpers (hooks/use-now.ts).
+  const now = useNow(steps.some((s) => s.since));
 
   // A failure unfolds the list, so the step it happened in is on the
   // screen rather than behind a chevron.
