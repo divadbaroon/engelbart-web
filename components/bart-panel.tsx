@@ -55,9 +55,6 @@ export function BartPanel({ session, context, repo, selectionText, recording, on
         recording={recording}
         onClearSelection={onClearSelection}
       />
-      <p className="mt-2 px-1 text-[11px] leading-snug text-muted-foreground/70">
-        Bart reads this run&apos;s trace, its captured model calls and the repository, and sends what it needs to Anthropic to answer.
-      </p>
     </section>
   );
 }

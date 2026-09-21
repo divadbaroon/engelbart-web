@@ -46,7 +46,7 @@ export function BartConversation({ session, repo, labelRef, onOpenRef, compact =
             <p className="mb-2 text-[15px] font-semibold">What are you working through?</p>
             <p className="max-w-[300px] text-[13px] leading-relaxed text-muted-foreground">
               {repo
-                ? <>Ask what happened in the run, what a model call was sent, or where the code does something.</>
+                ? <>Ask anything about the paper, repo, live interface, related work, or your research direction.</>
                 : <>Ask about your papers, code, data,<br />results, or what to try next.</>}
             </p>
             {!session.loaded && <p className="mt-4 text-xs text-muted-foreground/70">Loading the conversation…</p>}
