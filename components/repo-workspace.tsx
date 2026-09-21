@@ -196,7 +196,13 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
   // A run with nothing in its log yet has no active step, and falls back
   // to the status label, which is what is on the screen today.
   const step = run && isRunActive(run) ? runSteps(run, events, repo.fullName).find((s) => s.state === "active") : undefined;
-  const doing = step?.summary ? `${step.title} · ${step.summary}` : run ? STATUS_LABEL[run.status] : "";
+  // A summary that already opens with its step's name is the whole line.
+  // The sandbox step is called "Sandbox" and its summary opens "Sandbox
+  // running", so prefixing the title gave "Sandbox · Sandbox running ·
+  // cloning mqo00/rope…": the word said twice before anything is.
+  const doing = step?.summary
+    ? step.summary.startsWith(step.title) ? step.summary : `${step.title} · ${step.summary}`
+    : run ? STATUS_LABEL[run.status] : "";
 
   // The headline, one sentence under it, and the thing to press. One
   // sentence: while the run is going that sentence is its current step,
