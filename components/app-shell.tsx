@@ -567,18 +567,26 @@ export function AppShell({ projectId, repos: initialRepos, runs: initialRuns, pa
     // A recording of an earlier run is read against that run and no
     // other, so opening one is a move: go to the run, then open it there.
     openEarlier: (runId: string, recordingId: string) => {
-      if (runId === run?.id) { setOpenRecordingId(recordingId); show(repo.id, "replay"); return; }
+      if (runId === run?.id) { setOpenRecordingId(recordingId); show(repo.id, "preview"); return; }
       pendingRecording.current = recordingId;
       history.view(runId);
-      show(repo.id, "replay");
+      show(repo.id, "preview");
     },
     past: history.past,
-    // Opening a recording plays it, and cuts Activity and the Visualizer
-    // to the same minutes. It used to also take the middle off the
-    // running application, because the replay stood where the preview
-    // did; Replay is its own tool now, so the artifact stays up beside
-    // the record of it.
-    onOpen: (id: string) => { setOpenRecordingId(id); show(repo.id, "replay"); },
+    // Opening a recording plays it over the Live preview, and cuts
+    // Activity and the Visualizer to the same minutes.
+    //
+    // Over, not beside. It played in the right-hand column for a while,
+    // on the reasoning that the artifact should stay up beside the
+    // record of it — but that column is a third of the window and a
+    // recording of an interface is a picture of a whole window, so it
+    // arrived scaled to something you had to lean into. What is behind
+    // it is the same application it is a recording of, which is the one
+    // thing nobody needs to see at the same time. So it takes the middle
+    // and gives it straight back: the preview is never unmounted, only
+    // covered, and clicking away from the player returns to it with the
+    // application still running.
+    onOpen: (id: string) => { setOpenRecordingId(id); show(repo.id, "preview"); },
     onClose: () => setOpenRecordingId(null),
   } : null;
   const traceCanvasMark: CanvasMark = { clearedAt, canClear: trace.events.length > 0, onClear: clearCanvas, onShowEverything: showEverything, shown, onShown: chooseShown, follow, onFollow: setFollow };

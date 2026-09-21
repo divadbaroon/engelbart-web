@@ -5,7 +5,6 @@ import type { SandboxRun } from "@/lib/sandbox";
 import type { Recordings } from "@/hooks/use-recordings";
 import type { Recording, RecordingStats } from "@/lib/trace/recording";
 import { RecordingsList } from "@/components/trace/recordings-list";
-import { ReplaySurface } from "@/components/trace/replay-surface";
 import { Empty, runProblem } from "@/components/trace/run-guard";
 
 // The run's recordings, and the one being watched.
@@ -59,7 +58,7 @@ export type ReplayClock = {
 // chose, playing. The list is not kept beside the player — the panel is a
 // third of the window and a picture of an interface needs all of it — so
 // coming back is a button, and the row you came back from is marked.
-export function ReplayPanel({ run, recordings, clock }: { run: SandboxRun | undefined; recordings: TraceRecordings; clock: ReplayClock }) {
+export function ReplayPanel({ run, recordings }: { run: SandboxRun | undefined; recordings: TraceRecordings }) {
   // Which row was last opened. View state about the list, not a second
   // answer to "which recording is playing": while one plays, this list is
   // not on the screen, and `recordings.open` remains the only such answer.
@@ -67,18 +66,14 @@ export function ReplayPanel({ run, recordings, clock }: { run: SandboxRun | unde
   const problem = runProblem(run);
   if (problem) return <Empty>{problem}</Empty>;
   const rec = recordings.recordings;
-  if (recordings.open) {
-    return (
-      <ReplaySurface
-        recording={recordings.open}
-        run={run}
-        offset={clock.offset}
-        seekTo={clock.seekTo}
-        onMoment={clock.onMoment}
-        onBack={recordings.onClose}
-      />
-    );
-  }
+  // The player itself is not here. It is over the Live preview
+  // (components/repo-workspace.tsx), where a picture of a window has a
+  // window's worth of room. This branch used to draw it too, and two
+  // branches drawing one recording is two rrweb Replayers over one
+  // stream — the panel is mounted the first time it is shown and never
+  // unmounted again (components/center-panel.tsx), so the second one
+  // would be built silently, behind whatever tab was in front, fetching
+  // the same object and running its own sandboxed iframe.
   return (
     <section aria-label="Replay" className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto">
