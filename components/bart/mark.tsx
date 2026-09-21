@@ -1,56 +1,62 @@
 // Bart's mark: three moments and what connects them.
 //
-// Drawn rather than served. The picture it comes from
-// (public/bart_icon2.png) is a screenshot of a dark canvas — the ground is
-// baked into it at #1e1e1e and there is no transparent original — so used
-// as an image it arrives as a dark tile sitting on a very light panel,
-// which is a logo dropped into an interface rather than a part of one.
+// Drawn rather than served. The picture it comes from is
+// public/bart_icon_svg.png, 1347 × 1167 and 218 KB, for a mark that
+// appears at 20 px beside a heading and 85 px over an empty
+// conversation — so the file is the source and this is the copy, six
+// shapes and no request.
 //
 // Everything below is measured off that file rather than eyeballed: the
-// ink was separated from the ground, the three discs found as connected
-// components, and each centre, radius and inner colour read off. The
-// drawing's bounding box is 72.6 × 103.7 image pixels, which is the
-// viewBox, so one unit here is one pixel there and a caller sets the size
-// with one class.
+// opaque pixels were separated from the transparent ground, the three
+// discs found by taking every pixel with a 16-px radius of ink around
+// it and clustering the result, and each centre, radius and fill read
+// off. One unit here is ten pixels there, so the numbers can be checked
+// against the file by multiplying by ten.
 //
-//   node          centre          r      colour
-//   top right     65.1,  7.5      7.5    #2a4749
-//   left          10.5, 56.9     10.5    #5e7f80
-//   bottom        52.6, 92.2     11.5    #bacac9
-//   lines                         1.6    #4a5458 (see below)
+//   node          centre          r       fill
+//   top right     67.7,  7.7      7.7     #28686f
+//   left          10.1, 51.7     10.1     #7cacad
+//   bottom        52.6, 84.4     12.3     #d0e5e6
+//   lines                         1.74    #5b777b
 //
-// The palette is the original's, not an interpretation of it: a very dark
-// teal, a mid teal, and a pale one, with slate lines. It was lighter and
-// greyer here for a while — a guess at what would sit politely on a light
-// panel — and the guess flattened the three nodes into one tone and lost
-// the teal. The one thing the ground changes is which node is loudest: on
-// black the pale node carries the mark, on #f6f6f6 the dark one does.
+// The fills are the medians of each disc's inner half, so no edge pixel
+// blended with the ground got into them, and the stroke is the measured
+// perpendicular thickness at the midpoint of each edge — 17.0, 17.5 and
+// 17.8 px, which is one weight drawn three times, not three weights.
 //
-// The lines are the one value that is not the measurement. The picture
-// puts them at about #525b5c, which is a line read against black; against
-// #f6f6f6 the same grey is the first thing to disappear, and a mark whose
-// edges have gone is three dots. They are darkened a step to #4a5458 —
-// still quieter than every node but the palest, still nothing you would
-// call a colour, and now visibly joining the three.
+// It was drawn from a different file until now (public/bart_icon2.png,
+// still there), and that file was a screenshot of the same mark on a
+// #1e1e1e canvas. Every disc in it had the ground mixed into its edges
+// and its body: the measurements came back #2a4749, #5e7f80 and
+// #bacac9, against #28686f, #7cacad and #d0e5e6 here. So the mark has
+// been a darkened, greyer copy of itself, and the tell was that its
+// teal kept reading as slate — measured correctly, from the wrong
+// picture.
+//
+// The lines are now measured too, at #5b777b. Their value used to be
+// the one thing in this file that was a judgement: a line read against
+// black is a line that disappears against #f6f6f6, so it had been
+// darkened a step by hand. The new file has no ground to read them
+// against and needs no such correction.
 
 export function BartMark({ className }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 72.6 103.7"
+      viewBox="0 0 75.4 96.7"
       fill="none"
       aria-hidden
       focusable="false"
       className={className}
     >
       {/* Under the nodes, so a line meeting a node is ended by it. */}
-      <g stroke="#4a5458" strokeWidth={1.6} strokeLinecap="round">
-        <line x1={65.1} y1={7.5} x2={10.5} y2={56.9} />
-        <line x1={65.1} y1={7.5} x2={52.6} y2={92.2} />
-        <line x1={10.5} y1={56.9} x2={52.6} y2={92.2} />
+      <g stroke="#5b777b" strokeWidth={1.74} strokeLinecap="round">
+        <line x1={67.7} y1={7.7} x2={10.1} y2={51.7} />
+        <line x1={67.7} y1={7.7} x2={52.6} y2={84.4} />
+        <line x1={10.1} y1={51.7} x2={52.6} y2={84.4} />
       </g>
-      <circle cx={65.1} cy={7.5} r={7.5} fill="#2a4749" />
-      <circle cx={10.5} cy={56.9} r={10.5} fill="#5e7f80" />
-      <circle cx={52.6} cy={92.2} r={11.5} fill="#bacac9" />
+      <circle cx={67.7} cy={7.7} r={7.7} fill="#28686f" />
+      <circle cx={10.1} cy={51.7} r={10.1} fill="#7cacad" />
+      <circle cx={52.6} cy={84.4} r={12.3} fill="#d0e5e6" />
     </svg>
   );
 }
