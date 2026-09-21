@@ -20,7 +20,7 @@ const node = (over: Partial<SemanticNode> & Pick<SemanticNode, "semanticId" | "l
 
 const map = (over: Partial<UISemanticMap> = {}): UISemanticMap => ({
   v: 1, signature: "sig", route: "/", documentTitle: null, frame: frame(),
-  documentLabel: null, documentConfidence: "high", regions: [], controls: [], truncated: false, ...over,
+  documentLabel: null, purpose: null, documentConfidence: "high", regions: [], controls: [], truncated: false, ...over,
 });
 
 const ev = (seq: number, kind: string, data: Record<string, unknown>): TraceEvent => ({

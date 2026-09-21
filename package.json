@@ -5,6 +5,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
     "worker": "node --env-file-if-exists=.env.local --import tsx worker/index.ts",
     "template": "node --env-file-if-exists=.env.local sandbox/build-template.mjs",
     "bench": "node --env-file-if-exists=.env.local --import tsx scripts/bench/run.mts",

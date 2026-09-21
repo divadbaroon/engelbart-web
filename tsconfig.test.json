@@ -1,0 +1,23 @@
+{
+  // The tests and the scripts, which tsconfig.json does not reach.
+  //
+  // Every test in this repository is a .mts file, and the application's
+  // own config includes **/*.ts — so until this existed, not one test was
+  // typechecked. That was survivable while tests built small objects by
+  // hand; a hand-built Evidence missing a field showed up as a crash the
+  // first time it ran. It stops being survivable now: a profile is a
+  // dozen tagged unions, and a fixture with the wrong tag in it is a case
+  // that silently tests nothing.
+  //
+  // It is a second project rather than a widening of the first because
+  // tests import with explicit .ts and .mts extensions, which needs
+  // allowImportingTsExtensions, and the application's build should not.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "incremental": false,
+    "types": ["node"]
+  },
+  "include": ["types/**/*.d.ts", "tests/**/*.mts", "tests/**/*.ts", "scripts/**/*.mts", "scripts/**/*.ts"]
+}

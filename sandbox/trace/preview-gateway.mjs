@@ -212,6 +212,26 @@ export function rateLimiter(perSecond) {
   };
 }
 
+// What a caller has to hand it. Written down because two of these are
+// optional with a default of null, and a reader of the JavaScript would
+// otherwise be told that null is the only thing they take — which is how
+// a script that passes both correctly came to be the thing that looked
+// wrong. It is a doc comment rather than the line comments used
+// everywhere else in this file because only a doc comment is read.
+/**
+ * @param {object} options
+ * @param {number} options.listenPort
+ * @param {number} options.targetPort
+ * @param {string} [options.targetAddress]
+ * @param {string} options.bridge
+ * @param {string | null} [options.recorder]
+ * @param {Record<string, unknown> | null} [options.bridgeConfig]
+ * @param {Redactor} [options.redactor]
+ * @param {(kind: string, fields: Record<string, unknown>) => void} options.emit
+ * @param {(kind: string, fields: Record<string, unknown>) => void} [options.emitBrowser]
+ * @param {(...args: unknown[]) => void} options.log
+ * @param {{ take: () => boolean }} [options.limiter]
+ */
 export function createPreviewGateway({ listenPort, targetPort, targetAddress = "127.0.0.1", bridge, recorder = null, bridgeConfig = null, redactor = new Redactor(), emit, emitBrowser = emit, log, limiter = rateLimiter(EVENTS_PER_SECOND) }) {
   const targetHost = `${targetAddress.includes(":") ? `[${targetAddress}]` : targetAddress}:${targetPort}`;
   const targetOrigin = `http://${targetHost}`;

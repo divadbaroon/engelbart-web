@@ -156,7 +156,7 @@ async function chrome() {
       await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }, sessionId);
       await send("Emulation.setTouchEmulationEnabled", { enabled: false }, sessionId);
     },
-    eval: async <T>(expression: string): Promise<T> => {
+    eval: async <T,>(expression: string): Promise<T> => {
       const r = await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }, sessionId) as { result: { value: T }; exceptionDetails?: { text: string; exception?: { description?: string } } };
       if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
       return r.result.value;

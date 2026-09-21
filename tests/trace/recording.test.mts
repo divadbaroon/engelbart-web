@@ -54,7 +54,7 @@ describe("recording scope", () => {
     assert.equal(formatElapsed(3_723_000), "1:02:03");
     assert.match(formatWhen("2026-09-19T01:24:00"), /^Sep 19, 1:24 AM$/);
     assert.equal(defaultName(3), "Recording 3");
-    assert.equal(toRecording({ id: "a", run_id: "r", project_id: "p", name: "n", status: "complete", started_at: "s", stopped_at: "e", created_at: "c" }).stoppedAt, "e");
+    assert.equal(toRecording({ id: "a", run_id: "r", project_id: "p", name: "n", status: "complete", started_at: "s", stopped_at: "e", created_at: "c", replay_path: null }).stoppedAt, "e");
   });
 });
 
