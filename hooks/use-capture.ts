@@ -28,6 +28,15 @@ export type Capture = {
   // The page answered that it cannot record — no recorder on the image, or
   // the recorder would not start. A sentence for the header, not an error.
   unavailable: string | null;
+  // Asked, and nothing has come back either way. Not an error — a preview
+  // that is slow to serve its document is briefly silent — but past the
+  // point where it is worth saying so, because the alternative is a red
+  // dot ticking for four minutes over a recording of nothing.
+  silent: boolean;
+  // The document under the frame has been replaced: ask the new one. The
+  // frame's load event is the only signal the workspace gets that this
+  // has happened, so the component that owns the iframe calls this.
+  rearm: () => void;
   parts: number;
   events: number;
   frames: number;
@@ -48,6 +57,17 @@ export type Taken = { startedAt: number; events: unknown[]; canvas: CanvasFrame[
 // feels like Stop.
 const LAST_PART_MS = 700;
 
+// How long the page may say nothing before the header says so. Past the
+// last rung of the ladder below, so it is only ever reached after every
+// ask has gone unanswered. It is not final: `capturing` arriving later
+// takes the line away again.
+const SILENT_MS = 4_000;
+
+// When to ask, in milliseconds from the moment there is something to ask
+// about. A ladder rather than one ask and one retry, because the ask can
+// miss for a reason that has nothing to do with the page — see below.
+const ASK_AT = [0, 250, 750, 1500, 3000, 5000];
+
 export function useCapture(
   frame: React.RefObject<HTMLIFrameElement | null>,
   previewUrl: string | null,
@@ -65,6 +85,11 @@ export function useCapture(
   const [state, setState] = useState<{ capturing: boolean; unavailable: string | null; parts: number; events: number; frames: number; dropped: number; truncated: boolean; startedAt: number | null }>(
     { capturing: false, unavailable: null, parts: 0, events: 0, frames: 0, dropped: 0, truncated: false, startedAt: null },
   );
+  const [silent, setSilent] = useState(false);
+  // Bumped by `rearm`, purely to start the ladder again over a document
+  // that has just arrived.
+  const [rearms, setRearms] = useState(0);
+  const rearm = useCallback(() => { setSilent(false); setRearms((n) => n + 1); }, []);
 
   // Only the document in this frame, on the origin it was served from.
   useEffect(() => {
@@ -95,22 +120,53 @@ export function useCapture(
     try { win.postMessage(envelope({ type: "record", on }), origin); } catch { /* the frame is gone */ }
   }, [frame, origin]);
 
-  // Start when a recording opens, and again when the document under us is
-  // replaced: a reload is a new page with a new bridge, which has not been
-  // asked for anything.
+  // Emptying the buffers: when a recording opens, and when the preview is
+  // swapped for a different service — not when the page reloads.
+  //
+  // This used to be the first three lines of the arming effect below,
+  // which has `reloads` in its dependencies, so every reload threw away
+  // everything recorded up to it. Saving a file in the Code tab reloads
+  // the preview, so recording a session in which you edited anything kept
+  // only the part after the last save, and a save near the end left a
+  // recording with no replay at all. A reload is a new document with a new
+  // rrweb, whose fresh snapshot the replayer reads as a second whole
+  // picture in the same array — which only works if the array survives it.
+  const was = useRef<{ open: boolean; origin: string | null }>({ open: false, origin: null });
   useEffect(() => {
-    if (!recording || !origin) return;
+    const open = recording && !!origin;
+    const fresh = open && (!was.current.open || origin !== was.current.origin);
+    was.current = { open, origin };
+    if (!fresh) return;
     stream.current = [];
     painted.current = [];
     setState({ capturing: false, unavailable: null, parts: 0, events: 0, frames: 0, dropped: 0, truncated: false, startedAt: null });
-    // The bridge in a document that has only just been served may not be
-    // listening yet. Two asks cost nothing: starting twice is a no-op in
-    // the page.
-    tell(true);
-    const again = setTimeout(() => tell(true), 600);
-    return () => clearTimeout(again);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recording, origin, reloads]);
+    setSilent(false);
+  }, [recording, origin]);
+
+  // Asking the page to record, until it answers.
+  //
+  // It was one post and a single retry 600ms later, and both could miss
+  // for a reason that has nothing to do with the page: `reloads` is the
+  // iframe's React key, so a reload inserts a brand-new element, and this
+  // effect runs in that same commit — while the frame still holds
+  // about:blank. A post with a concrete target origin at a window that is
+  // not on that origin is dropped by the browser without a word. If the
+  // preview then took longer than 600ms to serve its document, nothing
+  // ever asked again: the recording captured nothing while the button
+  // ticked away, which is most of what "sometimes it doesn't record" was.
+  //
+  // So: a ladder, stopped the moment the page answers either way, and
+  // `rearm` from the frame's load event, which is the only signal the
+  // workspace actually gets that a new document is in it. Asking twice is
+  // a no-op in the page (`if (capture) return;`), so an extra rung costs
+  // nothing.
+  useEffect(() => {
+    if (!recording || !origin) return;
+    if (state.capturing || state.unavailable) return;
+    const timers = ASK_AT.map((ms) => setTimeout(() => tell(true), ms));
+    const quiet = setTimeout(() => setSilent(true), SILENT_MS);
+    return () => { timers.forEach(clearTimeout); clearTimeout(quiet); };
+  }, [recording, origin, reloads, rearms, state.capturing, state.unavailable, tell]);
 
   const finish = useCallback(async (): Promise<Taken | null> => {
     if (!origin) return null;
@@ -120,9 +176,10 @@ export function useCapture(
     stream.current = []; painted.current = [];
     const startedAt = state.startedAt;
     setState({ capturing: false, unavailable: null, parts: 0, events: 0, frames: 0, dropped: 0, truncated: false, startedAt: null });
+    setSilent(false);
     if (!events.length || startedAt === null) return null;
     return { startedAt, events, canvas, dropped: state.dropped, truncated: state.truncated };
   }, [origin, tell, state.startedAt, state.dropped, state.truncated]);
 
-  return { ...state, finish };
+  return { ...state, silent, rearm, finish };
 }

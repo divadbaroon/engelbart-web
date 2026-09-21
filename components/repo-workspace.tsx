@@ -573,6 +573,29 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
       {rec.lastStopped && <RecordingSaved recording={rec.lastStopped} stats={controls.recording.stats(rec.lastStopped)} onOpen={() => { controls.recording.onOpen(rec.lastStopped!.id); rec.dismissStopped(); }} onDismiss={rec.dismissStopped} />}
       {rec.error && <p role="alert" className="shrink-0 border-b px-3 py-1.5 text-xs text-destructive">{rec.error}</p>}
       {notes.error && <p role="alert" className="shrink-0 border-b px-3 py-1.5 text-xs text-destructive">{notes.error}</p>}
+      {/* Whether anything is actually being recorded.
+          The button's red dot comes from the recording row, which exists
+          the moment Start is pressed and says nothing about the page. The
+          page's own answer — it started, or it cannot, and why — was
+          computed by useCapture and never drawn, so a recording that
+          never began looked exactly like one that was working, for as
+          long as you cared to watch it. A recording still marks its slice
+          of the trace either way, which is why none of these is an error. */}
+      {rec.active && !service.embeddable && (
+        <p role="status" className="shrink-0 border-b px-3 py-1.5 text-xs text-muted-foreground">
+          {service.id} cannot be shown in a frame, so there is nothing to record from: this will mark its slice of the trace, with no replay to watch.
+        </p>
+      )}
+      {rec.active && service.embeddable && capture.unavailable && (
+        <p role="status" className="shrink-0 border-b px-3 py-1.5 text-xs text-muted-foreground">
+          This preview is not being recorded: {capture.unavailable}. The recording will mark its slice of the trace, with no replay to watch.
+        </p>
+      )}
+      {rec.active && service.embeddable && !capture.unavailable && !capture.capturing && capture.silent && (
+        <p role="status" className="shrink-0 border-b px-3 py-1.5 text-xs text-muted-foreground">
+          This preview has not answered the request to record, so nothing is being captured yet. Its sandbox may be running an image with no recorder in it — rebuild the runner template and start the run again.
+        </p>
+      )}
       {/* A document with no bridge in it, and frames inside it that could
           not be reached, are said plainly rather than left to look like a
           picker that does nothing. */}
@@ -592,7 +615,7 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
           which is a tab. The preview is the running application and the
           controls over it, and nothing else. */}
       {service.embeddable ? (
-        <iframe ref={frame} key={`${service.id}:${reloads}`} src={service.previewUrl} title={`${repo.fullName} ${service.id} preview`} onLoad={() => setLoading(null)} className="min-h-0 w-full flex-1 bg-white" />
+        <iframe ref={frame} key={`${service.id}:${reloads}`} src={service.previewUrl} title={`${repo.fullName} ${service.id} preview`} onLoad={() => { setLoading(null); capture.rearm(); }} className="min-h-0 w-full flex-1 bg-white" />
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-1.5 p-6 text-center">
           <span className="text-[13px] text-muted-foreground">{service.id} does not allow being shown in a frame.</span>
