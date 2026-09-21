@@ -65,6 +65,7 @@ describe("windows over the recorded ROPE session", () => {
     // It runs 2s against a 2.5s floor, so the ordinary rule would fold it
     // into whatever came next and the break in the session would vanish.
     const w = cut().find((x) => x.reloaded);
+    assert.ok(w, "the session has a reload in it");
     assert.ok(Date.parse(w.endedAt) - Date.parse(w.startedAt) < DEFAULT_SEGMENTATION.minEpisodeMs);
     assert.equal(w.parts.length, 1);
   });
@@ -112,6 +113,32 @@ describe("surfaces", () => {
     const keys = [...frames.values()].map(surfaceKey);
     assert.ok(keys.includes("solution"));
     assert.ok(keys.includes("my-canvas"));
+  });
+
+  it("gives an application recorded on its own the same identity as one recorded inside a frame", () => {
+    // `"top"` used to mean both "no document at all" and "the outermost
+    // document", so the very same application keyed `"/"` when it was
+    // watched through the workspace's preview frame and `"top"` when it
+    // was opened directly. Every profile written against a
+    // single-document artifact then matched nothing, silently.
+    const doc = { frameId: "f1", path: "/app", depth: 0, embedded: false } as unknown as Parameters<typeof surfaceKey>[0];
+    const framed = { ...doc, frameId: "f2", depth: 1, embedded: true } as typeof doc;
+    assert.equal(surfaceKey(doc), "/app");
+    assert.equal(surfaceKey(framed), "/app");
+    // And nowhere at all is still nowhere at all: a model call happens on
+    // no document, and saying it happened on one would put the person
+    // somewhere they never were.
+    assert.equal(surfaceKey(undefined), "top");
+  });
+
+  it("does not make a second document out of a query string or a fragment", () => {
+    // Otherwise every state an application keeps in its URL — a filter, a
+    // step, an opened panel — reads as somewhere new, and a session spent
+    // in one place comes back as a tour.
+    const of = (url: string) => surfaceKey({ frameId: "f", url, depth: 0, embedded: false } as unknown as Parameters<typeof surfaceKey>[0]);
+    assert.equal(new Set(["/a", "/a?q=1", "/a?q=2#x", "/a/"].map(of)).size, 1);
+    assert.equal(of("https://example.test/a?q=1"), "/a", "and the host is not part of it either");
+    assert.notEqual(of("/a"), of("/b"), "two paths are still two documents");
   });
 
   it("does not mistake a replaced document for a different one", () => {
@@ -213,10 +240,12 @@ describe("silence inside a stretch", () => {
 // for signing in: the sign-in took 1.5 seconds, the playing that
 // followed took seven, and the one that lasted least named the stretch.
 describe("which brief stretches are doorways", () => {
+  // A taxonomy answers with the deed's name rather than with yes, so
+  // that two doings of one deed can be told from two different deeds.
   const isLogin: Deliberate = (events) => events.some((e) => {
     const t = (e.data as { target?: { text?: string } } | undefined)?.target;
     return e.kind === "ui.click" && t?.text === "login";
-  });
+  }) ? "login" : null;
 
   it("folds a brief stretch forward when nothing says otherwise", () => {
     const folded = windows(stages, frames, DEFAULT_SEGMENTATION);
@@ -233,7 +262,7 @@ describe("which brief stretches are doorways", () => {
   it("asks nothing of a taxonomy that names none, and reads exactly as before", () => {
     assert.deepEqual(
       windows(stages, frames, DEFAULT_SEGMENTATION).map((w) => `${w.startedAt}/${w.endedAt}/${w.parts.length}`),
-      windows(stages, frames, DEFAULT_SEGMENTATION, () => false).map((w) => `${w.startedAt}/${w.endedAt}/${w.parts.length}`),
+      windows(stages, frames, DEFAULT_SEGMENTATION, () => null).map((w) => `${w.startedAt}/${w.endedAt}/${w.parts.length}`),
     );
   });
 });

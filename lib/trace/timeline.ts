@@ -388,6 +388,12 @@ function interactionLabel(e: TraceEvent, frames: Map<string, FrameInfo>, reading
       const value = list(d.selected).length ? list(d.selected).map((s) => quote(s)).join(", ") : typeof d.checked === "boolean" ? (d.checked ? "on" : "off") : str(d.value) ?? (kind === "text" || kind === "password" ? `${num(d.valueLength) ?? "?"} characters (not recorded)` : kind === "file" ? `${num(d.files) ?? 0} file(s)` : "changed");
       return { label: `Changed ${describeTarget(target, m)} → ${value}${inFrame}`, detail: [reading?.region ? `in ${reading.region}` : null, target?.selector].filter(Boolean).join(" · ") || null, key: null };
     }
+    case "ui.wheel": {
+      const n = num(d.count) ?? 1;
+      return { label: `Wheeled ${str(d.direction) ?? "?"}${n > 1 ? ` ×${n}` : ""} over ${describeTarget(control ?? target, m)}${inFrame}`, detail: [`${str(d.magnitude) ?? "?"} · ${str(d.axis) ?? "?"} axis`, d.ctrl === true ? "with ctrl held, which is how a pinch arrives" : null, control && target ? `on ${describeTarget(target)}` : null, "no pointer path recorded"].filter(Boolean).join(" · "), key: null };
+    }
+    case "ui.drag":
+      return { label: `Dragged ${describeTarget(control ?? target, m)} ${str(d.direction) ?? "?"}${inFrame}`, detail: [`${str(d.distance) ?? "?"} · ${formatMs(num(d.durationMs) ?? 0)} · ${num(d.moves) ?? 0} moves`, control && target ? `on ${describeTarget(target)}` : null, "no pointer path recorded"].filter(Boolean).join(" · "), key: null };
     case "ui.focus":
       return { label: `Moved into ${where}`, detail: target ? `focus on ${describeTarget(target, m)}` : null, key: null };
     case "ui.route":
@@ -670,6 +676,8 @@ function exploreStage(run: (InteractionRow | KeyGroupRow)[]): Stage {
   const flat = run.flatMap((r) => (r.kind === "keys" ? r.rows : [r]));
   const clicks = flat.filter((r) => r.event.kind === "ui.click").length;
   const inputs = flat.filter((r) => r.event.kind === "ui.input").length;
+  const wheels = flat.filter((r) => r.event.kind === "ui.wheel").reduce((n, r) => n + (num(r.event.data?.count) ?? 1), 0);
+  const drags = flat.filter((r) => r.event.kind === "ui.drag").length;
   const keys = new Map<string, number>();
   for (const r of flat) if (r.key) keys.set(r.key.name, (keys.get(r.key.name) ?? 0) + r.key.count);
   const presses = [...keys.values()].reduce((n, c) => n + c, 0);
@@ -680,6 +688,8 @@ function exploreStage(run: (InteractionRow | KeyGroupRow)[]): Stage {
   if (clicks) parts.push(plural(clicks, "click"));
   if (presses) parts.push(`${plural(presses, "key press", "key presses")}: ${[...keys.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, n]) => `${k === "[printable]" ? "printable" : k} ×${n}`).join(", ")}`);
   if (inputs) parts.push(plural(inputs, "field change"));
+  if (wheels) parts.push(plural(wheels, "wheel"));
+  if (drags) parts.push(plural(drags, "drag"));
   if (seen.length) parts.push(plural(seen.length, "visible change"));
   if (links.length) parts.push(summarizeLinks(links));
   return {
@@ -708,6 +718,8 @@ export function actTitle(row: InteractionRow): string {
   if (row.submit) return "Submitted";
   switch (row.event.kind) {
     case "ui.click": return "Clicked";
+    case "ui.wheel": return "Wheeled";
+    case "ui.drag": return "Dragged";
     case "ui.input": return "Changed a field";
     case "ui.key": return `Pressed ${row.key?.name ?? "a key"}`;
     default: return row.label.length > 32 ? row.label.slice(0, 31) + "…" : row.label;
@@ -719,6 +731,8 @@ export function actNoun(row: InteractionRow): string {
   if (row.submit) return "the submit";
   switch (row.event.kind) {
     case "ui.click": return "the click";
+    case "ui.wheel": return "the wheeling";
+    case "ui.drag": return "the drag";
     case "ui.key": return "the key press";
     case "ui.input": return "the field change";
     case "ui.route": return "the navigation";

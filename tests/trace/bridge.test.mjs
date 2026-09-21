@@ -112,6 +112,15 @@ describe("describe", () => {
     assert.equal(api.describe(doc.body).tag, "body");
     assert.equal(api.describe(doc.body).selector, "body");
   });
+  it("spends its text budget on words rather than on indentation", async () => {
+    // The budget was counted against the raw walk, whitespace included,
+    // so a control laid out over many lines ran out of room before it
+    // reached its own label and came back named after nothing. Every
+    // element in a formatted document has this shape.
+    const pad = "\n      ".repeat(90);
+    const { api, doc } = await load(`<div id="bar">${pad}<span></span>${pad}<b>Reset</b>${pad}</div>`);
+    assert.equal(api.describe(doc.getElementById("bar")).text, "Reset");
+  });
   it("crosses an open shadow root", async () => {
     const { api, doc } = await load(`<my-widget id="w"></my-widget>`);
     const host = doc.getElementById("w");
@@ -271,6 +280,79 @@ describe("interactions", () => {
     const routes = ofKind(await events(), "ui.route");
     assert.deepEqual(routes.map((r) => [r.data.from, r.data.to, r.data.how]), [["/page?…", "/lesson/2?…", "push"], ["/lesson/2?…", "/lesson/2?…#done", "hash"]]);
     assert.equal(routes[0].interactionId, undefined, "no interaction to associate with");
+  });
+});
+
+// An interface driven by wheeling and dragging rather than by pressing
+// buttons was, until now, entirely silent: every one of these is a
+// pointermove or a wheel, and neither was listened for. Recording them
+// one by one would be both a flood and a record of where somebody
+// looked, so what goes out is a bounded summary of each run of them.
+describe("continuous gestures", () => {
+  const wheel = (win, target, init) => target.dispatchEvent(new win.WheelEvent("wheel", { bubbles: true, cancelable: true, composed: true, deltaX: 0, deltaY: 0, ...init }));
+  const pointer = (win, target, type, init) => target.dispatchEvent(new win.MouseEvent(type, { bubbles: true, cancelable: true, composed: true, button: 0, ...init }));
+
+  it("folds a run of wheeling over one thing into one summary with a count", async () => {
+    const { win, doc, api, events } = await load(`<div id=map style="width:400px;height:300px"></div>`);
+    const map = doc.getElementById("map");
+    for (let i = 0; i < 6; i++) wheel(win, map, { deltaY: 40 });
+    await api.flush();
+    const [ev] = ofKind(await events(), "ui.wheel");
+    assert.equal(ev.data.count, 6, "six notches, one event");
+    assert.equal(ev.data.target.id, "map");
+    assert.equal(ev.data.axis, "y");
+    assert.equal(ev.data.direction, "down");
+    assert.equal(ev.data.magnitude, "medium", "240px of scrolling");
+    assert.equal(typeof ev.data.durationMs, "number");
+    assert.equal(ev.data.ctrl, undefined);
+  });
+
+  it("says which way a pinch went without saying what it did", async () => {
+    const { win, doc, api, events } = await load(`<div id=plot></div>`);
+    wheel(win, doc.getElementById("plot"), { deltaY: -30, ctrlKey: true });
+    await api.flush();
+    const [ev] = ofKind(await events(), "ui.wheel");
+    assert.equal(ev.data.ctrl, true);
+    assert.equal(ev.data.direction, "in", "ctrl+wheel is a pinch; which way it went is all this claims");
+  });
+
+  it("keeps wheeling over two different things apart", async () => {
+    const { win, doc, api, events } = await load(`<div id=one></div><div id=two></div>`);
+    wheel(win, doc.getElementById("one"), { deltaY: 10 });
+    wheel(win, doc.getElementById("two"), { deltaY: 10 });
+    await api.flush();
+    assert.deepEqual(ofKind(await events(), "ui.wheel").map((e) => e.data.target.id), ["one", "two"]);
+  });
+
+  it("records a drag as how far and which way, and never as where", async () => {
+    const { win, doc, api, events } = await load(`<div id=canvas></div>`);
+    const el = doc.getElementById("canvas");
+    pointer(win, el, "pointerdown", { clientX: 100, clientY: 100 });
+    for (let x = 110; x <= 200; x += 10) pointer(win, el, "pointermove", { clientX: x, clientY: 104 });
+    pointer(win, el, "pointerup", { clientX: 200, clientY: 104 });
+    await api.flush();
+    const all = await events();
+    const [ev] = ofKind(all, "ui.drag");
+    assert.equal(ev.data.target.id, "canvas");
+    assert.equal(ev.data.direction, "right");
+    assert.equal(ev.data.distance, "medium", "100px");
+    assert.ok(ev.data.moves >= 9, "it knows how many, not which");
+    assert.equal(ofKind(all, "ui.pointermove").length, 0, "no path is recorded");
+    const text = JSON.stringify(all.filter((e) => e.kind === "ui.drag"));
+    assert.equal(/"clientX"|"x":1[0-9][0-9]/.test(text), false, "and no coordinates leave the page");
+  });
+
+  it("leaves a press that barely moved as the click it was", async () => {
+    const { win, doc, api, events } = await load(`<button id=go>Go</button>`);
+    const el = doc.getElementById("go");
+    pointer(win, el, "pointerdown", { clientX: 10, clientY: 10 });
+    pointer(win, el, "pointermove", { clientX: 12, clientY: 11 });
+    pointer(win, el, "pointerup", { clientX: 12, clientY: 11 });
+    click(win, el);
+    await api.flush();
+    const all = await events();
+    assert.equal(ofKind(all, "ui.drag").length, 0, "three pixels is a click with a shaky hand");
+    assert.equal(ofKind(all, "ui.click").length, 1);
   });
 });
 

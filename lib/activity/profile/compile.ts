@@ -292,9 +292,24 @@ export function compileProfile(profile: ArtifactProfile): CompiledProfile {
   const channels: Taxonomy["channels"] = profile.channels.map((c) => {
     const container = c.container ? compileAnchor(c.container) : null;
     const text = c.text ? compileStringTest(c.text, plain) : null;
+    // Where the text arrived, and failing that the places it arrived
+    // inside. The region a repaint reports is the nearest element that
+    // says anything at all, which is often less than the nearest element
+    // that says something useful: an anonymous wrapper inside the panel
+    // the channel is written against. Working outwards from it is the
+    // honest reading of "this text appeared in that part of the
+    // interface", and it is tried only when the region itself does not
+    // match, so nothing that matched before matches differently now.
+    const where = (a: Appearance) => {
+      if (!container) return true;
+      if (a.container && container(a.container)) return true;
+      // An appearance built before ancestors were recorded has no
+      // `within` at all, and reads exactly as it always did.
+      return (a.within ?? []).some((t) => container(t));
+    };
     return {
       id: c.id, label: c.label, from: c.from,
-      is: (a: Appearance) => (!container || (!!a.container && container(a.container))) && (!text || text(a.text)),
+      is: (a: Appearance) => where(a) && (!text || text(a.text)),
     };
   });
 

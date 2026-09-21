@@ -13,7 +13,7 @@
 // So: count everything, and say what counted zero. This is the report
 // that makes a generated profile fail visibly.
 import { appearances } from "@/lib/activity/segment";
-import { targetOf, type TraceEvent } from "@/lib/trace/types";
+import { targetsOf, type TraceEvent } from "@/lib/trace/types";
 import type { Broad, Episode } from "@/lib/activity/types";
 import type { Context } from "@/lib/activity/taxonomy";
 import { positional, rung, type Anchor, type ArtifactProfile, type Grounding } from "@/lib/activity/profile/schema";
@@ -75,11 +75,16 @@ export function fitReport(profile: ArtifactProfile, compiled: CompiledProfile, i
 
   // ---- controls, over every act that could have used one
   const controlHits = new Map<string, number>();
+  const USES = new Set(["ui.click", "ui.submit", "ui.wheel", "ui.drag"]);
   for (const e of events) {
-    if (e.kind !== "ui.click" && e.kind !== "ui.submit") continue;
-    const target = targetOf(e);
-    if (!target) continue;
-    for (const control of compiled.taxonomy.controls) if (control.is(target)) controlHits.set(control.id, (controlHits.get(control.id) ?? 0) + 1);
+    if (!USES.has(e.kind)) continue;
+    // The same pair the classifier asks: what handled the act, and what
+    // was under the pointer. Counting only the first understates a
+    // control whose identity lives in a label inside it, and this report
+    // exists to say what matched and what did not.
+    const hit = new Set<string>();
+    for (const target of targetsOf(e)) for (const control of compiled.taxonomy.controls) if (control.is(target)) hit.add(control.id);
+    for (const id of hit) controlHits.set(id, (controlHits.get(id) ?? 0) + 1);
   }
   const controlEpisodes = new Map<string, number>();
   for (const e of episodes) for (const id of e.evidence.controls) controlEpisodes.set(id, (controlEpisodes.get(id) ?? 0) + 1);

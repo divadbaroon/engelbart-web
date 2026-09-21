@@ -187,7 +187,7 @@ const build = (over: Partial<ArtifactProfile> = {}) => {
 
 const BLANK: Evidence = {
   surface: { key: "/", label: "the page", role: "shell", frameIds: [] },
-  regions: [], acts: { keys: 0, clicks: 0, typing: 0, submits: 0, navigations: 0 },
+  regions: [], acts: { keys: 0, clicks: 0, typing: 0, submits: 0, navigations: 0, gestures: 0 },
   keyNames: [], appeared: [], entered: null, observed: true,
   composing: false, submitted: false, awaiting: false, call: null,
   entered_by: [], controls: [], openingQuietMs: 0, quietMs: 0, discontinuity: null,
@@ -223,6 +223,39 @@ describe("a compiled profile is a taxonomy like any other", () => {
     assert.equal(out.is({ at: 0, container: null, text: "anything" }), false);
     assert.equal(inn.is({ at: 0, container: { role: "log" }, text: "you: hello" }), true);
     assert.equal(inn.is({ at: 0, container: { role: "log" }, text: "it: hello" }), false, "the text has to match too");
+  });
+
+  it("looks outwards from the region a repaint reported when the region itself is anonymous", () => {
+    // What changes on screen is often an unnamed wrapper inside the panel
+    // a channel is written against, so a channel that names the panel
+    // matched nothing. Its ancestors are recorded; the one the channel
+    // names is among them.
+    const out = c.taxonomy.channels.find((x) => x.id === "out")!;
+    assert.equal(out.is({ at: 0, container: { tag: "div" }, within: [{ tag: "section" }, { testid: "log" }], text: "anything" }), true);
+    assert.equal(out.is({ at: 0, container: { tag: "div" }, within: [{ tag: "section" }], text: "anything" }), false, "and only when one of them is it");
+    assert.equal(out.is({ at: 0, container: { tag: "div" }, text: "anything" }), false, "an appearance recorded before ancestors were reads as it always did");
+  });
+
+  // Wheeling and dragging are counted like any other act, so a profile
+  // can be written against them with no change to any of this. Run 2's
+  // frozen profile predates them and says nothing about them, which is
+  // the point: the language grew, the profile did not have to.
+  it("lets a rule be written against gesturing, the way one is written against typing", () => {
+    const g = build({
+      rules: [
+        { id: "gesturing", sub: "GESTURING", broad: "EXPLORING", priority: 1,
+          when: { acts: { of: ["gestures"], op: "gte", value: 5 } },
+          description: { count: { of: ["gestures"], one: "movement" } }, because: { lit: "they moved about" } },
+        SHAPE.rules[0],
+      ] as ArtifactProfile["rules"],
+    });
+    const fired = (gestures: number) => {
+      const ctx = context({ acts: { ...BLANK.acts, gestures } });
+      const rule = g.taxonomy.rules.find((r) => r.when(ctx)) ?? g.taxonomy.fallback;
+      return [rule.sub, rule.read(ctx).description];
+    };
+    assert.deepEqual(fired(9), ["GESTURING", "9 movements"]);
+    assert.deepEqual(fired(1), ["LATE", "Late."], "and it does not fire under the threshold");
   });
 
   it("keeps the record of exactly-named documents, for a caller that injects nothing", () => {

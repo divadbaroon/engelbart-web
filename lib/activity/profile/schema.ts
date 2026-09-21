@@ -130,8 +130,12 @@ export function positional(a: Anchor): boolean {
 export type Op = "eq" | "ne" | "lt" | "lte" | "gt" | "gte";
 export const OPS: Op[] = ["eq", "ne", "lt", "lte", "gt", "gte"];
 
-// Every kind of act a rule may count.
-export const ACT_FIELDS = ["keys", "clicks", "typing", "submits", "navigations"] as const;
+// Every kind of act a rule may count. `gestures` is wheeling and
+// dragging, folded: the continuous half of interaction. An interface
+// driven by gesture rather than by button had no way to be asked about
+// at all, and a rule that wanted to say "they moved around for a while"
+// could only say it by counting the clicks that were not there.
+export const ACT_FIELDS = ["keys", "clicks", "typing", "submits", "navigations", "gestures"] as const;
 export type ActField = (typeof ACT_FIELDS)[number];
 
 // The evidence fields a profile may ask the truth of. Everything here is

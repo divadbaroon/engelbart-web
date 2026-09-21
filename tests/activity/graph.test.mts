@@ -45,11 +45,16 @@ describe("the participant's side of the canvas is the Activity reading", () => {
     // composing, the send and the wait. It is now two nodes with one
     // stage behind them, and that stage backing two moments is the truth
     // about it rather than a problem with it.
+    //
+    // A stage backing two moments is no longer only writing-then-sending:
+    // a deed opens a stretch, so the approach to a control and the
+    // pressing of it are two moments of one stage too. Both splits are
+    // the same fact about a stage, and what this holds is that the
+    // writing/sending one is still made.
     const shared = new Map<string, string[]>();
     for (const n of people) shared.set(n.stageId, [...(shared.get(n.stageId) ?? []), n.broad]);
     const split = [...shared.values()].filter((b) => b.length > 1);
-    assert.ok(split.length > 0, "the recorded session has a stage that is two moments");
-    for (const b of split) assert.deepEqual(b, ["FORMULATING", "ACTING"], `writing then sending: ${b.join(" + ")}`);
+    assert.ok(split.some((b) => b.join() === "FORMULATING,ACTING"), `writing then sending: ${split.map((b) => b.join(" + ")).join(" | ")}`);
   });
 
   it("never invents a node the reading does not have", () => {

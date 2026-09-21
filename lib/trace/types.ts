@@ -77,10 +77,43 @@ export function targetOf(event: TraceEvent): ElementTarget | null {
   switch (event.kind) {
     case "ui.click": return elementTarget(d.control) ?? elementTarget(d.target);
     case "ui.submit": return elementTarget(d.submitter) ?? elementTarget(d.form);
+    case "ui.wheel":
+    case "ui.drag": return elementTarget(d.control) ?? elementTarget(d.target);
     case "ui.change": return elementTarget(d.container);
     case "ui.route": return null;
     default: return elementTarget(d.target);
   }
+}
+
+// Every element one act is about, most actionable first.
+//
+// `targetOf` answers "what is this row called", and there can only be
+// one answer to that. But an act happens to two elements at once: the
+// control that handles it, and the thing that was actually under the
+// pointer. Which of them carries the identity varies by interface. A
+// toolbar button is an icon and a label inside a <button>: the button is
+// what was used, the label is the only part of it that says which button
+// it is, and choosing either in advance loses the other. Anything
+// matching an act against a description asks both.
+//
+// The control comes first because it is what was used. Deduplicated by
+// selector, so an act on a bare element is one target and not two.
+export function targetsOf(event: TraceEvent): ElementTarget[] {
+  const d = event.data;
+  if (!d) return [];
+  const both =
+    event.kind === "ui.click" || event.kind === "ui.wheel" || event.kind === "ui.drag"
+      ? [elementTarget(d.control), elementTarget(d.target)]
+      : event.kind === "ui.submit"
+        ? [elementTarget(d.submitter), elementTarget(d.form)]
+        : [targetOf(event)];
+  const out: ElementTarget[] = [];
+  for (const t of both) {
+    if (!t) continue;
+    if (out.some((o) => o === t || (o.selector !== undefined && o.selector === t.selector))) continue;
+    out.push(t);
+  }
+  return out;
 }
 
 export type ModelUpstream = { scheme: string; host: string; path: string; has_query: boolean };

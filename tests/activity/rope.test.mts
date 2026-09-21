@@ -34,6 +34,13 @@ describe("the recorded ROPE session, as the timeline reads it", () => {
         [31, 62, "EXPLORING", "EXPERIMENT_WITH_REFERENCE"],
         [62, 184, "UNCLEAR", "NO_RECORDED_ACTIVITY"],
         [184, 186, "ORIENTING", "RESUME_SESSION"],
+        // The sign-in is a deed, so it opens a stretch of its own rather
+        // than naming the two seconds of arriving at the replaced page
+        // that led up to it. Nothing was recorded after it — the stage
+        // ends at the click and sixteen seconds of silence follow — so
+        // the stretch it opens has no extent, the same way the send at
+        // 209s does.
+        [186, 186, "ORIENTING", "SIGN_IN"],
         [186, 202, "UNCLEAR", "NO_RECORDED_ACTIVITY"],
         [202, 205, "EXPLORING", "EXPERIMENT_WITH_REFERENCE"],
         [206, 207, "ACTING", "SUBMIT_RESPONSE"],
@@ -99,13 +106,17 @@ describe("the recorded ROPE session, as the timeline reads it", () => {
 
   it("says what the tutor answered where the tutor answered", () => {
     const wait = run().find((e) => e.subBehavior === "WAIT_FOR_TUTOR_RESPONSE");
+    assert.ok(wait, "the session has a wait in it");
     assert.match(wait.description, /You've made great progress/);
   });
 
   it("names the break in the session, and only the break", () => {
+    // Two stretches read as orienting and they are the two halves of one
+    // return: coming back to a page that had been replaced, and signing
+    // back in. Nothing else in the session is read as finding one's way
+    // around, which is the claim this test exists to hold.
     const orienting = run().filter((e) => e.broadBehavior === "ORIENTING");
-    assert.equal(orienting.length, 1);
-    assert.equal(orienting[0].subBehavior, "RESUME_SESSION");
+    assert.deepEqual(orienting.map((e) => e.subBehavior), ["RESUME_SESSION", "SIGN_IN"]);
     assert.equal(orienting[0].confidence, "high");
   });
 
@@ -232,7 +243,7 @@ describe("the taxonomy is data, and it is the only ROPE-aware module", () => {
 const BLANK: Evidence = {
   surface: { key: "shell", label: "the ROPE workspace", role: "shell", frameIds: [] },
   regions: [],
-  acts: { keys: 0, clicks: 0, typing: 0, submits: 0, navigations: 0 },
+  acts: { keys: 0, clicks: 0, typing: 0, submits: 0, navigations: 0, gestures: 0 },
   keyNames: [],
   appeared: [],
   entered: null,
@@ -332,7 +343,7 @@ describe("what the ROPE rules will and will not say", () => {
 describe("the way in does not outrank what happened", () => {
   const playing = (over: Partial<Evidence> = {}) => reads({
     surface: { key: "solution", label: "the reference game", role: "reference", frameIds: [] },
-    acts: { keys: 13, clicks: 0, typing: 0, submits: 0, navigations: 0 },
+    acts: { keys: 13, clicks: 0, typing: 0, submits: 0, navigations: 0, gestures: 0 },
     keyNames: ["ArrowLeft", "ArrowRight", "ArrowDown"],
     ...over,
   });

@@ -8,7 +8,7 @@
 import type { FrameInfo, Stage } from "@/lib/trace/timeline";
 import type { SemanticIndex } from "@/lib/semantics/lookup";
 import { EMPTY_INDEX } from "@/lib/semantics/lookup";
-import { targetOf, type TraceEvent } from "@/lib/trace/types";
+import { targetsOf, type TraceEvent } from "@/lib/trace/types";
 import { appearances, eventsOf, quietWithin, regionsOf, windows, DEFAULT_SEGMENTATION, type Part, type Segmentation, type Window } from "@/lib/activity/segment";
 import type { Context, Taxonomy } from "@/lib/activity/taxonomy";
 import type { Acts, Episode, Evidence, Surface } from "@/lib/activity/types";
@@ -16,15 +16,23 @@ import type { Acts, Episode, Evidence, Surface } from "@/lib/activity/types";
 const ms = (iso: string) => Date.parse(iso);
 
 const countActs = (events: TraceEvent[]): Acts => {
-  const acts: Acts = { keys: 0, clicks: 0, typing: 0, submits: 0, navigations: 0 };
+  const acts: Acts = { keys: 0, clicks: 0, typing: 0, submits: 0, navigations: 0, gestures: 0 };
   {
     for (const e of events) {
       const d = e.data ?? {};
       if (e.kind === "ui.key") acts.keys += typeof d.count === "number" ? d.count : 1;
       else if (e.kind === "ui.click") acts.clicks += 1;
-      else if (e.kind === "ui.input") acts.typing += 1;
+      // Edits fold the way keys do, so they count the way keys do: a
+      // folded event carries how many there were. A trace recorded
+      // before edits were captured has no count and is one.
+      else if (e.kind === "ui.input") acts.typing += typeof d.edits === "number" ? d.edits : 1;
       else if (e.kind === "ui.submit") acts.submits += 1;
       else if (e.kind === "ui.route") acts.navigations += 1;
+      // Wheeling and dragging fold like keys and edits do, and count the
+      // same way: one event carrying how many there were. An interface
+      // driven by gesture rather than by button is otherwise silent.
+      else if (e.kind === "ui.wheel") acts.gestures += typeof d.count === "number" ? d.count : 1;
+      else if (e.kind === "ui.drag") acts.gestures += 1;
     }
   }
   return acts;
@@ -32,19 +40,44 @@ const countActs = (events: TraceEvent[]): Acts => {
 
 // Which named controls were used on the way into an episode, and inside
 // it. A transition is why an episode means what it means.
+const USES = new Set(["ui.click", "ui.submit", "ui.wheel", "ui.drag"]);
+
 function controlsUsed(events: TraceEvent[], taxonomy: Taxonomy): string[] {
   const out: string[] = [];
-  {
-    for (const e of events) {
-      if (e.kind !== "ui.click" && e.kind !== "ui.submit") continue;
-      const target = targetOf(e);
-      if (!target) continue;
+  for (const e of events) {
+    if (!USES.has(e.kind)) continue;
+    // Both the control and the thing actually under the pointer. A
+    // toolbar button is an icon and a label inside a <button>: the
+    // button is what was used, and the label is the only part of it that
+    // says which button it is. Asking the control alone threw the name
+    // away, and asking the descendant alone would call a click on an
+    // icon's path a click on a path.
+    for (const target of targetsOf(e)) {
       for (const control of taxonomy.controls) {
         if (control.is(target) && !out.includes(control.id)) out.push(control.id);
       }
     }
   }
   return out;
+}
+
+// Which deed a stretch was, by the name the taxonomy gave it, or null
+// where it was not one. Every kind of act can be a deed: a slider
+// committed, a key pressed, a gesture, not only a click — which control
+// counts is the taxonomy's business and this only asks.
+const DEED = new Set(["ui.click", "ui.submit", "ui.input", "ui.key", "ui.wheel", "ui.drag"]);
+
+function deedKey(events: TraceEvent[], taxonomy: Taxonomy): string | null {
+  const ids: string[] = [];
+  for (const e of events) {
+    if (!DEED.has(e.kind)) continue;
+    for (const target of targetsOf(e)) {
+      for (const control of taxonomy.controls) {
+        if (control.moment && control.is(target) && !ids.includes(control.id)) ids.push(control.id);
+      }
+    }
+  }
+  return ids.length ? ids.sort().join("+") : null;
 }
 
 // The moment a window's last submission went in, so what appeared after
@@ -161,8 +194,7 @@ export function classify(input: ClassifyInput): Episode[] {
   // Which brief acts are deeds rather than doors is the artifact's to
   // say; the segmenter only asks. A taxonomy that marks none keeps the
   // old behaviour, where every short stretch is a way into the next one.
-  const moments = new Set(taxonomy.controls.filter((c) => c.moment).map((c) => c.id));
-  const isMoment = (events: TraceEvent[]) => controlsUsed(events, taxonomy).some((id) => moments.has(id));
+  const isMoment = (events: TraceEvent[]) => deedKey(events, taxonomy);
   const cut = windows(stages, frames, cfg, isMoment);
   const out: Episode[] = [];
   // Every text the interface has already shown, so a repaint of the
@@ -187,7 +219,12 @@ export function classify(input: ClassifyInput): Episode[] {
     const stages: Stage[] = [];
     for (const part of all) if (!stages.includes(part.stage)) stages.push(part.stage);
     out.push({
-      id: `episode:${all[0] ? `${all[0].stage.id}:${all[0].role}` : index}`,
+      // A stage can now be cut into several stretches with the same
+      // role — a deed opens one, and what preceded it keeps the other —
+      // so the stage and the role together no longer name an episode.
+      // The ordinal does, and it is what the canvas already keys nodes
+      // by.
+      id: `episode:${all[0] ? `${all[0].stage.id}:${all[0].role}:` : ""}${index}`,
       broadBehavior: rule.broad,
       subBehavior: rule.sub,
       description: reading.description,

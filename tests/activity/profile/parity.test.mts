@@ -92,7 +92,7 @@ describe("the one way this application reads a session takes a taxonomy, and sti
 // ---- every rule, including the ones this afternoon never reached
 const BLANK: Evidence = {
   surface: { key: "/", label: "the tutoring page", role: "shell", frameIds: [] },
-  regions: [], acts: { keys: 0, clicks: 0, typing: 0, submits: 0, navigations: 0 },
+  regions: [], acts: { keys: 0, clicks: 0, typing: 0, submits: 0, navigations: 0, gestures: 0 },
   keyNames: [], appeared: [], entered: null, observed: true,
   composing: false, submitted: false, awaiting: false, call: null,
   entered_by: [], controls: [], openingQuietMs: 0, quietMs: 0, discontinuity: null,

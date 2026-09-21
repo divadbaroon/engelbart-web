@@ -77,7 +77,10 @@ export type SurfaceRole = (typeof SURFACE_ROLES)[number];
 export type Surface = { key: string; label: string; role: SurfaceRole; frameIds: string[] };
 
 // What a person did in an episode, counted rather than listed.
-export type Acts = { keys: number; clicks: number; typing: number; submits: number; navigations: number };
+// `gestures` is wheeling and dragging, folded: the continuous half of
+// interaction, which a button-and-form interface does not have and a
+// map, a plot, a canvas editor or a timeline is made of.
+export type Acts = { keys: number; clicks: number; typing: number; submits: number; navigations: number; gestures: number };
 
 // The evidence an episode was read from, and the whole of what a
 // classifier is allowed to see. It is small on purpose: a few hundred

@@ -36,6 +36,8 @@
   var config = {
     keyFoldMs: 800,       // identical keys this close together fold into one event with a count
     editFoldMs: 900,      // edits to one field this close together fold into one event with a count
+    wheelFoldMs: 900,     // wheeling over one thing this close together folds into one event with a count
+    dragMinPx: 8,         // a pointer that moved less than this between press and release was a click, not a drag
     quietMs: 700,         // a change summary closes after this much DOM silence
     burstMaxMs: 10000,    // ...or after this long, continuing in a new part
     armMs: 45000,         // mutations count as "after the interaction" for this long
@@ -233,7 +235,18 @@
     try {
       var walker = node.ownerDocument.createTreeWalker(node, 5, { acceptNode: function (n) { return n.nodeType === 1 ? (opaque(n) ? 2 : 3) : 1; } });
       var t;
-      while ((t = walker.nextNode())) { out += " " + t.data; if (out.length > max * 3) break; }
+      // The budget is for text, and the gaps between elements are not
+      // text. A pretty-printed inline SVG icon in front of a label is
+      // twenty whitespace-only nodes and about two hundred and fifty
+      // characters of nothing, which used to exhaust the budget before
+      // the walk reached the word — so of five identical buttons, the
+      // ones with the wordier icon reported no text at all and the
+      // others reported theirs, with nothing to say which had happened.
+      while ((t = walker.nextNode())) {
+        if (!/\S/.test(t.data)) { out += " "; continue; }
+        out += " " + t.data;
+        if (out.replace(/\s+/g, " ").length > max * 3) break;
+      }
     } catch { return ""; }
     return cap(out, max);
   }
@@ -449,7 +462,7 @@
     }
 
     on(doc, "click", function (e) {
-      flushKey(); flushEdit();
+      flushKey(); flushEdit(); flushWheel();
       var target = targetOf(e);
       if (!target || target.nodeType !== 1) target = target && target.parentElement ? target.parentElement : doc.body;
       if (ours(target)) return;
@@ -565,6 +578,108 @@
       if (k.count > 1) data.lastAt = k.lastAt;
       emit("ui.key", data, { interactionId: k.id, at: k.firstAt });
     }
+    // ---- Gestures: the continuous half of interaction.
+    //
+    // A map is panned, a plot is wheeled, a node editor is dragged, a
+    // timeline is scrubbed. None of that is a click, a key or a form,
+    // and none of it was recorded at all — an interface whose whole
+    // grammar is gesture left a trace with nothing in it but the
+    // buttons around the edge.
+    //
+    // What is recorded is a summary, never a path. No pointermove row,
+    // no coordinates: how many times, over what, for how long, and
+    // roughly how far in roughly which direction. That is enough to say
+    // somebody moved around for a while and nowhere near enough to
+    // reconstruct what they looked at, which is the right side of the
+    // line for a tool that watches people work.
+    var pendingWheel = null;
+    function magnitude(px) { return px < 120 ? "small" : px < 600 ? "medium" : "large"; }
+    function distance(px) { return px < 40 ? "short" : px < 240 ? "medium" : "long"; }
+    function heading(dx, dy) {
+      if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? "right" : "left";
+      return dy >= 0 ? "down" : "up";
+    }
+    function flushWheel() {
+      if (!pendingWheel) return;
+      var w = pendingWheel; pendingWheel = null;
+      if (w.timer) clearTimeout(w.timer);
+      var data = {
+        target: w.target, count: w.count, axis: w.axis,
+        // Ctrl with a wheel is how a browser reports a pinch, and how
+        // every zoomable surface reads one. Which way is "in" is the
+        // page's business; this says which way the wheel went.
+        direction: w.ctrl ? (w.dy <= 0 ? "in" : "out") : heading(w.dx, w.dy),
+        magnitude: magnitude(Math.abs(w.dx) + Math.abs(w.dy)),
+        durationMs: w.lastAt - w.firstAt,
+      };
+      if (w.ctrl) data.ctrl = true;
+      if (w.control) data.control = w.control;
+      emit("ui.wheel", data, { interactionId: w.id, at: w.firstAt });
+    }
+    on(doc, "wheel", function (e) {
+      var target = targetOf(e);
+      if (!target || target.nodeType !== 1) target = target && target.parentElement ? target.parentElement : doc.body;
+      if (ours(target)) return;
+      var now = Date.now();
+      var selector = selectorFor(target);
+      var ctrl = e.ctrlKey === true;
+      if (pendingWheel && pendingWheel.selector === selector && pendingWheel.ctrl === ctrl && now - pendingWheel.lastAt <= config.wheelFoldMs) {
+        pendingWheel.count++; pendingWheel.lastAt = now;
+        pendingWheel.dx += e.deltaX || 0; pendingWheel.dy += e.deltaY || 0;
+        clearTimeout(pendingWheel.timer); pendingWheel.timer = setTimeout(flushWheel, config.wheelFoldMs);
+        return;
+      }
+      flushWheel(); flushKey(); flushEdit();
+      closeBurst("interaction");
+      var id = mint(now);
+      var control = controlOf(target);
+      pendingWheel = {
+        id: id, selector: selector, target: describe(target), control: control && control !== target ? describe(control) : null,
+        count: 1, dx: e.deltaX || 0, dy: e.deltaY || 0, ctrl: ctrl,
+        axis: Math.abs(e.deltaX || 0) > Math.abs(e.deltaY || 0) ? "x" : "y",
+        firstAt: now, lastAt: now, timer: setTimeout(flushWheel, config.wheelFoldMs),
+      };
+    });
+
+    // A drag is a press, some movement and a release on one thing. The
+    // movement is counted and measured and then thrown away; a pointer
+    // that barely moved was a click and is left to the click handler,
+    // which still fires either way.
+    var dragging = null;
+    on(doc, "pointerdown", function (e) {
+      var target = targetOf(e);
+      if (!target || target.nodeType !== 1) target = target && target.parentElement ? target.parentElement : doc.body;
+      if (ours(target)) return;
+      dragging = { target: target, x: e.clientX, y: e.clientY, fx: e.clientX, fy: e.clientY, far: 0, moves: 0, at: Date.now(), button: e.button };
+    });
+    on(doc, "pointermove", function (e) {
+      if (!dragging) return;
+      var dx = e.clientX - dragging.x, dy = e.clientY - dragging.y;
+      dragging.far += Math.abs(dx) + Math.abs(dy);
+      dragging.x = e.clientX; dragging.y = e.clientY;
+      dragging.moves++;
+    });
+    function endDrag(e) {
+      var d = dragging; dragging = null;
+      if (!d) return;
+      var dx = (e && typeof e.clientX === "number" ? e.clientX : d.x) - d.fx;
+      var dy = (e && typeof e.clientY === "number" ? e.clientY : d.y) - d.fy;
+      if (Math.abs(dx) + Math.abs(dy) < config.dragMinPx && d.far < config.dragMinPx) return;
+      flushKey(); flushEdit(); flushWheel();
+      closeBurst("interaction");
+      var now = Date.now();
+      var id = mint(d.at);
+      var control = controlOf(d.target);
+      var data = {
+        target: describe(d.target), moves: d.moves, durationMs: now - d.at,
+        distance: distance(d.far), direction: heading(dx, dy), button: d.button,
+      };
+      if (control && control !== d.target) data.control = describe(control);
+      emit("ui.drag", data, { interactionId: id, at: d.at });
+    }
+    on(doc, "pointerup", function (e) { endDrag(e); });
+    on(doc, "pointercancel", function () { dragging = null; });
+
     on(doc, "keydown", function (e) {
       var target = targetOf(e);
       if (!target || target.nodeType !== 1) target = doc.activeElement || doc.body;
@@ -968,7 +1083,7 @@
       scanForFrames(doc.documentElement);
     }
     function flushAll(unloading) {
-      flushKey(); flushEdit();
+      flushKey(); flushEdit(); flushWheel();
       if (unloading) closeBurst("unload");
       if (unloading && annotator) annotator.flushCapture();
       frames.forEach(function (entry) { if (entry.bridge) entry.bridge.flushAll(unloading); });
@@ -995,13 +1110,13 @@
       timers.forEach(clearTimeout);
       frames.forEach(function (entry) { clearTimeout(entry.timer); if (entry.bridge) entry.bridge.detach(); });
       frames.clear();
-      flushKey(); flushEdit(); closeBurst("detach");
+      flushKey(); flushEdit(); flushWheel(); closeBurst("detach");
     }
 
     var api = {
       version: VERSION, frameId: frameId, describe: describe, selectorFor: selectorFor, annotatableAt: annotatableAt, classifyKey: classifyKey, editableKind: editableKind, safeUrl: safeUrl,
       configure: function (patch) { for (var k in patch) if (k in config) config[k] = patch[k]; },
-      flush: function () { flushKey(); flushEdit(); frames.forEach(function (entry) { if (entry.bridge) entry.bridge.flushAll(false); }); return transport.flush(false); },
+      flush: function () { flushKey(); flushEdit(); flushWheel(); frames.forEach(function (entry) { if (entry.bridge) entry.bridge.flushAll(false); }); return transport.flush(false); },
       stats: function () { return { interactions: interactions, latest: latest, pendingRequests: pendingRequests, frames: frames.size, transport: transport.stats() }; },
       frames: function () { var out = []; frames.forEach(function (entry, el) { out.push({ frameId: entry.frameId, state: entry.state, reason: entry.reason, selector: selectorFor(el) }); }); return out; },
       parent: function () { return { parentFrameId: parentFrameId, depth: depth }; },

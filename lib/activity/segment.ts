@@ -40,6 +40,8 @@ export type Segmentation = {
   quietMs: number;        // a silence at least this long is worth reporting as its own thing
   reloadGapMs: number;    // a reload after at least this much silence is a break in the session
   echoMs: number;         // how long after a submission the interface echoing it still belongs to the sending
+  momentBurstMs: number;  // the same deed done again this soon is the same doing of it
+  momentMinMs: number;    // a deed shorter than this that changed nothing on screen is a doorway, not an episode
 };
 
 export const DEFAULT_SEGMENTATION: Segmentation = {
@@ -52,6 +54,14 @@ export const DEFAULT_SEGMENTATION: Segmentation = {
   // its reply a second and a half later, and a window wide enough to
   // catch that puts the tutor's answer inside the sending.
   echoMs: 400,
+  // Somebody dragging a slider commits its value every few hundred
+  // milliseconds and somebody clicking the same button twice means it
+  // once. Wide enough to hold a gesture together, narrow enough that two
+  // decisions a second and a half apart stay two decisions.
+  momentBurstMs: 1_500,
+  // A deed that caused nothing observable and was superseded inside a
+  // second is how they got to the next thing, not a thing they did.
+  momentMinMs: 1_000,
 };
 
 const ms = (iso: string) => Date.parse(iso);
@@ -68,15 +78,39 @@ const str = (v: unknown) => (typeof v === "string" ? v : null);
 //
 // None of this is artifact-specific. What "solution" *means* is the
 // taxonomy's business; this only says two frames are not the same frame.
+//
+// `"top"` means one thing and one thing only: a stretch that happened on
+// no document at all, which is what a model call is. It used to mean
+// that *and* "the outermost document", and the two are not the same —
+// an application recorded on its own keyed "top" while the very same
+// application recorded inside the workspace's preview frame keyed "/",
+// so its identity depended on who was watching. Every profile written
+// against a single-document artifact matched nothing, silently, and
+// every one of its episodes read with the role "other".
+//
+// A document is now its path, wherever it sits. The path comes from
+// `frame.served` and `frame.loaded`, which happen once per document, so
+// a client-side route change or an edit to the query string does not
+// make a second surface out of one document — which is the failure in
+// the other direction and the worse one.
+const pathOf = (frame: FrameInfo): string | null => {
+  const raw = frame.path ?? frame.url;
+  if (!raw) return null;
+  const cut = raw.split("#")[0].split("?")[0];
+  if (!cut) return null;
+  const path = cut.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]*/i, "") || "/";
+  return path.length > 1 ? path.replace(/\/+$/, "") || "/" : path;
+};
+
 export function surfaceKey(frame: FrameInfo | undefined): string {
   if (!frame) return "top";
-  if (!frame.embedded && (frame.depth ?? 0) === 0) return "top";
+  if (!frame.embedded && (frame.depth ?? 0) === 0) return pathOf(frame) ?? "top";
   const id = frame.query?.id ?? frame.query?.name ?? null;
   if (id) return id;
   if (frame.name) return frame.name;
   const nth = frame.selectorInParent?.match(/(?:iframe|frame):nth-of-type\((\d+)\)/);
   if (nth) return `frame-${nth[1]}`;
-  return frame.url ?? frame.path ?? `frame-${frame.frameId}`;
+  return pathOf(frame) ?? `frame-${frame.frameId}`;
 }
 
 
@@ -137,7 +171,31 @@ export type Part = {
   // The model call this part belongs to, when it belongs to one. A
   // compose part never does: the call it will cause has not happened.
   callId: string | null;
+  // The deed this part opened with, by the name the taxonomy gave it, or
+  // null where it opened with something else.
+  moment: string | null;
+  // Whether this part begins a stretch of its own. True for every part a
+  // deed cut out of a stage — the deed itself, and whatever a person did
+  // next, which is what ends it. See `deeds` and `windows`.
+  opens: boolean;
 };
+
+// Which acts a deed can be. An effect is not one: a repaint is what a
+// deed caused, and letting it open a stretch would put the consequence
+// in front of its cause. Nothing here is about any particular artifact —
+// it is the list of event kinds that are a person doing something.
+const ACT = new Set(["ui.click", "ui.submit", "ui.input", "ui.key", "ui.wheel", "ui.drag"]);
+
+// Which acts are deeds rather than doors, and what the artifact calls
+// them. The segmenter cannot know — that is the taxonomy's business — so
+// it asks, and gets back a name it can compare rather than a yes it
+// cannot. The name is what lets the same deed done three times in two
+// seconds be one doing of it and three different deeds be three.
+//
+// Nothing named means nothing is a deed, which is what this did before
+// any taxonomy was passed in.
+export type Deliberate = (events: TraceEvent[]) => string | null;
+const NOTHING_IS: Deliberate = () => null;
 
 // What counts as sending something. `ui.submit` says so outright. A
 // Return in a text-entry surface only counts inside a stage that
@@ -163,10 +221,78 @@ const bounds = (events: TraceEvent[], fallback: Stage): { at: string; endAt: str
   return { at, endAt };
 };
 
-export function parts(stages: Stage[], cfg: Segmentation = DEFAULT_SEGMENTATION): Part[] {
+// ---- deeds, inside a stretch that sends nothing
+//
+// A stage that holds no submission is one part, and for turn-taking
+// software that is right: between one send and the next there is one
+// thing going on. For everything else it is the whole session. A person
+// moving around a map, running a simulation, editing and re-running,
+// stepping through a timeline never submits anything, so `traceStages`
+// hands over one stage and the reading is one row for four minutes.
+//
+// So a stretch is also cut at its deeds. The taxonomy says which acts
+// are deeds; this says what a deed does to the shape of the reading:
+//
+//   · a deed opens a stretch
+//   · what the deed caused stays with it — an effect never opens a
+//     stretch, so a repaint, a request and an answer all land behind the
+//     act that produced them rather than in front of the next one
+//   · the next thing a person does ends it. A deed's stretch is the deed
+//     and its consequences, not the deed and everything afterwards until
+//     somebody happens to press another named button — which would let
+//     one toggle name the two minutes of moving around that followed it
+//   · the same deed again, within `momentBurstMs`, is the same doing of
+//     it: a slider committed eight times while being dragged, a button
+//     pressed twice, one stretch
+//   · a different deed is a different stretch, however close
+//   · acts that are not deeds accumulate, so a run of wheeling and
+//     dragging is one stretch of moving around and not one row a flick
+//
+// The clock, not the sequence: the bridge flushes a batch of mutations
+// with the act that caused them, so an effect can carry a lower sequence
+// number than its cause.
+type Run = { events: TraceEvent[]; moment: string | null; lastAt: number; deed: boolean };
+
+function deeds(ordered: TraceEvent[], cfg: Segmentation, isMoment: Deliberate): { events: TraceEvent[]; moment: string | null }[] {
+  const runs: Run[] = [];
+  for (const e of ordered) {
+    const act = ACT.has(e.kind);
+    const key = act ? isMoment([e]) : null;
+    const open = runs[runs.length - 1];
+    const at = ms(e.at);
+    // The same deed, still being done.
+    if (key !== null && open && open.moment === key && at - open.lastAt <= cfg.momentBurstMs) {
+      open.events.push(e); open.lastAt = at;
+      continue;
+    }
+    // A deed, or the first thing done after one.
+    if (key !== null || (act && open?.deed)) {
+      runs.push({ events: [e], moment: key, lastAt: at, deed: key !== null });
+      continue;
+    }
+    if (!open) { runs.push({ events: [e], moment: null, lastAt: at, deed: false }); continue; }
+    open.events.push(e);
+  }
+  // A run with nothing a person did in it is not a stretch of
+  // behaviour; it is the run-up to the next one. A repaint still
+  // settling, a page finishing its reload, a request coming back — when
+  // that is all there is in front of a deed, it belongs to the deed,
+  // not to a row of its own that would be over in the same second and
+  // would take the silence before it with it. Prior exploration is
+  // still its own run: exploring means acting, and those acts keep it.
+  for (let i = runs.length - 1; i > 0; i--) {
+    const before = runs[i - 1];
+    if (before.moment !== null || before.events.some((e) => ACT.has(e.kind))) continue;
+    runs[i].events = before.events.concat(runs[i].events);
+    runs.splice(i - 1, 1);
+  }
+  return runs.map(({ events, moment }) => ({ events, moment }));
+}
+
+export function parts(stages: Stage[], cfg: Segmentation = DEFAULT_SEGMENTATION, isMoment: Deliberate = NOTHING_IS): Part[] {
   const out: Part[] = [];
   for (const stage of stages) {
-    const add = (role: PartRole, events: TraceEvent[], span?: { at: string; endAt: string }, call?: string | null) => {
+    const add = (role: PartRole, events: TraceEvent[], span?: { at: string; endAt: string }, call?: string | null, moment: string | null = null, opens = false) => {
       if (!events.length) return;
       const b = span ?? bounds(events, stage);
       // A part's call is the one its own events name, or — where there is
@@ -174,7 +300,21 @@ export function parts(stages: Stage[], cfg: Segmentation = DEFAULT_SEGMENTATION)
       // never has one: the call it will cause has not been made.
       const own = events.find((e) => e.callId)?.callId ?? null;
       const callId = role === "compose" || role === "plain" ? null : own ?? (call !== undefined ? call : stage.callId ?? null);
-      out.push({ stage, role, events, at: b.at, endAt: b.endAt, callId });
+      out.push({ stage, role, events, at: b.at, endAt: b.endAt, callId, moment, opens });
+    };
+    // A stretch with no send in it, cut at its deeds. The first keeps the
+    // stage's opening and the last its close, so the parts still cover
+    // exactly what the stage covered and no second is claimed twice.
+    const plain = (ordered: TraceEvent[]) => {
+      const runs = deeds(ordered, cfg, isMoment);
+      if (runs.length <= 1) { add("plain", ordered, { at: stage.at, endAt: stage.endAt }); return; }
+      runs.forEach((run, i) => {
+        const b = bounds(run.events, stage);
+        add("plain", run.events, {
+          at: i === 0 ? stage.at : b.at,
+          endAt: i === runs.length - 1 ? stage.endAt : bounds(runs[i + 1].events, stage).at,
+        }, null, run.moment, i > 0);
+      });
     };
     if (stage.stage === "call") { add("wait", stage.events, { at: stage.at, endAt: stage.endAt }); continue; }
 
@@ -188,7 +328,7 @@ export function parts(stages: Stage[], cfg: Segmentation = DEFAULT_SEGMENTATION)
     // that did nothing and swallowed the real send, its call and its echo
     // into the wait, which is the merge this is all here to prevent.
     const at = ordered.filter((e) => sends(e, isSubmit)).map((e) => ms(e.at));
-    if (!at.length) { add("plain", ordered, { at: stage.at, endAt: stage.endAt }); continue; }
+    if (!at.length) { plain(ordered); continue; }
 
     // The split is on the clock and not on the sequence numbers, because
     // the two disagree at exactly the moment that matters: the bridge
@@ -249,6 +389,18 @@ export type Appearance = {
   at: number;
   container: ElementTarget | null;
   text: string;
+  // The nameable places above the container, innermost first, where the
+  // bridge reported them. A repaint's own region is often a div the
+  // application never named — a wrapper, a row, something whose only
+  // surviving class is a compiler's hash — while the thing that says
+  // what part of the interface it is sits one or two levels up. The
+  // bridge already walks that far and records the chain; this is it
+  // reaching the matching, so a channel written against the panel still
+  // finds text that arrived in an anonymous box inside it.
+  //
+  // Empty, or absent altogether on an appearance that was not read from
+  // a recorded chain, and either way it matches exactly as it did.
+  within?: ElementTarget[];
 };
 
 // `ui.change` reports the text that arrived as the nodes it arrived in,
@@ -294,15 +446,16 @@ export function appearances(events: TraceEvent[]): Appearance[] {
     const at = ms(e.at);
     const before = out.length;
     for (const r of Array.isArray(d.regions) ? d.regions : []) {
-      const region = r as { target?: unknown; added?: unknown } | null;
+      const region = r as { target?: unknown; added?: unknown; within?: unknown } | null;
       const text = tidy(strings(region?.added).join(" "));
       if (!text) continue;
-      out.push({ at, container: elementTarget(region?.target), text });
+      const within = (Array.isArray(region?.within) ? region.within : []).map(elementTarget).filter((t): t is ElementTarget => !!t);
+      out.push({ at, container: elementTarget(region?.target), text, within });
     }
     if (out.length > before) continue;
     const text = tidy(strings(d.added).join(" "));
     if (!text) continue;
-    out.push({ at, container: targetOf(e), text });
+    out.push({ at, container: targetOf(e), text, within: [] });
   }
   return out;
 }
@@ -393,12 +546,6 @@ const replaced = (key: string, ids: string[], history: Map<string, Set<string>>)
   return isNew;
 };
 
-// Whether a short stretch is an act in its own right rather than the way
-// into the next one. The segmenter cannot know — which controls are
-// deeds and which are doors is the artifact's business — so it asks.
-// Nothing named means nothing is exempt, which is what this did before.
-export type Deliberate = (events: TraceEvent[]) => boolean;
-const NOTHING_IS: Deliberate = () => false;
 
 export function windows(stages: Stage[], frames: Map<string, FrameInfo>, cfg: Segmentation = DEFAULT_SEGMENTATION, isMoment: Deliberate = NOTHING_IS): Window[] {
   const out: Window[] = [];
@@ -431,7 +578,7 @@ export function windows(stages: Stage[], frames: Map<string, FrameInfo>, cfg: Se
     reloaded = false;
   };
 
-  for (const part of parts(stages, cfg)) {
+  for (const part of parts(stages, cfg, isMoment)) {
     const found = surfaceOf(part, frames);
     const here: { key: string; frameIds: string[] } = found ?? surface ?? { key: "top", frameIds: [] };
     const again = !!found && replaced(found.key, found.frameIds, history);
@@ -459,7 +606,12 @@ export function windows(stages: Stage[], frames: Map<string, FrameInfo>, cfg: Se
       // begins while the first answer is still arriving is its own
       // episode, under its own call, whatever else lines up.
       const changedCall = clash(part, run);
-      if (!inFlight && (changedRole || changedCall || changedSurface || broke || gap >= cfg.gapMs)) {
+      // A deed opens a stretch, and so does the next thing done after
+      // one. Without this the run would swallow both: two plain parts
+      // with the same role, the same call and the same document look
+      // identical to everything above, which is exactly how a session of
+      // ten distinct acts became one row.
+      if (!inFlight && (part.opens || changedRole || changedCall || changedSurface || broke || gap >= cfg.gapMs)) {
         const carriedQuiet = gap >= cfg.gapMs ? gap : 0;
         const carriedReload = broke;
         flush();
@@ -564,9 +716,19 @@ function absorb(list: Window[], cfg: Segmentation, isMoment: Deliberate): Window
     // own stretch too. Signing in takes a moment and is over; what
     // follows it is a different thing somebody did, and folding the two
     // together lets the shorter one name the longer.
+    // A deed keeps its own stretch — unless it was over inside
+    // `momentMinMs` and nothing on screen answered it, in which case it
+    // is how they got to the next thing. Opening a menu to click what is
+    // inside it should not cost two rows, and the difference between a
+    // doorway and a deed is visible in the trace: a deed causes
+    // something.
+    const events = eventsOf(w.parts);
+    const deed = isMoment(events) !== null;
+    const answered = events.some((e) => e.kind === "ui.change");
+    const doorway = deed && !answered && span < cfg.momentMinMs;
     const brief = w.kind === "activity" && !w.reloaded && span < cfg.minEpisodeMs
       && w.parts.every((p) => p.role === "plain")
-      && !isMoment(eventsOf(w.parts))
+      && (!deed || doorway)
       && w.openingQuietMs < cfg.gapMs;
     if (brief) { held.push(w); continue; }
     if (held.length && w.kind === "quiet") { out.push(join(held)); held = []; }
