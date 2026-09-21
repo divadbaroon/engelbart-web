@@ -1,0 +1,24 @@
+# What never leaves this machine when `railway up` uploads the build
+# context.
+#
+# .gitignore already covers `.env` and `.env*.local`, and the CLI honours
+# it, so today nothing secret is sent. This file exists because that is a
+# coincidence of two patterns rather than a rule: `.env.production` and
+# `.env.staging` match neither, and would be uploaded by whoever adds one.
+# The runner's four secrets are handed to it by Railway at run time, so no
+# env file ever needs to travel with the source.
+.env
+.env.*
+!.env.example
+
+# Not part of the worker, and the largest things here. The runner renders
+# nothing and builds no templates; see the Dockerfile for what it copies.
+node_modules
+.next
+public
+components
+hooks
+sandbox
+tests
+bench
+scratchpad
