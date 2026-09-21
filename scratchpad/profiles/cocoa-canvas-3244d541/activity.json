@@ -1,0 +1,3330 @@
+{
+  "format": "engelbart.activity/1",
+  "runId": "3244d541-c6a1-4a14-8d57-4a335ecc9027",
+  "recordingId": null,
+  "taxonomy": "Cocoa Canvas",
+  "profile": {
+    "source": "generated",
+    "name": "Cocoa Canvas",
+    "status": "ready",
+    "artifact": "Cocoa Canvas",
+    "repoId": "c45eed8e-758b-42d7-8e4c-1ece901f6b7a",
+    "commit": "e49079a413497d4fe363af4e8a6e6fefd7539597",
+    "signature": "-",
+    "schemaVersion": 1,
+    "capabilityVersion": 1,
+    "model": "claude-opus-5",
+    "generatedAt": "2026-09-21T02:58:26.792Z"
+  },
+  "segmentation": {
+    "gapMs": 20000,
+    "minEpisodeMs": 2500,
+    "quietMs": 8000,
+    "reloadGapMs": 5000,
+    "echoMs": 400,
+    "momentBurstMs": 1500,
+    "momentMinMs": 1000
+  },
+  "exportedAt": "2026-09-21T02:59:30.915Z",
+  "episodeCount": 13,
+  "eventCount": 49,
+  "episodes": [
+    {
+      "id": "episode:stage:i_fc3360d3d5_1:compose:0",
+      "broadBehavior": "ACTING",
+      "subBehavior": "ENTER_DISPLAY_NAME",
+      "description": "Worked in the display-name field of the Join canvas modal, with no Join recorded.",
+      "startedAt": "2026-09-21T02:43:31.319+00:00",
+      "endedAt": "2026-09-21T02:43:32.083Z",
+      "durationMs": 764,
+      "confidence": "high",
+      "determined": "rule",
+      "because": "activity on the name field of the Join canvas modal was recorded and the Join control was not used",
+      "evidence": {
+        "surface": {
+          "key": "/",
+          "label": "the Cocoa Canvas app",
+          "role": "shell",
+          "frameIds": [
+            "f_fc3360d3d5"
+          ]
+        },
+        "regions": [],
+        "acts": {
+          "keys": 0,
+          "clicks": 1,
+          "typing": 4,
+          "submits": 0,
+          "navigations": 0,
+          "gestures": 0
+        },
+        "keyNames": [],
+        "appeared": [],
+        "entered": null,
+        "observed": true,
+        "composing": true,
+        "submitted": false,
+        "awaiting": false,
+        "call": null,
+        "entered_by": [],
+        "controls": [
+          "name_field"
+        ],
+        "openingQuietMs": 0,
+        "quietMs": 0,
+        "discontinuity": null
+      },
+      "stageIds": [
+        "stage:i_fc3360d3d5_1"
+      ],
+      "stages": [
+        {
+          "id": "stage:i_fc3360d3d5_1",
+          "kind": "explore",
+          "title": "Explored the page",
+          "at": "2026-09-21T02:43:31.319+00:00",
+          "endAt": "2026-09-21T02:43:38.924Z",
+          "callId": null
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-09-21T02:43:31.319+00:00",
+          "seq": 15,
+          "kind": "ui.click",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_1",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "input",
+            "rect": {
+              "h": 38,
+              "w": 336,
+              "x": 472,
+              "y": 447
+            },
+            "type": "text",
+            "route": "/",
+            "editable": "text",
+            "selector": "#root > div:nth-of-type(2) > form > input",
+            "placeholder": "Your name"
+          },
+          "data": {
+            "button": 0,
+            "detail": 1,
+            "target": {
+              "tag": "input",
+              "rect": {
+                "h": 38,
+                "w": 336,
+                "x": 472,
+                "y": 447
+              },
+              "type": "text",
+              "route": "/",
+              "editable": "text",
+              "selector": "#root > div:nth-of-type(2) > form > input",
+              "placeholder": "Your name"
+            },
+            "frameId": "f_fc3360d3d5",
+            "trusted": true,
+            "browser_at": 1789958611306,
+            "clock_offset_ms": 13
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:31.559+00:00",
+          "seq": 16,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_2",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "button",
+            "rect": {
+              "h": 36,
+              "w": 336,
+              "x": 472,
+              "y": 501
+            },
+            "text": "Join",
+            "type": "submit",
+            "route": "/",
+            "selector": "#root > div:nth-of-type(2) > form > button"
+          },
+          "data": {
+            "part": 1,
+            "added": [],
+            "closed": "interaction",
+            "frameId": "f_fc3360d3d5",
+            "removed": [],
+            "container": {
+              "tag": "button",
+              "rect": {
+                "h": 36,
+                "w": 336,
+                "x": 472,
+                "y": 501
+              },
+              "text": "Join",
+              "type": "submit",
+              "route": "/",
+              "selector": "#root > div:nth-of-type(2) > form > button"
+            },
+            "mutations": 1,
+            "addedNodes": 0,
+            "browser_at": 1789958611548,
+            "durationMs": 0,
+            "textChanges": 0,
+            "removedNodes": 0,
+            "lastMutationAt": 1789958611548,
+            "clock_offset_ms": 11,
+            "firstMutationAt": 1789958611548,
+            "attributeChanges": 1,
+            "requestsInFlight": 0,
+            "sinceInteractionMs": 1
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:31.558+00:00",
+          "seq": 18,
+          "kind": "ui.input",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_2",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "input",
+            "rect": {
+              "h": 38,
+              "w": 336,
+              "x": 472,
+              "y": 447
+            },
+            "type": "text",
+            "route": "/",
+            "editable": "text",
+            "selector": "#root > div:nth-of-type(2) > form > input",
+            "placeholder": "Your name"
+          },
+          "data": {
+            "edits": 4,
+            "lastAt": 1789958611641,
+            "target": {
+              "tag": "input",
+              "rect": {
+                "h": 38,
+                "w": 336,
+                "x": 472,
+                "y": 447
+              },
+              "type": "text",
+              "route": "/",
+              "editable": "text",
+              "selector": "#root > div:nth-of-type(2) > form > input",
+              "placeholder": "Your name"
+            },
+            "editing": true,
+            "frameId": "f_fc3360d3d5",
+            "trusted": true,
+            "browser_at": 1789958611547,
+            "valueLength": 4,
+            "clock_offset_ms": 11
+          }
+        }
+      ]
+    },
+    {
+      "id": "episode:stage:i_fc3360d3d5_1:submit:1",
+      "broadBehavior": "ACTING",
+      "subBehavior": "JOIN_CANVAS",
+      "description": "Submitted a display name on the Join canvas modal.",
+      "startedAt": "2026-09-21T02:43:32.083+00:00",
+      "endedAt": "2026-09-21T02:43:32.121+00:00",
+      "durationMs": 38,
+      "confidence": "high",
+      "determined": "rule",
+      "because": "the Join control was used, or the name form was submitted, in this stretch",
+      "evidence": {
+        "surface": {
+          "key": "/",
+          "label": "the Cocoa Canvas app",
+          "role": "shell",
+          "frameIds": [
+            "f_fc3360d3d5"
+          ]
+        },
+        "regions": [],
+        "acts": {
+          "keys": 0,
+          "clicks": 1,
+          "typing": 1,
+          "submits": 1,
+          "navigations": 0,
+          "gestures": 0
+        },
+        "keyNames": [],
+        "appeared": [
+          {
+            "at": 1789958612120,
+            "channel": "canvas_root",
+            "text": "D Dana (you)",
+            "fresh": true
+          }
+        ],
+        "entered": null,
+        "observed": true,
+        "composing": false,
+        "submitted": true,
+        "awaiting": false,
+        "call": null,
+        "entered_by": [],
+        "controls": [
+          "join_button"
+        ],
+        "openingQuietMs": 0,
+        "quietMs": 0,
+        "discontinuity": null
+      },
+      "stageIds": [
+        "stage:i_fc3360d3d5_1"
+      ],
+      "stages": [
+        {
+          "id": "stage:i_fc3360d3d5_1",
+          "kind": "explore",
+          "title": "Explored the page",
+          "at": "2026-09-21T02:43:31.319+00:00",
+          "endAt": "2026-09-21T02:43:38.924Z",
+          "callId": null
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-09-21T02:43:32.083+00:00",
+          "seq": 17,
+          "kind": "ui.input",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_3",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "input",
+            "rect": {
+              "h": 38,
+              "w": 336,
+              "x": 472,
+              "y": 447
+            },
+            "type": "text",
+            "route": "/",
+            "editable": "text",
+            "selector": "#root > div:nth-of-type(2) > form > input",
+            "placeholder": "Your name"
+          },
+          "data": {
+            "commit": true,
+            "target": {
+              "tag": "input",
+              "rect": {
+                "h": 38,
+                "w": 336,
+                "x": 472,
+                "y": 447
+              },
+              "type": "text",
+              "route": "/",
+              "editable": "text",
+              "selector": "#root > div:nth-of-type(2) > form > input",
+              "placeholder": "Your name"
+            },
+            "frameId": "f_fc3360d3d5",
+            "trusted": true,
+            "browser_at": 1789958612072,
+            "valueLength": 4,
+            "clock_offset_ms": 11
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:32.12+00:00",
+          "seq": 19,
+          "kind": "ui.click",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_4",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "button",
+            "rect": {
+              "h": 36,
+              "w": 336,
+              "x": 472,
+              "y": 501
+            },
+            "text": "Join",
+            "type": "submit",
+            "route": "/",
+            "selector": "#root > div:nth-of-type(2) > form > button"
+          },
+          "data": {
+            "button": 0,
+            "detail": 1,
+            "target": {
+              "tag": "button",
+              "rect": {
+                "h": 36,
+                "w": 336,
+                "x": 472,
+                "y": 501
+              },
+              "text": "Join",
+              "type": "submit",
+              "route": "/",
+              "selector": "#root > div:nth-of-type(2) > form > button"
+            },
+            "frameId": "f_fc3360d3d5",
+            "trusted": true,
+            "browser_at": 1789958612109,
+            "clock_offset_ms": 11
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:32.121+00:00",
+          "seq": 20,
+          "kind": "ui.submit",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_5",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "button",
+            "rect": {
+              "h": 36,
+              "w": 336,
+              "x": 472,
+              "y": 501
+            },
+            "text": "Join",
+            "type": "submit",
+            "route": "/",
+            "selector": "#root > div:nth-of-type(2) > form > button"
+          },
+          "data": {
+            "form": {
+              "tag": "form",
+              "rect": {
+                "h": 222,
+                "w": 384,
+                "x": 448,
+                "y": 339
+              },
+              "text": "Join canvas Enter your name to start collaborating. Join",
+              "route": "/",
+              "action": "/",
+              "method": "get",
+              "selector": "#root > div:nth-of-type(2) > form"
+            },
+            "fields": [
+              {
+                "tag": "input",
+                "type": "text"
+              },
+              {
+                "tag": "button",
+                "type": "submit"
+              }
+            ],
+            "frameId": "f_fc3360d3d5",
+            "trusted": true,
+            "submitter": {
+              "tag": "button",
+              "rect": {
+                "h": 36,
+                "w": 336,
+                "x": 472,
+                "y": 501
+              },
+              "text": "Join",
+              "type": "submit",
+              "route": "/",
+              "selector": "#root > div:nth-of-type(2) > form > button"
+            },
+            "browser_at": 1789958612110,
+            "clock_offset_ms": 11
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:32.12+00:00",
+          "seq": 21,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_5",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "id": "root",
+            "tag": "div",
+            "rect": {
+              "h": 900,
+              "w": 1280,
+              "x": 0,
+              "y": 0
+            },
+            "text": "D Dana (you)",
+            "route": "/",
+            "selector": "#root"
+          },
+          "data": {
+            "part": 1,
+            "added": [
+              "D",
+              "Dana (you)"
+            ],
+            "closed": "quiet",
+            "frameId": "f_fc3360d3d5",
+            "regions": [
+              {
+                "added": [
+                  "D",
+                  "Dana (you)"
+                ],
+                "target": {
+                  "id": "root",
+                  "tag": "div",
+                  "text": "D Dana (you)",
+                  "selector": "#root"
+                }
+              }
+            ],
+            "removed": [
+              "Join canvas Enter your name to start collaborating. Join"
+            ],
+            "container": {
+              "id": "root",
+              "tag": "div",
+              "rect": {
+                "h": 900,
+                "w": 1280,
+                "x": 0,
+                "y": 0
+              },
+              "text": "D Dana (you)",
+              "route": "/",
+              "selector": "#root"
+            },
+            "mutations": 3,
+            "addedNodes": 1,
+            "browser_at": 1789958612110,
+            "durationMs": 12,
+            "textChanges": 1,
+            "removedNodes": 1,
+            "lastMutationAt": 1789958612122,
+            "clock_offset_ms": 10,
+            "firstMutationAt": 1789958612110,
+            "attributeChanges": 0,
+            "requestsInFlight": 0,
+            "sinceInteractionMs": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "episode:stage:i_fc3360d3d5_1:wait:2",
+      "broadBehavior": "FORMULATING",
+      "subBehavior": "DESCRIBE_TASK",
+      "description": "Typed a task description in the New Task dialog.",
+      "startedAt": "2026-09-21T02:43:34.741+00:00",
+      "endedAt": "2026-09-21T02:43:38.924Z",
+      "durationMs": 4183,
+      "confidence": "high",
+      "determined": "rule",
+      "because": "field edits were recorded on the New Task task-description field with no Create recorded",
+      "evidence": {
+        "surface": {
+          "key": "/",
+          "label": "the Cocoa Canvas app",
+          "role": "shell",
+          "frameIds": [
+            "f_fc3360d3d5"
+          ]
+        },
+        "regions": [],
+        "acts": {
+          "keys": 0,
+          "clicks": 2,
+          "typing": 57,
+          "submits": 0,
+          "navigations": 0,
+          "gestures": 0
+        },
+        "keyNames": [],
+        "appeared": [
+          {
+            "at": 1789958614744,
+            "channel": "canvas_root",
+            "text": "New Task Attach files Cancel Create",
+            "fresh": true
+          }
+        ],
+        "entered": null,
+        "observed": true,
+        "composing": false,
+        "submitted": false,
+        "awaiting": true,
+        "call": null,
+        "entered_by": [],
+        "controls": [
+          "new_card_button",
+          "task_field"
+        ],
+        "openingQuietMs": 0,
+        "quietMs": 1948,
+        "discontinuity": null
+      },
+      "stageIds": [
+        "stage:i_fc3360d3d5_1"
+      ],
+      "stages": [
+        {
+          "id": "stage:i_fc3360d3d5_1",
+          "kind": "explore",
+          "title": "Explored the page",
+          "at": "2026-09-21T02:43:31.319+00:00",
+          "endAt": "2026-09-21T02:43:38.924Z",
+          "callId": null
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-09-21T02:43:34.741+00:00",
+          "seq": 22,
+          "kind": "ui.click",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_6",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "button",
+            "rect": {
+              "h": 47,
+              "w": 47,
+              "x": 1208,
+              "y": 828
+            },
+            "route": "/",
+            "title": "Create new card",
+            "selector": "#root > div > button"
+          },
+          "data": {
+            "button": 0,
+            "detail": 1,
+            "target": {
+              "tag": "path",
+              "rect": {
+                "h": 11,
+                "w": 0,
+                "x": 1232,
+                "y": 846
+              },
+              "route": "/",
+              "selector": "#root > div > button > svg.lucide.lucide-plus > path:nth-of-type(2)"
+            },
+            "control": {
+              "tag": "button",
+              "rect": {
+                "h": 47,
+                "w": 47,
+                "x": 1208,
+                "y": 828
+              },
+              "route": "/",
+              "title": "Create new card",
+              "selector": "#root > div > button"
+            },
+            "frameId": "f_fc3360d3d5",
+            "trusted": true,
+            "browser_at": 1789958614731,
+            "clock_offset_ms": 10
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:34.744+00:00",
+          "seq": 23,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_6",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "div",
+            "rect": {
+              "h": 900,
+              "w": 1280,
+              "x": 0,
+              "y": 0
+            },
+            "text": "New Task Attach files Cancel Create D Dana (you)",
+            "route": "/",
+            "selector": "#root > div"
+          },
+          "data": {
+            "part": 1,
+            "added": [
+              "New Task Attach files Cancel Create"
+            ],
+            "closed": "quiet",
+            "frameId": "f_fc3360d3d5",
+            "regions": [
+              {
+                "added": [
+                  "New Task Attach files Cancel Create"
+                ],
+                "target": {
+                  "id": "root",
+                  "tag": "div",
+                  "text": "New Task Attach files Cancel Create D Dana (you)",
+                  "selector": "#root"
+                }
+              }
+            ],
+            "removed": [],
+            "container": {
+              "tag": "div",
+              "rect": {
+                "h": 900,
+                "w": 1280,
+                "x": 0,
+                "y": 0
+              },
+              "text": "New Task Attach files Cancel Create D Dana (you)",
+              "route": "/",
+              "selector": "#root > div"
+            },
+            "mutations": 1,
+            "addedNodes": 1,
+            "browser_at": 1789958614734,
+            "durationMs": 0,
+            "textChanges": 0,
+            "removedNodes": 0,
+            "lastMutationAt": 1789958614734,
+            "clock_offset_ms": 10,
+            "firstMutationAt": 1789958614734,
+            "attributeChanges": 0,
+            "requestsInFlight": 0,
+            "sinceInteractionMs": 3
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:36.016+00:00",
+          "seq": 24,
+          "kind": "ui.click",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_7",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "textarea",
+            "rect": {
+              "h": 112,
+              "w": 464,
+              "x": 408,
+              "y": 381
+            },
+            "route": "/",
+            "editable": "text",
+            "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(1) > textarea",
+            "placeholder": "What would you like to work on?"
+          },
+          "data": {
+            "button": 0,
+            "detail": 1,
+            "target": {
+              "tag": "textarea",
+              "rect": {
+                "h": 112,
+                "w": 464,
+                "x": 408,
+                "y": 381
+              },
+              "route": "/",
+              "editable": "text",
+              "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(1) > textarea",
+              "placeholder": "What would you like to work on?"
+            },
+            "frameId": "f_fc3360d3d5",
+            "trusted": true,
+            "browser_at": 1789958616009,
+            "clock_offset_ms": 7
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:36.248+00:00",
+          "seq": 25,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_8",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "button",
+            "rect": {
+              "h": 32,
+              "w": 75,
+              "x": 797,
+              "y": 530
+            },
+            "text": "Create",
+            "route": "/",
+            "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(2) > div:nth-of-type(2) > button:nth-of-type(2)"
+          },
+          "data": {
+            "part": 1,
+            "added": [],
+            "closed": "quiet",
+            "frameId": "f_fc3360d3d5",
+            "removed": [],
+            "container": {
+              "tag": "button",
+              "rect": {
+                "h": 32,
+                "w": 75,
+                "x": 797,
+                "y": 530
+              },
+              "text": "Create",
+              "route": "/",
+              "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(2) > div:nth-of-type(2) > button:nth-of-type(2)"
+            },
+            "mutations": 1,
+            "addedNodes": 0,
+            "browser_at": 1789958616242,
+            "durationMs": 0,
+            "textChanges": 0,
+            "removedNodes": 0,
+            "lastMutationAt": 1789958616242,
+            "clock_offset_ms": 6,
+            "firstMutationAt": 1789958616242,
+            "attributeChanges": 1,
+            "requestsInFlight": 0,
+            "sinceInteractionMs": 0
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:36.248+00:00",
+          "seq": 26,
+          "kind": "ui.input",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_8",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "textarea",
+            "rect": {
+              "h": 112,
+              "w": 464,
+              "x": 408,
+              "y": 381
+            },
+            "route": "/",
+            "editable": "text",
+            "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(1) > textarea",
+            "placeholder": "What would you like to work on?"
+          },
+          "data": {
+            "edits": 56,
+            "lastAt": 1789958617623,
+            "target": {
+              "tag": "textarea",
+              "rect": {
+                "h": 112,
+                "w": 464,
+                "x": 408,
+                "y": 381
+              },
+              "route": "/",
+              "editable": "text",
+              "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(1) > textarea",
+              "placeholder": "What would you like to work on?"
+            },
+            "editing": true,
+            "frameId": "f_fc3360d3d5",
+            "trusted": true,
+            "browser_at": 1789958616242,
+            "valueLength": 56,
+            "clock_offset_ms": 6
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:38.924+00:00",
+          "seq": 30,
+          "kind": "ui.input",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_9",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "textarea",
+            "rect": {
+              "h": 112,
+              "w": 464,
+              "x": 408,
+              "y": 381
+            },
+            "route": "/",
+            "editable": "text",
+            "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(1) > textarea",
+            "placeholder": "What would you like to work on?"
+          },
+          "data": {
+            "commit": true,
+            "target": {
+              "tag": "textarea",
+              "rect": {
+                "h": 112,
+                "w": 464,
+                "x": 408,
+                "y": 381
+              },
+              "route": "/",
+              "editable": "text",
+              "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(1) > textarea",
+              "placeholder": "What would you like to work on?"
+            },
+            "frameId": "f_fc3360d3d5",
+            "trusted": true,
+            "browser_at": 1789958618912,
+            "valueLength": 56,
+            "clock_offset_ms": 12
+          }
+        }
+      ]
+    },
+    {
+      "id": "episode:stage:i_fc3360d3d5_10:plain:3",
+      "broadBehavior": "ACTING",
+      "subBehavior": "CREATE_CARD",
+      "description": "Created a card from the New Task dialog with the Create button.",
+      "startedAt": "2026-09-21T02:43:38.961+00:00",
+      "endedAt": "2026-09-21T02:43:39.001+00:00",
+      "durationMs": 40,
+      "confidence": "high",
+      "determined": "rule",
+      "because": "a click on the Create control of the New Task dialog was recorded",
+      "evidence": {
+        "surface": {
+          "key": "/",
+          "label": "the Cocoa Canvas app",
+          "role": "shell",
+          "frameIds": [
+            "f_fc3360d3d5"
+          ]
+        },
+        "regions": [],
+        "acts": {
+          "keys": 0,
+          "clicks": 1,
+          "typing": 0,
+          "submits": 0,
+          "navigations": 0,
+          "gestures": 0
+        },
+        "keyNames": [],
+        "appeared": [
+          {
+            "at": 1789958618962,
+            "channel": "plan_status",
+            "text": "New Task D Dana Generating plan... Open Fork New Task D Dana compare three note-taking apps for a small research team Generating plan...",
+            "fresh": true
+          },
+          {
+            "at": 1789958621619,
+            "channel": "card_plan",
+            "text": "0 of 4 steps 1 Identify three popular note-taking apps suitable for research teams and gather details on their features, pricing, collaboration options, integration capabilities, and security. 2 Descr…",
+            "fresh": true
+          }
+        ],
+        "entered": null,
+        "observed": true,
+        "composing": false,
+        "submitted": false,
+        "awaiting": false,
+        "call": null,
+        "entered_by": [],
+        "controls": [
+          "create_button"
+        ],
+        "openingQuietMs": 0,
+        "quietMs": 0,
+        "discontinuity": null
+      },
+      "stageIds": [
+        "stage:i_fc3360d3d5_10"
+      ],
+      "stages": [
+        {
+          "id": "stage:i_fc3360d3d5_10",
+          "kind": "submit",
+          "title": "Clicked",
+          "at": "2026-09-21T02:43:38.961+00:00",
+          "endAt": "2026-09-21T02:43:41.548Z",
+          "callId": "mc_8fv8c2-fXkck"
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-09-21T02:43:38.959+00:00",
+          "seq": 27,
+          "kind": "network.request",
+          "source": "preview-gateway",
+          "frameId": null,
+          "interactionId": "i_fc3360d3d5_10",
+          "requestId": "r_RIrVnTMLgXnq",
+          "callId": null,
+          "target": null,
+          "data": {
+            "dest": "empty",
+            "path": "/api/notebooks/plan",
+            "method": "POST",
+            "headers": {
+              "accept": "*/*",
+              "content-type": "application/json",
+              "content-length": "95",
+              "sec-fetch-dest": "empty",
+              "sec-fetch-mode": "cors"
+            },
+            "referer": "/",
+            "category": "api",
+            "has_query": false,
+            "started_at": "2026-09-21T02:43:38.959Z",
+            "next_action": false
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:38.961+00:00",
+          "seq": 31,
+          "kind": "ui.click",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_10",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "button",
+            "rect": {
+              "h": 32,
+              "w": 75,
+              "x": 797,
+              "y": 530
+            },
+            "text": "Create",
+            "route": "/",
+            "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(2) > div:nth-of-type(2) > button:nth-of-type(2)"
+          },
+          "data": {
+            "button": 0,
+            "detail": 1,
+            "target": {
+              "tag": "button",
+              "rect": {
+                "h": 32,
+                "w": 75,
+                "x": 797,
+                "y": 530
+              },
+              "text": "Create",
+              "route": "/",
+              "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(2) > div:nth-of-type(2) > button:nth-of-type(2)"
+            },
+            "frameId": "f_fc3360d3d5",
+            "trusted": true,
+            "browser_at": 1789958618949,
+            "clock_offset_ms": 12
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:38.962+00:00",
+          "seq": 32,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_10",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "div",
+            "rect": {
+              "h": 900,
+              "w": 1280,
+              "x": 0,
+              "y": 0
+            },
+            "text": "New Task D Dana Generating plan... Open Fork D Dana (you) New Task D Dana compa…",
+            "route": "/",
+            "selector": "#root > div"
+          },
+          "data": {
+            "part": 1,
+            "added": [
+              "New Task D Dana Generating plan... Open Fork",
+              "New Task D Dana compare three note-taking apps for a small research team Generating plan..."
+            ],
+            "closed": "quiet",
+            "frameId": "f_fc3360d3d5",
+            "regions": [
+              {
+                "added": [
+                  "New Task D Dana Generating plan... Open Fork",
+                  "New Task D Dana compare three note-taking apps for a small research team Generating plan..."
+                ],
+                "target": {
+                  "id": "root",
+                  "tag": "div",
+                  "text": "New Task D Dana Generating plan... Open Fork D Dana (you) New Task D Dana compa…",
+                  "selector": "#root"
+                }
+              }
+            ],
+            "removed": [
+              "New Task Attach files Cancel Create"
+            ],
+            "container": {
+              "tag": "div",
+              "rect": {
+                "h": 900,
+                "w": 1280,
+                "x": 0,
+                "y": 0
+              },
+              "text": "New Task D Dana Generating plan... Open Fork D Dana (you) New Task D Dana compa…",
+              "route": "/",
+              "selector": "#root > div"
+            },
+            "mutations": 3,
+            "addedNodes": 2,
+            "browser_at": 1789958618953,
+            "durationMs": 0,
+            "textChanges": 0,
+            "removedNodes": 1,
+            "lastMutationAt": 1789958618953,
+            "clock_offset_ms": 9,
+            "firstMutationAt": 1789958618953,
+            "attributeChanges": 0,
+            "requestsInFlight": 1,
+            "sinceInteractionMs": 4
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:41.548+00:00",
+          "seq": 34,
+          "kind": "network.response",
+          "source": "preview-gateway",
+          "frameId": null,
+          "interactionId": "i_fc3360d3d5_10",
+          "requestId": "r_RIrVnTMLgXnq",
+          "callId": null,
+          "target": null,
+          "data": {
+            "path": "/api/notebooks/plan",
+            "sizes": {
+              "request_bytes": 95,
+              "response_bytes": 836
+            },
+            "method": "POST",
+            "status": 200,
+            "headers": {
+              "vary": "Origin",
+              "content-type": "application/json; charset=utf-8",
+              "x-powered-by": "Express",
+              "content-length": "836"
+            },
+            "ttfb_ms": 2589,
+            "category": "api",
+            "ended_at": "2026-09-21T02:43:41.548Z",
+            "injected": null,
+            "streamed": false,
+            "latency_ms": 2590
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:41.619+00:00",
+          "seq": 35,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_10",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "div",
+            "rect": {
+              "h": 900,
+              "w": 1280,
+              "x": 0,
+              "y": 0
+            },
+            "text": "Comparison of Note-Taking Apps for a Research Team D Dana 0 of 4 steps 1 Identi…",
+            "route": "/",
+            "selector": "#root > div"
+          },
+          "data": {
+            "part": 1,
+            "added": [
+              "0 of 4 steps",
+              "1 Identify three popular note-taking apps suitable for research teams and gather details on their features, pricing, collaboration options, integration capabilities, and security. 2 Descr…"
+            ],
+            "closed": "quiet",
+            "frameId": "f_fc3360d3d5",
+            "regions": [
+              {
+                "added": [
+                  "0 of 4 steps",
+                  "1 Identify three popular note-taking apps suitable for research teams and gather details on their features, pricing, collaboration options, integration capabilities, and security. 2 Descr…"
+                ],
+                "target": {
+                  "id": "card-jjlGjFYS9dlWV0oPf1IbQ",
+                  "tag": "div",
+                  "text": "Comparison of Note-Taking Apps for a Research Team D Dana 0 of 4 steps 1 Identi…",
+                  "appId": "jjlGjFYS9dlWV0oPf1IbQ",
+                  "selector": "#card-jjlGjFYS9dlWV0oPf1IbQ",
+                  "appIdAttr": "data-card-id"
+                },
+                "within": [
+                  {
+                    "id": "root",
+                    "tag": "div",
+                    "text": "Comparison of Note-Taking Apps for a Research Team D Dana 0 of 4 steps 1 Identi…",
+                    "selector": "#root"
+                  }
+                ]
+              }
+            ],
+            "removed": [
+              "Generating plan..."
+            ],
+            "container": {
+              "tag": "div",
+              "rect": {
+                "h": 900,
+                "w": 1280,
+                "x": 0,
+                "y": 0
+              },
+              "text": "Comparison of Note-Taking Apps for a Research Team D Dana 0 of 4 steps 1 Identi…",
+              "route": "/",
+              "selector": "#root > div"
+            },
+            "mutations": 17,
+            "addedNodes": 8,
+            "browser_at": 1789958621608,
+            "durationMs": 0,
+            "textChanges": 2,
+            "removedNodes": 7,
+            "lastMutationAt": 1789958621608,
+            "clock_offset_ms": 11,
+            "firstMutationAt": 1789958621608,
+            "attributeChanges": 0,
+            "requestsInFlight": 0,
+            "sinceInteractionMs": 2659
+          }
+        }
+      ]
+    },
+    {
+      "id": "episode:stage:call:mc_8fv8c2-fXkck:wait:4",
+      "broadBehavior": "WAITING",
+      "subBehavior": "AGENT_RUNNING",
+      "description": "Waited 3s while a generation call ran, with nothing entered in the interface.",
+      "startedAt": "2026-09-21T02:43:39.001+00:00",
+      "endedAt": "2026-09-21T02:43:41.539Z",
+      "durationMs": 2538,
+      "confidence": "high",
+      "determined": "rule",
+      "because": "a model call was attached to the stretch and no clicks, keys or typing were recorded",
+      "evidence": {
+        "surface": {
+          "key": "/",
+          "label": "the Cocoa Canvas app",
+          "role": "shell",
+          "frameIds": [
+            "f_fc3360d3d5"
+          ]
+        },
+        "regions": [],
+        "acts": {
+          "keys": 0,
+          "clicks": 0,
+          "typing": 0,
+          "submits": 0,
+          "navigations": 0,
+          "gestures": 0
+        },
+        "keyNames": [],
+        "appeared": [],
+        "entered": null,
+        "observed": true,
+        "composing": false,
+        "submitted": false,
+        "awaiting": true,
+        "call": {
+          "callId": "mc_8fv8c2-fXkck",
+          "model": "gpt-4.1",
+          "latencyMs": 2546.8
+        },
+        "entered_by": [],
+        "controls": [],
+        "openingQuietMs": 0,
+        "quietMs": 1538,
+        "discontinuity": null
+      },
+      "stageIds": [
+        "stage:call:mc_8fv8c2-fXkck"
+      ],
+      "stages": [
+        {
+          "id": "stage:call:mc_8fv8c2-fXkck",
+          "kind": "call",
+          "title": "gpt-4.1 call",
+          "at": "2026-09-21T02:43:39.001+00:00",
+          "endAt": "2026-09-21T02:43:41.539Z",
+          "callId": "mc_8fv8c2-fXkck"
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-09-21T02:43:39.001+00:00",
+          "seq": 29,
+          "kind": "model.request",
+          "source": "model-gateway",
+          "frameId": null,
+          "interactionId": "i_fc3360d3d5_10",
+          "requestId": "r_RIrVnTMLgXnq",
+          "callId": "mc_8fv8c2-fXkck",
+          "target": null,
+          "data": {
+            "api": "openai.responses",
+            "host": "api.openai.com",
+            "path": "/v1/responses",
+            "model": "gpt-4.1",
+            "callId": "mc_8fv8c2-fXkck",
+            "method": "POST",
+            "parsed": true,
+            "stream": false,
+            "provider": "openai",
+            "promptChars": 907,
+            "messageCount": 1
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:41.539+00:00",
+          "seq": 33,
+          "kind": "model.response",
+          "source": "model-gateway",
+          "frameId": null,
+          "interactionId": "i_fc3360d3d5_10",
+          "requestId": "r_RIrVnTMLgXnq",
+          "callId": "mc_8fv8c2-fXkck",
+          "target": null,
+          "data": {
+            "error": null,
+            "model": "gpt-4.1-2025-04-14",
+            "callId": "mc_8fv8c2-fXkck",
+            "chunks": null,
+            "status": 200,
+            "ttfbMs": 2506.8,
+            "ttftMs": 2546.5,
+            "aborted": false,
+            "complete": true,
+            "streamed": false,
+            "latencyMs": 2546.8,
+            "outputChars": 888,
+            "finishReason": "stop",
+            "usageAvailable": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "episode:stage:response:i_fc3360d3d5_10:plain:5",
+      "broadBehavior": "UNCLEAR",
+      "subBehavior": "UNCHARACTERISED",
+      "description": "Activity in Cocoa Canvas for 7s that this profile does not characterise.",
+      "startedAt": "2026-09-21T02:43:41.619+00:00",
+      "endedAt": "2026-09-21T02:43:48.693Z",
+      "durationMs": 7074,
+      "confidence": "low",
+      "determined": "rule",
+      "because": "no rule matched the controls, keys, channels or flags recorded in this stretch",
+      "evidence": {
+        "surface": {
+          "key": "/",
+          "label": "the Cocoa Canvas app",
+          "role": "shell",
+          "frameIds": [
+            "f_fc3360d3d5"
+          ]
+        },
+        "regions": [],
+        "acts": {
+          "keys": 0,
+          "clicks": 1,
+          "typing": 0,
+          "submits": 0,
+          "navigations": 0,
+          "gestures": 2
+        },
+        "keyNames": [],
+        "appeared": [
+          {
+            "at": 1789958621619,
+            "channel": "card_plan",
+            "text": "0 of 4 steps 1 Identify three popular note-taking apps suitable for research teams and gather details on their features, pricing, collaboration options, integration capabilities, and security. 2 Descr…",
+            "fresh": false
+          }
+        ],
+        "entered": null,
+        "observed": true,
+        "composing": false,
+        "submitted": false,
+        "awaiting": false,
+        "call": null,
+        "entered_by": [],
+        "controls": [],
+        "openingQuietMs": 0,
+        "quietMs": 4022,
+        "discontinuity": null
+      },
+      "stageIds": [
+        "stage:response:i_fc3360d3d5_10",
+        "stage:i_fc3360d3d5_11"
+      ],
+      "stages": [
+        {
+          "id": "stage:response:i_fc3360d3d5_10",
+          "kind": "response",
+          "title": "Response appeared",
+          "at": "2026-09-21T02:43:41.619+00:00",
+          "endAt": "2026-09-21T02:43:41.619Z",
+          "callId": "mc_8fv8c2-fXkck",
+          "bounds": {
+            "from": "durationMs",
+            "rawEndAt": "2026-09-21T02:43:41.608Z",
+            "offsetMs": 11,
+            "spanMs": 0
+          }
+        },
+        {
+          "id": "stage:i_fc3360d3d5_11",
+          "kind": "explore",
+          "title": "Explored the page",
+          "at": "2026-09-21T02:43:44.098+00:00",
+          "endAt": "2026-09-21T02:43:48.693Z",
+          "callId": null
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-09-21T02:43:41.619+00:00",
+          "seq": 35,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_10",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "div",
+            "rect": {
+              "h": 900,
+              "w": 1280,
+              "x": 0,
+              "y": 0
+            },
+            "text": "Comparison of Note-Taking Apps for a Research Team D Dana 0 of 4 steps 1 Identi…",
+            "route": "/",
+            "selector": "#root > div"
+          },
+          "data": {
+            "part": 1,
+            "added": [
+              "0 of 4 steps",
+              "1 Identify three popular note-taking apps suitable for research teams and gather details on their features, pricing, collaboration options, integration capabilities, and security. 2 Descr…"
+            ],
+            "closed": "quiet",
+            "frameId": "f_fc3360d3d5",
+            "regions": [
+              {
+                "added": [
+                  "0 of 4 steps",
+                  "1 Identify three popular note-taking apps suitable for research teams and gather details on their features, pricing, collaboration options, integration capabilities, and security. 2 Descr…"
+                ],
+                "target": {
+                  "id": "card-jjlGjFYS9dlWV0oPf1IbQ",
+                  "tag": "div",
+                  "text": "Comparison of Note-Taking Apps for a Research Team D Dana 0 of 4 steps 1 Identi…",
+                  "appId": "jjlGjFYS9dlWV0oPf1IbQ",
+                  "selector": "#card-jjlGjFYS9dlWV0oPf1IbQ",
+                  "appIdAttr": "data-card-id"
+                },
+                "within": [
+                  {
+                    "id": "root",
+                    "tag": "div",
+                    "text": "Comparison of Note-Taking Apps for a Research Team D Dana 0 of 4 steps 1 Identi…",
+                    "selector": "#root"
+                  }
+                ]
+              }
+            ],
+            "removed": [
+              "Generating plan..."
+            ],
+            "container": {
+              "tag": "div",
+              "rect": {
+                "h": 900,
+                "w": 1280,
+                "x": 0,
+                "y": 0
+              },
+              "text": "Comparison of Note-Taking Apps for a Research Team D Dana 0 of 4 steps 1 Identi…",
+              "route": "/",
+              "selector": "#root > div"
+            },
+            "mutations": 17,
+            "addedNodes": 8,
+            "browser_at": 1789958621608,
+            "durationMs": 0,
+            "textChanges": 2,
+            "removedNodes": 7,
+            "lastMutationAt": 1789958621608,
+            "clock_offset_ms": 11,
+            "firstMutationAt": 1789958621608,
+            "attributeChanges": 0,
+            "requestsInFlight": 0,
+            "sinceInteractionMs": 2659
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:44.146+00:00",
+          "seq": 36,
+          "kind": "network.request",
+          "source": "preview-gateway",
+          "frameId": null,
+          "interactionId": null,
+          "requestId": "r_p4kq1hoQcOj5",
+          "callId": null,
+          "target": null,
+          "data": {
+            "path": "/",
+            "method": "GET",
+            "headers": {
+              "accept": "*/*"
+            },
+            "category": "api",
+            "has_query": false,
+            "started_at": "2026-09-21T02:43:44.146Z",
+            "next_action": false
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:44.15+00:00",
+          "seq": 37,
+          "kind": "network.response",
+          "source": "preview-gateway",
+          "frameId": null,
+          "interactionId": null,
+          "requestId": "r_p4kq1hoQcOj5",
+          "callId": null,
+          "target": null,
+          "data": {
+            "path": "/",
+            "sizes": {
+              "request_bytes": 0,
+              "response_bytes": 586
+            },
+            "method": "GET",
+            "status": 200,
+            "headers": {
+              "vary": "Origin",
+              "content-type": "text/html",
+              "cache-control": "no-cache",
+              "content-length": "586"
+            },
+            "ttfb_ms": 4,
+            "category": "api",
+            "ended_at": "2026-09-21T02:43:44.150Z",
+            "injected": null,
+            "streamed": false,
+            "latency_ms": 5
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:44.098+00:00",
+          "seq": 38,
+          "kind": "ui.click",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_11",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "div",
+            "rect": {
+              "h": 837,
+              "w": 672,
+              "x": 304,
+              "y": 64
+            },
+            "text": "Run All 1 . Identify three popular note-taking apps suitable for research teams…",
+            "route": "/",
+            "selector": "#root > div > div:nth-of-type(4) > div:nth-of-type(2) > div"
+          },
+          "data": {
+            "button": 0,
+            "detail": 1,
+            "target": {
+              "tag": "div",
+              "rect": {
+                "h": 837,
+                "w": 672,
+                "x": 304,
+                "y": 64
+              },
+              "text": "Run All 1 . Identify three popular note-taking apps suitable for research teams…",
+              "route": "/",
+              "selector": "#root > div > div:nth-of-type(4) > div:nth-of-type(2) > div"
+            },
+            "frameId": "f_fc3360d3d5",
+            "trusted": true,
+            "browser_at": 1789958624085,
+            "clock_offset_ms": 13
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:47.177+00:00",
+          "seq": 39,
+          "kind": "ui.wheel",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_12",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "div",
+            "rect": {
+              "h": 837,
+              "w": 672,
+              "x": 304,
+              "y": 64
+            },
+            "text": "Run All 1 . Identify three popular note-taking apps suitable for research teams…",
+            "route": "/",
+            "selector": "#root > div > div:nth-of-type(4) > div:nth-of-type(2) > div"
+          },
+          "data": {
+            "axis": "y",
+            "count": 1,
+            "target": {
+              "tag": "div",
+              "rect": {
+                "h": 837,
+                "w": 672,
+                "x": 304,
+                "y": 64
+              },
+              "text": "Run All 1 . Identify three popular note-taking apps suitable for research teams…",
+              "route": "/",
+              "selector": "#root > div > div:nth-of-type(4) > div:nth-of-type(2) > div"
+            },
+            "frameId": "f_fc3360d3d5",
+            "direction": "down",
+            "magnitude": "medium",
+            "browser_at": 1789958627161,
+            "durationMs": 0,
+            "clock_offset_ms": 16
+          }
+        },
+        {
+          "at": "2026-09-21T02:43:48.693+00:00",
+          "seq": 40,
+          "kind": "ui.wheel",
+          "source": "browser",
+          "frameId": "f_fc3360d3d5",
+          "interactionId": "i_fc3360d3d5_13",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "div",
+            "rect": {
+              "h": 837,
+              "w": 672,
+              "x": 304,
+              "y": 64
+            },
+            "text": "Run All 1 . Identify three popular note-taking apps suitable for research teams…",
+            "route": "/",
+            "selector": "#root > div > div:nth-of-type(4) > div:nth-of-type(2) > div"
+          },
+          "data": {
+            "axis": "y",
+            "count": 1,
+            "target": {
+              "tag": "div",
+              "rect": {
+                "h": 837,
+                "w": 672,
+                "x": 304,
+                "y": 64
+              },
+              "text": "Run All 1 . Identify three popular note-taking apps suitable for research teams…",
+              "route": "/",
+              "selector": "#root > div > div:nth-of-type(4) > div:nth-of-type(2) > div"
+            },
+            "frameId": "f_fc3360d3d5",
+            "direction": "down",
+            "magnitude": "medium",
+            "browser_at": 1789958628680,
+            "durationMs": 0,
+            "clock_offset_ms": 13
+          }
+        }
+      ]
+    },
+    {
+      "id": "episode:6",
+      "broadBehavior": "UNCLEAR",
+      "subBehavior": "NO_ACTIVITY_RECORDED",
+      "description": "Nothing was recorded in the interface for 33s.",
+      "startedAt": "2026-09-21T02:43:48.693Z",
+      "endedAt": "2026-09-21T02:44:21.244+00:00",
+      "durationMs": 32551,
+      "confidence": "high",
+      "determined": "rule",
+      "because": "no clicks, keys, typing or DOM changes were recorded in this stretch",
+      "evidence": {
+        "surface": {
+          "key": "/",
+          "label": "the Cocoa Canvas app",
+          "role": "shell",
+          "frameIds": [
+            "f_fc3360d3d5"
+          ]
+        },
+        "regions": [],
+        "acts": {
+          "keys": 0,
+          "clicks": 0,
+          "typing": 0,
+          "submits": 0,
+          "navigations": 0,
+          "gestures": 0
+        },
+        "keyNames": [],
+        "appeared": [],
+        "entered": null,
+        "observed": false,
+        "composing": false,
+        "submitted": false,
+        "awaiting": false,
+        "call": null,
+        "entered_by": [],
+        "controls": [],
+        "openingQuietMs": 32551,
+        "quietMs": 32551,
+        "discontinuity": null
+      },
+      "stageIds": [],
+      "stages": [],
+      "events": []
+    },
+    {
+      "id": "episode:stage:i_e0098e8129_1:compose:7",
+      "broadBehavior": "ACTING",
+      "subBehavior": "ENTER_DISPLAY_NAME",
+      "description": "Worked in the display-name field of the Join canvas modal, with no Join recorded.",
+      "startedAt": "2026-09-21T02:44:21.244+00:00",
+      "endedAt": "2026-09-21T02:44:21.735Z",
+      "durationMs": 491,
+      "confidence": "high",
+      "determined": "rule",
+      "because": "activity on the name field of the Join canvas modal was recorded and the Join control was not used",
+      "evidence": {
+        "surface": {
+          "key": "/",
+          "label": "the Cocoa Canvas app",
+          "role": "shell",
+          "frameIds": [
+            "f_e0098e8129"
+          ]
+        },
+        "regions": [],
+        "acts": {
+          "keys": 0,
+          "clicks": 1,
+          "typing": 4,
+          "submits": 0,
+          "navigations": 0,
+          "gestures": 0
+        },
+        "keyNames": [],
+        "appeared": [],
+        "entered": null,
+        "observed": true,
+        "composing": true,
+        "submitted": false,
+        "awaiting": false,
+        "call": null,
+        "entered_by": [],
+        "controls": [
+          "name_field"
+        ],
+        "openingQuietMs": 32551,
+        "quietMs": 0,
+        "discontinuity": "the page was reloaded and the session picked up again"
+      },
+      "stageIds": [
+        "stage:i_e0098e8129_1"
+      ],
+      "stages": [
+        {
+          "id": "stage:i_e0098e8129_1",
+          "kind": "explore",
+          "title": "Explored the page",
+          "at": "2026-09-21T02:44:21.244+00:00",
+          "endAt": "2026-09-21T02:44:29.600Z",
+          "callId": null
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-09-21T02:44:21.244+00:00",
+          "seq": 45,
+          "kind": "ui.click",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_1",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "input",
+            "rect": {
+              "h": 38,
+              "w": 336,
+              "x": 472,
+              "y": 447
+            },
+            "type": "text",
+            "route": "/",
+            "editable": "text",
+            "selector": "#root > div:nth-of-type(2) > form > input",
+            "placeholder": "Your name"
+          },
+          "data": {
+            "button": 0,
+            "detail": 1,
+            "target": {
+              "tag": "input",
+              "rect": {
+                "h": 38,
+                "w": 336,
+                "x": 472,
+                "y": 447
+              },
+              "type": "text",
+              "route": "/",
+              "editable": "text",
+              "selector": "#root > div:nth-of-type(2) > form > input",
+              "placeholder": "Your name"
+            },
+            "frameId": "f_e0098e8129",
+            "trusted": true,
+            "browser_at": 1789958661221,
+            "clock_offset_ms": 23
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:21.328+00:00",
+          "seq": 46,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_2",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "button",
+            "rect": {
+              "h": 36,
+              "w": 336,
+              "x": 472,
+              "y": 501
+            },
+            "text": "Join",
+            "type": "submit",
+            "route": "/",
+            "selector": "#root > div:nth-of-type(2) > form > button"
+          },
+          "data": {
+            "part": 1,
+            "added": [],
+            "closed": "interaction",
+            "frameId": "f_e0098e8129",
+            "removed": [],
+            "container": {
+              "tag": "button",
+              "rect": {
+                "h": 36,
+                "w": 336,
+                "x": 472,
+                "y": 501
+              },
+              "text": "Join",
+              "type": "submit",
+              "route": "/",
+              "selector": "#root > div:nth-of-type(2) > form > button"
+            },
+            "mutations": 1,
+            "addedNodes": 0,
+            "browser_at": 1789958661258,
+            "durationMs": 0,
+            "textChanges": 0,
+            "removedNodes": 0,
+            "lastMutationAt": 1789958661258,
+            "clock_offset_ms": 70,
+            "firstMutationAt": 1789958661258,
+            "attributeChanges": 1,
+            "requestsInFlight": 0,
+            "sinceInteractionMs": 1
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:21.327+00:00",
+          "seq": 48,
+          "kind": "ui.input",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_2",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "input",
+            "rect": {
+              "h": 38,
+              "w": 336,
+              "x": 472,
+              "y": 447
+            },
+            "type": "text",
+            "route": "/",
+            "editable": "text",
+            "selector": "#root > div:nth-of-type(2) > form > input",
+            "placeholder": "Your name"
+          },
+          "data": {
+            "edits": 4,
+            "lastAt": 1789958661344,
+            "target": {
+              "tag": "input",
+              "rect": {
+                "h": 38,
+                "w": 336,
+                "x": 472,
+                "y": 447
+              },
+              "type": "text",
+              "route": "/",
+              "editable": "text",
+              "selector": "#root > div:nth-of-type(2) > form > input",
+              "placeholder": "Your name"
+            },
+            "editing": true,
+            "frameId": "f_e0098e8129",
+            "trusted": true,
+            "browser_at": 1789958661257,
+            "valueLength": 4,
+            "clock_offset_ms": 70
+          }
+        }
+      ]
+    },
+    {
+      "id": "episode:stage:i_e0098e8129_1:submit:8",
+      "broadBehavior": "ACTING",
+      "subBehavior": "JOIN_CANVAS",
+      "description": "Submitted a display name on the Join canvas modal.",
+      "startedAt": "2026-09-21T02:44:21.735+00:00",
+      "endedAt": "2026-09-21T02:44:21.779+00:00",
+      "durationMs": 44,
+      "confidence": "high",
+      "determined": "rule",
+      "because": "the Join control was used, or the name form was submitted, in this stretch",
+      "evidence": {
+        "surface": {
+          "key": "/",
+          "label": "the Cocoa Canvas app",
+          "role": "shell",
+          "frameIds": [
+            "f_e0098e8129"
+          ]
+        },
+        "regions": [],
+        "acts": {
+          "keys": 0,
+          "clicks": 1,
+          "typing": 1,
+          "submits": 1,
+          "navigations": 0,
+          "gestures": 0
+        },
+        "keyNames": [],
+        "appeared": [
+          {
+            "at": 1789958661735,
+            "channel": "canvas_root",
+            "text": "D Dana (you)",
+            "fresh": false
+          }
+        ],
+        "entered": null,
+        "observed": true,
+        "composing": false,
+        "submitted": true,
+        "awaiting": false,
+        "call": null,
+        "entered_by": [],
+        "controls": [
+          "join_button"
+        ],
+        "openingQuietMs": 0,
+        "quietMs": 0,
+        "discontinuity": null
+      },
+      "stageIds": [
+        "stage:i_e0098e8129_1"
+      ],
+      "stages": [
+        {
+          "id": "stage:i_e0098e8129_1",
+          "kind": "explore",
+          "title": "Explored the page",
+          "at": "2026-09-21T02:44:21.244+00:00",
+          "endAt": "2026-09-21T02:44:29.600Z",
+          "callId": null
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-09-21T02:44:21.742+00:00",
+          "seq": 47,
+          "kind": "ui.input",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_3",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "input",
+            "rect": {
+              "h": 38,
+              "w": 336,
+              "x": 472,
+              "y": 447
+            },
+            "type": "text",
+            "route": "/",
+            "editable": "text",
+            "selector": "#root > div:nth-of-type(2) > form > input",
+            "placeholder": "Your name"
+          },
+          "data": {
+            "commit": true,
+            "target": {
+              "tag": "input",
+              "rect": {
+                "h": 38,
+                "w": 336,
+                "x": 472,
+                "y": 447
+              },
+              "type": "text",
+              "route": "/",
+              "editable": "text",
+              "selector": "#root > div:nth-of-type(2) > form > input",
+              "placeholder": "Your name"
+            },
+            "frameId": "f_e0098e8129",
+            "trusted": true,
+            "browser_at": 1789958661672,
+            "valueLength": 4,
+            "clock_offset_ms": 70
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:21.778+00:00",
+          "seq": 49,
+          "kind": "ui.click",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_4",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "button",
+            "rect": {
+              "h": 36,
+              "w": 336,
+              "x": 472,
+              "y": 501
+            },
+            "text": "Join",
+            "type": "submit",
+            "route": "/",
+            "selector": "#root > div:nth-of-type(2) > form > button"
+          },
+          "data": {
+            "button": 0,
+            "detail": 1,
+            "target": {
+              "tag": "button",
+              "rect": {
+                "h": 36,
+                "w": 336,
+                "x": 472,
+                "y": 501
+              },
+              "text": "Join",
+              "type": "submit",
+              "route": "/",
+              "selector": "#root > div:nth-of-type(2) > form > button"
+            },
+            "frameId": "f_e0098e8129",
+            "trusted": true,
+            "browser_at": 1789958661708,
+            "clock_offset_ms": 70
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:21.779+00:00",
+          "seq": 50,
+          "kind": "ui.submit",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_5",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "button",
+            "rect": {
+              "h": 36,
+              "w": 336,
+              "x": 472,
+              "y": 501
+            },
+            "text": "Join",
+            "type": "submit",
+            "route": "/",
+            "selector": "#root > div:nth-of-type(2) > form > button"
+          },
+          "data": {
+            "form": {
+              "tag": "form",
+              "rect": {
+                "h": 222,
+                "w": 384,
+                "x": 448,
+                "y": 339
+              },
+              "text": "Join canvas Enter your name to start collaborating. Join",
+              "route": "/",
+              "action": "/",
+              "method": "get",
+              "selector": "#root > div:nth-of-type(2) > form"
+            },
+            "fields": [
+              {
+                "tag": "input",
+                "type": "text"
+              },
+              {
+                "tag": "button",
+                "type": "submit"
+              }
+            ],
+            "frameId": "f_e0098e8129",
+            "trusted": true,
+            "submitter": {
+              "tag": "button",
+              "rect": {
+                "h": 36,
+                "w": 336,
+                "x": 472,
+                "y": 501
+              },
+              "text": "Join",
+              "type": "submit",
+              "route": "/",
+              "selector": "#root > div:nth-of-type(2) > form > button"
+            },
+            "browser_at": 1789958661709,
+            "clock_offset_ms": 70
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:21.735+00:00",
+          "seq": 51,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_5",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "id": "root",
+            "tag": "div",
+            "rect": {
+              "h": 900,
+              "w": 1280,
+              "x": 0,
+              "y": 0
+            },
+            "text": "D Dana (you)",
+            "route": "/",
+            "selector": "#root"
+          },
+          "data": {
+            "part": 1,
+            "added": [
+              "D",
+              "Dana (you)"
+            ],
+            "closed": "quiet",
+            "frameId": "f_e0098e8129",
+            "regions": [
+              {
+                "added": [
+                  "D",
+                  "Dana (you)"
+                ],
+                "target": {
+                  "id": "root",
+                  "tag": "div",
+                  "text": "D Dana (you)",
+                  "selector": "#root"
+                }
+              }
+            ],
+            "removed": [
+              "Join canvas Enter your name to start collaborating. Join"
+            ],
+            "container": {
+              "id": "root",
+              "tag": "div",
+              "rect": {
+                "h": 900,
+                "w": 1280,
+                "x": 0,
+                "y": 0
+              },
+              "text": "D Dana (you)",
+              "route": "/",
+              "selector": "#root"
+            },
+            "mutations": 3,
+            "addedNodes": 1,
+            "browser_at": 1789958661712,
+            "durationMs": 7,
+            "textChanges": 1,
+            "removedNodes": 1,
+            "lastMutationAt": 1789958661719,
+            "clock_offset_ms": 23,
+            "firstMutationAt": 1789958661712,
+            "attributeChanges": 0,
+            "requestsInFlight": 0,
+            "sinceInteractionMs": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "episode:stage:i_e0098e8129_1:wait:9",
+      "broadBehavior": "FORMULATING",
+      "subBehavior": "DESCRIBE_TASK",
+      "description": "Typed a task description in the New Task dialog.",
+      "startedAt": "2026-09-21T02:44:24.789+00:00",
+      "endedAt": "2026-09-21T02:44:29.600Z",
+      "durationMs": 4811,
+      "confidence": "high",
+      "determined": "rule",
+      "because": "field edits were recorded on the New Task task-description field with no Create recorded",
+      "evidence": {
+        "surface": {
+          "key": "/",
+          "label": "the Cocoa Canvas app",
+          "role": "shell",
+          "frameIds": [
+            "f_e0098e8129"
+          ]
+        },
+        "regions": [],
+        "acts": {
+          "keys": 0,
+          "clicks": 2,
+          "typing": 39,
+          "submits": 0,
+          "navigations": 0,
+          "gestures": 1
+        },
+        "keyNames": [],
+        "appeared": [
+          {
+            "at": 1789958666039,
+            "channel": "canvas_root",
+            "text": "New Task Attach files Cancel Create",
+            "fresh": false
+          }
+        ],
+        "entered": null,
+        "observed": true,
+        "composing": false,
+        "submitted": false,
+        "awaiting": true,
+        "call": null,
+        "entered_by": [],
+        "controls": [
+          "new_card_button",
+          "task_field"
+        ],
+        "openingQuietMs": 0,
+        "quietMs": 1768,
+        "discontinuity": null
+      },
+      "stageIds": [
+        "stage:i_e0098e8129_1"
+      ],
+      "stages": [
+        {
+          "id": "stage:i_e0098e8129_1",
+          "kind": "explore",
+          "title": "Explored the page",
+          "at": "2026-09-21T02:44:21.244+00:00",
+          "endAt": "2026-09-21T02:44:29.600Z",
+          "callId": null
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-09-21T02:44:24.789+00:00",
+          "seq": 52,
+          "kind": "ui.wheel",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_6",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "div",
+            "rect": {
+              "h": 900,
+              "w": 1280,
+              "x": 0,
+              "y": 0
+            },
+            "text": "D Dana (you)",
+            "route": "/",
+            "selector": "#root > div"
+          },
+          "data": {
+            "axis": "y",
+            "count": 1,
+            "target": {
+              "tag": "div",
+              "rect": {
+                "h": 900,
+                "w": 1280,
+                "x": 0,
+                "y": 0
+              },
+              "text": "D Dana (you)",
+              "route": "/",
+              "selector": "#root > div"
+            },
+            "frameId": "f_e0098e8129",
+            "direction": "down",
+            "magnitude": "medium",
+            "browser_at": 1789958664766,
+            "durationMs": 0,
+            "clock_offset_ms": 23
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:26.035+00:00",
+          "seq": 53,
+          "kind": "ui.click",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_7",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "button",
+            "rect": {
+              "h": 48,
+              "w": 48,
+              "x": 1208,
+              "y": 828
+            },
+            "route": "/",
+            "title": "Create new card",
+            "selector": "#root > div > button"
+          },
+          "data": {
+            "button": 0,
+            "detail": 1,
+            "target": {
+              "tag": "path",
+              "rect": {
+                "h": 12,
+                "w": 0,
+                "x": 1232,
+                "y": 846
+              },
+              "route": "/",
+              "selector": "#root > div > button > svg.lucide.lucide-plus > path:nth-of-type(2)"
+            },
+            "control": {
+              "tag": "button",
+              "rect": {
+                "h": 48,
+                "w": 48,
+                "x": 1208,
+                "y": 828
+              },
+              "route": "/",
+              "title": "Create new card",
+              "selector": "#root > div > button"
+            },
+            "frameId": "f_e0098e8129",
+            "trusted": true,
+            "browser_at": 1789958666012,
+            "clock_offset_ms": 23
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:26.039+00:00",
+          "seq": 54,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_7",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "div",
+            "rect": {
+              "h": 900,
+              "w": 1280,
+              "x": 0,
+              "y": 0
+            },
+            "text": "New Task Attach files Cancel Create D Dana (you)",
+            "route": "/",
+            "selector": "#root > div"
+          },
+          "data": {
+            "part": 1,
+            "added": [
+              "New Task Attach files Cancel Create"
+            ],
+            "closed": "quiet",
+            "frameId": "f_e0098e8129",
+            "regions": [
+              {
+                "added": [
+                  "New Task Attach files Cancel Create"
+                ],
+                "target": {
+                  "id": "root",
+                  "tag": "div",
+                  "text": "New Task Attach files Cancel Create D Dana (you)",
+                  "selector": "#root"
+                }
+              }
+            ],
+            "removed": [],
+            "container": {
+              "tag": "div",
+              "rect": {
+                "h": 900,
+                "w": 1280,
+                "x": 0,
+                "y": 0
+              },
+              "text": "New Task Attach files Cancel Create D Dana (you)",
+              "route": "/",
+              "selector": "#root > div"
+            },
+            "mutations": 1,
+            "addedNodes": 1,
+            "browser_at": 1789958666016,
+            "durationMs": 0,
+            "textChanges": 0,
+            "removedNodes": 0,
+            "lastMutationAt": 1789958666016,
+            "clock_offset_ms": 23,
+            "firstMutationAt": 1789958666016,
+            "attributeChanges": 0,
+            "requestsInFlight": 0,
+            "sinceInteractionMs": 4
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:27.113+00:00",
+          "seq": 55,
+          "kind": "ui.click",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_8",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "textarea",
+            "rect": {
+              "h": 112,
+              "w": 464,
+              "x": 408,
+              "y": 381
+            },
+            "route": "/",
+            "editable": "text",
+            "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(1) > textarea",
+            "placeholder": "What would you like to work on?"
+          },
+          "data": {
+            "button": 0,
+            "detail": 1,
+            "target": {
+              "tag": "textarea",
+              "rect": {
+                "h": 112,
+                "w": 464,
+                "x": 408,
+                "y": 381
+              },
+              "route": "/",
+              "editable": "text",
+              "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(1) > textarea",
+              "placeholder": "What would you like to work on?"
+            },
+            "frameId": "f_e0098e8129",
+            "trusted": true,
+            "browser_at": 1789958667091,
+            "clock_offset_ms": 22
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:27.152+00:00",
+          "seq": 56,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_9",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "button",
+            "rect": {
+              "h": 32,
+              "w": 75,
+              "x": 797,
+              "y": 530
+            },
+            "text": "Create",
+            "route": "/",
+            "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(2) > div:nth-of-type(2) > button:nth-of-type(2)"
+          },
+          "data": {
+            "part": 1,
+            "added": [],
+            "closed": "quiet",
+            "frameId": "f_e0098e8129",
+            "removed": [],
+            "container": {
+              "tag": "button",
+              "rect": {
+                "h": 32,
+                "w": 75,
+                "x": 797,
+                "y": 530
+              },
+              "text": "Create",
+              "route": "/",
+              "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(2) > div:nth-of-type(2) > button:nth-of-type(2)"
+            },
+            "mutations": 1,
+            "addedNodes": 0,
+            "browser_at": 1789958667127,
+            "durationMs": 0,
+            "textChanges": 0,
+            "removedNodes": 0,
+            "lastMutationAt": 1789958667127,
+            "clock_offset_ms": 25,
+            "firstMutationAt": 1789958667127,
+            "attributeChanges": 1,
+            "requestsInFlight": 0,
+            "sinceInteractionMs": 1
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:27.151+00:00",
+          "seq": 57,
+          "kind": "ui.input",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_9",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "textarea",
+            "rect": {
+              "h": 112,
+              "w": 464,
+              "x": 408,
+              "y": 381
+            },
+            "route": "/",
+            "editable": "text",
+            "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(1) > textarea",
+            "placeholder": "What would you like to work on?"
+          },
+          "data": {
+            "edits": 38,
+            "lastAt": 1789958668039,
+            "target": {
+              "tag": "textarea",
+              "rect": {
+                "h": 112,
+                "w": 464,
+                "x": 408,
+                "y": 381
+              },
+              "route": "/",
+              "editable": "text",
+              "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(1) > textarea",
+              "placeholder": "What would you like to work on?"
+            },
+            "editing": true,
+            "frameId": "f_e0098e8129",
+            "trusted": true,
+            "browser_at": 1789958667126,
+            "valueLength": 38,
+            "clock_offset_ms": 25
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:29.6+00:00",
+          "seq": 60,
+          "kind": "ui.input",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_10",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "textarea",
+            "rect": {
+              "h": 112,
+              "w": 464,
+              "x": 408,
+              "y": 381
+            },
+            "route": "/",
+            "editable": "text",
+            "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(1) > textarea",
+            "placeholder": "What would you like to work on?"
+          },
+          "data": {
+            "commit": true,
+            "target": {
+              "tag": "textarea",
+              "rect": {
+                "h": 112,
+                "w": 464,
+                "x": 408,
+                "y": 381
+              },
+              "route": "/",
+              "editable": "text",
+              "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(1) > textarea",
+              "placeholder": "What would you like to work on?"
+            },
+            "frameId": "f_e0098e8129",
+            "trusted": true,
+            "browser_at": 1789958669574,
+            "valueLength": 38,
+            "clock_offset_ms": 26
+          }
+        }
+      ]
+    },
+    {
+      "id": "episode:stage:i_e0098e8129_11:plain:10",
+      "broadBehavior": "ACTING",
+      "subBehavior": "CREATE_CARD",
+      "description": "Created a card from the New Task dialog with the Create button.",
+      "startedAt": "2026-09-21T02:44:29.637+00:00",
+      "endedAt": "2026-09-21T02:44:29.647+00:00",
+      "durationMs": 10,
+      "confidence": "high",
+      "determined": "rule",
+      "because": "a click on the Create control of the New Task dialog was recorded",
+      "evidence": {
+        "surface": {
+          "key": "/",
+          "label": "the Cocoa Canvas app",
+          "role": "shell",
+          "frameIds": [
+            "f_e0098e8129"
+          ]
+        },
+        "regions": [],
+        "acts": {
+          "keys": 0,
+          "clicks": 1,
+          "typing": 0,
+          "submits": 0,
+          "navigations": 0,
+          "gestures": 0
+        },
+        "keyNames": [],
+        "appeared": [
+          {
+            "at": 1789958669637,
+            "channel": "plan_status",
+            "text": "New Task D Dana Generating plan... Open Fork New Task D Dana draft an interview guide for the study Generating plan...",
+            "fresh": true
+          },
+          {
+            "at": 1789958671566,
+            "channel": "card_plan",
+            "text": "0 of 5 steps 1 Clarify the study objectives, target participants, and any specific research questions or topics to cover in the interview guide. 2 Research best practices for creating effective interv…",
+            "fresh": true
+          }
+        ],
+        "entered": null,
+        "observed": true,
+        "composing": false,
+        "submitted": false,
+        "awaiting": false,
+        "call": null,
+        "entered_by": [],
+        "controls": [
+          "create_button"
+        ],
+        "openingQuietMs": 0,
+        "quietMs": 0,
+        "discontinuity": null
+      },
+      "stageIds": [
+        "stage:i_e0098e8129_11"
+      ],
+      "stages": [
+        {
+          "id": "stage:i_e0098e8129_11",
+          "kind": "submit",
+          "title": "Clicked",
+          "at": "2026-09-21T02:44:29.637+00:00",
+          "endAt": "2026-09-21T02:44:31.491Z",
+          "callId": "mc_y-d1Snr4vfv-"
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-09-21T02:44:29.636+00:00",
+          "seq": 58,
+          "kind": "network.request",
+          "source": "preview-gateway",
+          "frameId": null,
+          "interactionId": "i_e0098e8129_11",
+          "requestId": "r_LI8Ons9yXmeK",
+          "callId": null,
+          "target": null,
+          "data": {
+            "dest": "empty",
+            "path": "/api/notebooks/plan",
+            "method": "POST",
+            "headers": {
+              "accept": "*/*",
+              "content-type": "application/json",
+              "content-length": "77",
+              "sec-fetch-dest": "empty",
+              "sec-fetch-mode": "cors"
+            },
+            "referer": "/",
+            "category": "api",
+            "has_query": false,
+            "started_at": "2026-09-21T02:44:29.635Z",
+            "next_action": false
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:29.637+00:00",
+          "seq": 61,
+          "kind": "ui.click",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_11",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "button",
+            "rect": {
+              "h": 32,
+              "w": 74,
+              "x": 797,
+              "y": 530
+            },
+            "text": "Create",
+            "route": "/",
+            "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(2) > div:nth-of-type(2) > button:nth-of-type(2)"
+          },
+          "data": {
+            "button": 0,
+            "detail": 1,
+            "target": {
+              "tag": "button",
+              "rect": {
+                "h": 32,
+                "w": 74,
+                "x": 797,
+                "y": 530
+              },
+              "text": "Create",
+              "route": "/",
+              "selector": "#root > div > div:nth-of-type(2) > div > div:nth-of-type(2) > div:nth-of-type(2) > button:nth-of-type(2)"
+            },
+            "frameId": "f_e0098e8129",
+            "trusted": true,
+            "browser_at": 1789958669611,
+            "clock_offset_ms": 26
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:29.637+00:00",
+          "seq": 62,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_11",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "div",
+            "rect": {
+              "h": 900,
+              "w": 1280,
+              "x": 0,
+              "y": 0
+            },
+            "text": "New Task D Dana Generating plan... Open Fork D Dana (you) New Task D Dana draft…",
+            "route": "/",
+            "selector": "#root > div"
+          },
+          "data": {
+            "part": 1,
+            "added": [
+              "New Task D Dana Generating plan... Open Fork",
+              "New Task D Dana draft an interview guide for the study Generating plan..."
+            ],
+            "closed": "quiet",
+            "frameId": "f_e0098e8129",
+            "regions": [
+              {
+                "added": [
+                  "New Task D Dana Generating plan... Open Fork",
+                  "New Task D Dana draft an interview guide for the study Generating plan..."
+                ],
+                "target": {
+                  "id": "root",
+                  "tag": "div",
+                  "text": "New Task D Dana Generating plan... Open Fork D Dana (you) New Task D Dana draft…",
+                  "selector": "#root"
+                }
+              }
+            ],
+            "removed": [
+              "New Task Attach files Cancel Create"
+            ],
+            "container": {
+              "tag": "div",
+              "rect": {
+                "h": 900,
+                "w": 1280,
+                "x": 0,
+                "y": 0
+              },
+              "text": "New Task D Dana Generating plan... Open Fork D Dana (you) New Task D Dana draft…",
+              "route": "/",
+              "selector": "#root > div"
+            },
+            "mutations": 3,
+            "addedNodes": 2,
+            "browser_at": 1789958669614,
+            "durationMs": 0,
+            "textChanges": 0,
+            "removedNodes": 1,
+            "lastMutationAt": 1789958669614,
+            "clock_offset_ms": 23,
+            "firstMutationAt": 1789958669614,
+            "attributeChanges": 0,
+            "requestsInFlight": 1,
+            "sinceInteractionMs": 3
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:31.491+00:00",
+          "seq": 64,
+          "kind": "network.response",
+          "source": "preview-gateway",
+          "frameId": null,
+          "interactionId": "i_e0098e8129_11",
+          "requestId": "r_LI8Ons9yXmeK",
+          "callId": null,
+          "target": null,
+          "data": {
+            "path": "/api/notebooks/plan",
+            "sizes": {
+              "request_bytes": 77,
+              "response_bytes": 860
+            },
+            "method": "POST",
+            "status": 200,
+            "headers": {
+              "vary": "Origin",
+              "content-type": "application/json; charset=utf-8",
+              "x-powered-by": "Express",
+              "content-length": "860"
+            },
+            "ttfb_ms": 1855,
+            "category": "api",
+            "ended_at": "2026-09-21T02:44:31.491Z",
+            "injected": null,
+            "streamed": false,
+            "latency_ms": 1856
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:31.566+00:00",
+          "seq": 65,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_11",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "div",
+            "rect": {
+              "h": 900,
+              "w": 1280,
+              "x": 0,
+              "y": 0
+            },
+            "text": "Drafting an Interview Guide for a Study D Dana 0 of 5 steps 1 Clarify the study…",
+            "route": "/",
+            "selector": "#root > div"
+          },
+          "data": {
+            "part": 1,
+            "added": [
+              "0 of 5 steps",
+              "1 Clarify the study objectives, target participants, and any specific research questions or topics to cover in the interview guide. 2 Research best practices for creating effective interv…"
+            ],
+            "closed": "quiet",
+            "frameId": "f_e0098e8129",
+            "regions": [
+              {
+                "added": [
+                  "0 of 5 steps",
+                  "1 Clarify the study objectives, target participants, and any specific research questions or topics to cover in the interview guide. 2 Research best practices for creating effective interv…"
+                ],
+                "target": {
+                  "id": "card-3XuihIZSepyINMfXBbWxm",
+                  "tag": "div",
+                  "text": "Drafting an Interview Guide for a Study D Dana 0 of 5 steps 1 Clarify the study…",
+                  "selector": "#card-3XuihIZSepyINMfXBbWxm"
+                },
+                "within": [
+                  {
+                    "id": "root",
+                    "tag": "div",
+                    "text": "Drafting an Interview Guide for a Study D Dana 0 of 5 steps 1 Clarify the study…",
+                    "selector": "#root"
+                  }
+                ]
+              }
+            ],
+            "removed": [
+              "Generating plan..."
+            ],
+            "container": {
+              "tag": "div",
+              "rect": {
+                "h": 900,
+                "w": 1280,
+                "x": 0,
+                "y": 0
+              },
+              "text": "Drafting an Interview Guide for a Study D Dana 0 of 5 steps 1 Clarify the study…",
+              "route": "/",
+              "selector": "#root > div"
+            },
+            "mutations": 18,
+            "addedNodes": 9,
+            "browser_at": 1789958671544,
+            "durationMs": 0,
+            "textChanges": 2,
+            "removedNodes": 7,
+            "lastMutationAt": 1789958671544,
+            "clock_offset_ms": 22,
+            "firstMutationAt": 1789958671544,
+            "attributeChanges": 0,
+            "requestsInFlight": 0,
+            "sinceInteractionMs": 1933
+          }
+        }
+      ]
+    },
+    {
+      "id": "episode:stage:call:mc_y-d1Snr4vfv-:wait:11",
+      "broadBehavior": "WAITING",
+      "subBehavior": "AGENT_RUNNING",
+      "description": "Waited 2s while a generation call ran, with nothing entered in the interface.",
+      "startedAt": "2026-09-21T02:44:29.647+00:00",
+      "endedAt": "2026-09-21T02:44:31.488Z",
+      "durationMs": 1841,
+      "confidence": "high",
+      "determined": "rule",
+      "because": "a model call was attached to the stretch and no clicks, keys or typing were recorded",
+      "evidence": {
+        "surface": {
+          "key": "/",
+          "label": "the Cocoa Canvas app",
+          "role": "shell",
+          "frameIds": [
+            "f_e0098e8129"
+          ]
+        },
+        "regions": [],
+        "acts": {
+          "keys": 0,
+          "clicks": 0,
+          "typing": 0,
+          "submits": 0,
+          "navigations": 0,
+          "gestures": 0
+        },
+        "keyNames": [],
+        "appeared": [],
+        "entered": null,
+        "observed": true,
+        "composing": false,
+        "submitted": false,
+        "awaiting": true,
+        "call": {
+          "callId": "mc_y-d1Snr4vfv-",
+          "model": "gpt-4.1",
+          "latencyMs": 1843.6
+        },
+        "entered_by": [],
+        "controls": [],
+        "openingQuietMs": 0,
+        "quietMs": 841,
+        "discontinuity": null
+      },
+      "stageIds": [
+        "stage:call:mc_y-d1Snr4vfv-"
+      ],
+      "stages": [
+        {
+          "id": "stage:call:mc_y-d1Snr4vfv-",
+          "kind": "call",
+          "title": "gpt-4.1 call",
+          "at": "2026-09-21T02:44:29.647+00:00",
+          "endAt": "2026-09-21T02:44:31.488Z",
+          "callId": "mc_y-d1Snr4vfv-"
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-09-21T02:44:29.647+00:00",
+          "seq": 59,
+          "kind": "model.request",
+          "source": "model-gateway",
+          "frameId": null,
+          "interactionId": "i_e0098e8129_11",
+          "requestId": "r_LI8Ons9yXmeK",
+          "callId": "mc_y-d1Snr4vfv-",
+          "target": null,
+          "data": {
+            "api": "openai.responses",
+            "host": "api.openai.com",
+            "path": "/v1/responses",
+            "model": "gpt-4.1",
+            "callId": "mc_y-d1Snr4vfv-",
+            "method": "POST",
+            "parsed": true,
+            "stream": false,
+            "provider": "openai",
+            "promptChars": 889,
+            "messageCount": 1
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:31.488+00:00",
+          "seq": 63,
+          "kind": "model.response",
+          "source": "model-gateway",
+          "frameId": null,
+          "interactionId": "i_e0098e8129_11",
+          "requestId": "r_LI8Ons9yXmeK",
+          "callId": "mc_y-d1Snr4vfv-",
+          "target": null,
+          "data": {
+            "error": null,
+            "model": "gpt-4.1-2025-04-14",
+            "callId": "mc_y-d1Snr4vfv-",
+            "chunks": null,
+            "status": 200,
+            "ttfbMs": 1841.2,
+            "ttftMs": 1843.3,
+            "aborted": false,
+            "complete": true,
+            "streamed": false,
+            "latencyMs": 1843.6,
+            "outputChars": 920,
+            "finishReason": "stop",
+            "usageAvailable": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "episode:stage:response:i_e0098e8129_11:plain:12",
+      "broadBehavior": "UNCLEAR",
+      "subBehavior": "UNCHARACTERISED",
+      "description": "Activity in Cocoa Canvas for 3s that this profile does not characterise.",
+      "startedAt": "2026-09-21T02:44:31.566+00:00",
+      "endedAt": "2026-09-21T02:44:34.261Z",
+      "durationMs": 2695,
+      "confidence": "low",
+      "determined": "rule",
+      "because": "no rule matched the controls, keys, channels or flags recorded in this stretch",
+      "evidence": {
+        "surface": {
+          "key": "/",
+          "label": "the Cocoa Canvas app",
+          "role": "shell",
+          "frameIds": [
+            "f_e0098e8129"
+          ]
+        },
+        "regions": [],
+        "acts": {
+          "keys": 0,
+          "clicks": 1,
+          "typing": 0,
+          "submits": 0,
+          "navigations": 0,
+          "gestures": 0
+        },
+        "keyNames": [],
+        "appeared": [
+          {
+            "at": 1789958671566,
+            "channel": "card_plan",
+            "text": "0 of 5 steps 1 Clarify the study objectives, target participants, and any specific research questions or topics to cover in the interview guide. 2 Research best practices for creating effective interv…",
+            "fresh": false
+          }
+        ],
+        "entered": null,
+        "observed": true,
+        "composing": false,
+        "submitted": false,
+        "awaiting": false,
+        "call": null,
+        "entered_by": [],
+        "controls": [],
+        "openingQuietMs": 0,
+        "quietMs": 1695,
+        "discontinuity": null
+      },
+      "stageIds": [
+        "stage:response:i_e0098e8129_11",
+        "stage:i_e0098e8129_12"
+      ],
+      "stages": [
+        {
+          "id": "stage:response:i_e0098e8129_11",
+          "kind": "response",
+          "title": "Response appeared",
+          "at": "2026-09-21T02:44:31.566+00:00",
+          "endAt": "2026-09-21T02:44:31.566Z",
+          "callId": "mc_y-d1Snr4vfv-",
+          "bounds": {
+            "from": "durationMs",
+            "rawEndAt": "2026-09-21T02:44:31.544Z",
+            "offsetMs": 22,
+            "spanMs": 0
+          }
+        },
+        {
+          "id": "stage:i_e0098e8129_12",
+          "kind": "explore",
+          "title": "Explored the page",
+          "at": "2026-09-21T02:44:34.261+00:00",
+          "endAt": "2026-09-21T02:44:34.261Z",
+          "callId": null
+        }
+      ],
+      "events": [
+        {
+          "at": "2026-09-21T02:44:31.566+00:00",
+          "seq": 65,
+          "kind": "ui.change",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_11",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "div",
+            "rect": {
+              "h": 900,
+              "w": 1280,
+              "x": 0,
+              "y": 0
+            },
+            "text": "Drafting an Interview Guide for a Study D Dana 0 of 5 steps 1 Clarify the study…",
+            "route": "/",
+            "selector": "#root > div"
+          },
+          "data": {
+            "part": 1,
+            "added": [
+              "0 of 5 steps",
+              "1 Clarify the study objectives, target participants, and any specific research questions or topics to cover in the interview guide. 2 Research best practices for creating effective interv…"
+            ],
+            "closed": "quiet",
+            "frameId": "f_e0098e8129",
+            "regions": [
+              {
+                "added": [
+                  "0 of 5 steps",
+                  "1 Clarify the study objectives, target participants, and any specific research questions or topics to cover in the interview guide. 2 Research best practices for creating effective interv…"
+                ],
+                "target": {
+                  "id": "card-3XuihIZSepyINMfXBbWxm",
+                  "tag": "div",
+                  "text": "Drafting an Interview Guide for a Study D Dana 0 of 5 steps 1 Clarify the study…",
+                  "selector": "#card-3XuihIZSepyINMfXBbWxm"
+                },
+                "within": [
+                  {
+                    "id": "root",
+                    "tag": "div",
+                    "text": "Drafting an Interview Guide for a Study D Dana 0 of 5 steps 1 Clarify the study…",
+                    "selector": "#root"
+                  }
+                ]
+              }
+            ],
+            "removed": [
+              "Generating plan..."
+            ],
+            "container": {
+              "tag": "div",
+              "rect": {
+                "h": 900,
+                "w": 1280,
+                "x": 0,
+                "y": 0
+              },
+              "text": "Drafting an Interview Guide for a Study D Dana 0 of 5 steps 1 Clarify the study…",
+              "route": "/",
+              "selector": "#root > div"
+            },
+            "mutations": 18,
+            "addedNodes": 9,
+            "browser_at": 1789958671544,
+            "durationMs": 0,
+            "textChanges": 2,
+            "removedNodes": 7,
+            "lastMutationAt": 1789958671544,
+            "clock_offset_ms": 22,
+            "firstMutationAt": 1789958671544,
+            "attributeChanges": 0,
+            "requestsInFlight": 0,
+            "sinceInteractionMs": 1933
+          }
+        },
+        {
+          "at": "2026-09-21T02:44:34.261+00:00",
+          "seq": 66,
+          "kind": "ui.click",
+          "source": "browser",
+          "frameId": "f_e0098e8129",
+          "interactionId": "i_e0098e8129_12",
+          "requestId": null,
+          "callId": null,
+          "target": {
+            "tag": "div",
+            "rect": {
+              "h": 837,
+              "w": 672,
+              "x": 304,
+              "y": 64
+            },
+            "text": "Run All 1 . Clarify the study objectives, target participants, and any specific…",
+            "route": "/",
+            "selector": "#root > div > div:nth-of-type(4) > div:nth-of-type(2) > div"
+          },
+          "data": {
+            "button": 0,
+            "detail": 1,
+            "target": {
+              "tag": "div",
+              "rect": {
+                "h": 837,
+                "w": 672,
+                "x": 304,
+                "y": 64
+              },
+              "text": "Run All 1 . Clarify the study objectives, target participants, and any specific…",
+              "route": "/",
+              "selector": "#root > div > div:nth-of-type(4) > div:nth-of-type(2) > div"
+            },
+            "frameId": "f_e0098e8129",
+            "trusted": true,
+            "browser_at": 1789958674239,
+            "clock_offset_ms": 22
+          }
+        }
+      ]
+    }
+  ]
+}

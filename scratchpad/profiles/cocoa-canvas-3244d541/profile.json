@@ -1,0 +1,2027 @@
+{
+  "version": 1,
+  "artifact": {
+    "name": "Cocoa Canvas",
+    "repoId": "c45eed8e-758b-42d7-8e4c-1ece901f6b7a",
+    "commit": "e49079a413497d4fe363af4e8a6e6fefd7539597"
+  },
+  "provenance": {
+    "by": "generated",
+    "model": "claude-opus-5",
+    "note": "Written from the kjfeng/cocoa-canvas repository at e49079a and one recorded session. Vocabulary (canvas, card, notebook, step, agent/user assignment, Run All, plan, synthesis, fork, guided form) is taken from the repository's own component names and button copy.",
+    "generatedAt": "2026-09-21T02:58:26.792Z"
+  },
+  "surfaces": [
+    {
+      "id": "canvas_app",
+      "match": {
+        "equals": "/"
+      },
+      "label": "the Cocoa Canvas app",
+      "role": "shell",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "trace",
+            "seq": 14,
+            "eventKind": "frame.loaded",
+            "note": "single top-level document, title \"Cocoa Canvas\", path /"
+          },
+          {
+            "kind": "repo",
+            "path": "client/src/App.tsx",
+            "note": "single-page app: Canvas plus UserNameModal"
+          }
+        ],
+        "note": "The app is a single route; rooms are selected by URL hash, which the document key does not carry."
+      }
+    },
+    {
+      "id": "canvas_app_path",
+      "match": {
+        "prefix": "/"
+      },
+      "label": "Cocoa Canvas ({key})",
+      "role": "shell",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "inference",
+        "note": "Defensive catch-all in case a future recording keys the document by some other path. Only /  was served in the recording seen."
+      }
+    }
+  ],
+  "channels": [
+    {
+      "id": "plan_status",
+      "label": "the card's plan status",
+      "from": "system",
+      "verb": "read",
+      "text": {
+        "contains": "Generating plan"
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Card/CardSummary.tsx",
+            "note": "\"Generating plan...\" shown while card.isGeneratingPlan"
+          },
+          {
+            "kind": "trace",
+            "seq": 32,
+            "eventKind": "ui.change",
+            "note": "\"... Generating plan...\" added to #root after Create"
+          }
+        ]
+      }
+    },
+    {
+      "id": "agent_working",
+      "label": "the step result panel",
+      "from": "system",
+      "verb": "read",
+      "text": {
+        "contains": "Agent is working"
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Widgets/WidgetRenderer.tsx",
+            "note": "streaming skeleton shows \"Agent is working...\""
+          }
+        ]
+      }
+    },
+    {
+      "id": "synthesis_status",
+      "label": "the final results panel",
+      "from": "system",
+      "verb": "read",
+      "text": {
+        "contains": "Synthesizing"
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/SidebarPanel.tsx",
+            "note": "\"Synthesizing...\" while card.isFinalResultRunning"
+          }
+        ]
+      }
+    },
+    {
+      "id": "step_generating",
+      "label": "the step's status",
+      "from": "system",
+      "verb": "read",
+      "text": {
+        "contains": "Generating"
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/Step.tsx",
+            "note": "\"Generating...\" / \"Still generating...\" while step.isRunning"
+          },
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/UserStepInput.tsx",
+            "note": "\"Generating smart form...\" while the input form is being produced"
+          }
+        ],
+        "note": "Ordered after the more specific indicators, so it only catches the remaining in-progress messages."
+      }
+    },
+    {
+      "id": "card_plan",
+      "label": "the card",
+      "from": "system",
+      "verb": "was updated",
+      "container": {
+        "elementId": {
+          "prefix": "card-"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Canvas/CanvasCard.tsx",
+            "note": "id={`card-${card.id}`} on every canvas card"
+          },
+          {
+            "kind": "trace",
+            "seq": 35,
+            "eventKind": "ui.change",
+            "note": "plan steps appeared inside #card-jjlGjFYS9dlWV0oPf1IbQ"
+          }
+        ],
+        "note": "Carries generated plans, step results and progress counts. It also re-renders when a user step result is stored, so a small part of what lands here originated with the person; it is nevertheless the application writing the card."
+      }
+    },
+    {
+      "id": "canvas_root",
+      "label": "the canvas",
+      "from": "system",
+      "verb": "was updated",
+      "container": {
+        "elementId": {
+          "equals": "root"
+        }
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "trace",
+            "seq": 21,
+            "eventKind": "ui.change",
+            "note": "dialogs, overlays and presence render into #root"
+          }
+        ],
+        "note": "Catch-all for everything the app draws outside a card element: modals, the card detail overlay, presence."
+      }
+    }
+  ],
+  "controls": [
+    {
+      "id": "name_field",
+      "label": "the name field on the Join canvas modal",
+      "anchor": {
+        "placeholder": {
+          "equals": "Your name"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/UserNameModal.tsx"
+          },
+          {
+            "kind": "trace",
+            "seq": 15,
+            "eventKind": "ui.click"
+          }
+        ]
+      }
+    },
+    {
+      "id": "join_button",
+      "label": "the Join button",
+      "moment": true,
+      "anchor": {
+        "text": {
+          "equals": "Join"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/UserNameModal.tsx",
+            "note": "submit button labelled Join"
+          },
+          {
+            "kind": "trace",
+            "seq": 19,
+            "eventKind": "ui.click"
+          }
+        ],
+        "note": "No test id or app id exists on this element; matched on its visible word."
+      }
+    },
+    {
+      "id": "new_card_button",
+      "label": "the new-card (+) button",
+      "anchor": {
+        "title": {
+          "equals": "Create new card"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Canvas/CardCreator.tsx",
+            "note": "title=\"Create new card\" on the floating + button"
+          },
+          {
+            "kind": "trace",
+            "seq": 22,
+            "eventKind": "ui.click",
+            "note": "control descriptor carried title \"Create new card\""
+          }
+        ]
+      }
+    },
+    {
+      "id": "task_field",
+      "label": "the task description field in the New Task dialog",
+      "anchor": {
+        "placeholder": {
+          "equals": "What would you like to work on?"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Canvas/CardCreator.tsx"
+          },
+          {
+            "kind": "trace",
+            "seq": 26,
+            "eventKind": "ui.input"
+          }
+        ]
+      }
+    },
+    {
+      "id": "create_button",
+      "label": "the Create button in the New Task dialog",
+      "moment": true,
+      "anchor": {
+        "text": {
+          "equals": "Create"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Canvas/CardCreator.tsx",
+            "note": "handleCreate adds the card and requests a plan"
+          },
+          {
+            "kind": "trace",
+            "seq": 31,
+            "eventKind": "ui.click"
+          }
+        ]
+      }
+    },
+    {
+      "id": "run_all_button",
+      "label": "the Run All button",
+      "moment": true,
+      "anchor": {
+        "text": {
+          "equals": "Run All"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/Notebook.tsx"
+          }
+        ],
+        "note": "equals, not contains: the notebook column div carries the whole step list text beginning \"Run All …\" and must not match."
+      }
+    },
+    {
+      "id": "stop_button",
+      "label": "the Stop button",
+      "moment": true,
+      "anchor": {
+        "text": {
+          "equals": "Stop"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/Notebook.tsx",
+            "note": "stopAll"
+          }
+        ]
+      }
+    },
+    {
+      "id": "run_step_button",
+      "label": "a step's Run control",
+      "moment": true,
+      "anchor": {
+        "title": {
+          "equals": [
+            "Run step",
+            "Re-run step"
+          ]
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/Step.tsx",
+            "note": "title is 'Re-run step' | 'Run step' | 'User step' depending on state"
+          }
+        ]
+      }
+    },
+    {
+      "id": "user_step_button",
+      "label": "a user step's input control",
+      "anchor": {
+        "title": {
+          "equals": "User step"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/Step.tsx",
+            "note": "same button, titled 'User step' when the step is assigned to the user and has no result"
+          }
+        ],
+        "note": "Treated as a door: it opens the user input area that the person then writes in."
+      }
+    },
+    {
+      "id": "submit_user_step",
+      "label": "the Submit button of the user step input",
+      "moment": true,
+      "anchor": {
+        "text": {
+          "equals": "Submit"
+        }
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/UserStepInput.tsx",
+            "note": "freeform Submit"
+          }
+        ],
+        "note": "Guided forms are generated by the model at run time, so their submit control may carry different words and will not match."
+      }
+    },
+    {
+      "id": "help_button",
+      "label": "the Help me button",
+      "moment": true,
+      "anchor": {
+        "text": {
+          "equals": "Help me"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/UserStepInput.tsx",
+            "note": "streamHelp"
+          }
+        ]
+      }
+    },
+    {
+      "id": "regenerate_form_button",
+      "label": "the Regenerate form button",
+      "moment": true,
+      "anchor": {
+        "text": {
+          "equals": "Regenerate form"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/UserStepInput.tsx"
+          }
+        ]
+      }
+    },
+    {
+      "id": "input_mode_toggle",
+      "label": "the guided-form / freeform toggle",
+      "anchor": {
+        "text": {
+          "equals": [
+            "Switch to freeform",
+            "Switch to guided form",
+            "Edit as text instead",
+            "Edit with form instead"
+          ]
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/UserStepInput.tsx"
+          },
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/SidebarPanel.tsx",
+            "note": "UserStepEditor offers the same switch"
+          }
+        ]
+      }
+    },
+    {
+      "id": "user_response_field",
+      "label": "the freeform response box of a user step",
+      "anchor": {
+        "placeholder": {
+          "equals": "Type your response..."
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/UserStepInput.tsx"
+          }
+        ]
+      }
+    },
+    {
+      "id": "attach_button",
+      "label": "the Attach control",
+      "anchor": {
+        "text": {
+          "equals": [
+            "Attach",
+            "Attach files"
+          ]
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Canvas/CardCreator.tsx",
+            "note": "\"Attach files\""
+          },
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/UserStepInput.tsx",
+            "note": "\"Attach\""
+          }
+        ]
+      }
+    },
+    {
+      "id": "assignment_toggle",
+      "label": "a step's Agent/User assignment toggle",
+      "moment": true,
+      "anchor": {
+        "all": [
+          {
+            "tag": {
+              "equals": "button"
+            }
+          },
+          {
+            "text": {
+              "equals": [
+                "Agent",
+                "User"
+              ]
+            }
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/Step.tsx",
+            "note": "toggleStepAssignment; the same words render as a non-interactive span for non-owners and in the sidebar/fork dialog"
+          }
+        ],
+        "note": "The tag constraint is there to keep the read-only badges (spans) from matching."
+      }
+    },
+    {
+      "id": "add_step_button",
+      "label": "the Add step button",
+      "moment": true,
+      "anchor": {
+        "text": {
+          "equals": "Add step"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/Notebook.tsx"
+          }
+        ]
+      }
+    },
+    {
+      "id": "remove_step_button",
+      "label": "a step's remove control",
+      "moment": true,
+      "anchor": {
+        "title": {
+          "equals": "Remove step"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/Step.tsx"
+          }
+        ]
+      }
+    },
+    {
+      "id": "delete_card_button",
+      "label": "the Delete card control",
+      "moment": true,
+      "anchor": {
+        "title": {
+          "equals": "Delete card"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Card/CardHeader.tsx"
+          },
+          {
+            "kind": "repo",
+            "path": "client/src/components/Card/CardSummary.tsx"
+          }
+        ]
+      }
+    },
+    {
+      "id": "back_to_canvas",
+      "label": "the Back to canvas control",
+      "anchor": {
+        "title": {
+          "equals": "Back to canvas"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Card/CardHeader.tsx"
+          }
+        ]
+      }
+    },
+    {
+      "id": "open_card_button",
+      "label": "a card's Open button",
+      "anchor": {
+        "text": {
+          "equals": "Open"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Card/CardSummary.tsx",
+            "note": "Open expands the card into the notebook view"
+          }
+        ]
+      }
+    },
+    {
+      "id": "fork_control",
+      "label": "a Fork control",
+      "anchor": {
+        "any": [
+          {
+            "title": {
+              "equals": "Fork card"
+            }
+          },
+          {
+            "all": [
+              {
+                "tag": {
+                  "equals": "button"
+                }
+              },
+              {
+                "text": {
+                  "equals": "Fork"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Card/CardHeader.tsx",
+            "note": "title=\"Fork card\" opens the dialog"
+          },
+          {
+            "kind": "repo",
+            "path": "client/src/components/Card/CardSummary.tsx",
+            "note": "\"Fork\" opens the dialog"
+          },
+          {
+            "kind": "repo",
+            "path": "client/src/components/Card/ForkDialog.tsx",
+            "note": "the confirming button is also labelled \"Fork\""
+          }
+        ],
+        "note": "Opening the fork dialog and confirming the fork cannot be told apart by anchor; both are collected here."
+      }
+    },
+    {
+      "id": "fork_select_all",
+      "label": "the fork dialog's select-all control",
+      "anchor": {
+        "text": {
+          "equals": [
+            "Select all",
+            "Deselect all"
+          ]
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Card/ForkDialog.tsx"
+          }
+        ]
+      }
+    },
+    {
+      "id": "synthesize_button",
+      "label": "the Synthesize control",
+      "moment": true,
+      "anchor": {
+        "text": {
+          "equals": [
+            "Synthesize",
+            "Re-synthesize"
+          ]
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/SidebarPanel.tsx",
+            "note": "runSynthesis"
+          }
+        ]
+      }
+    },
+    {
+      "id": "final_results_entry",
+      "label": "the Final Results entry",
+      "anchor": {
+        "text": {
+          "prefix": "Final Results"
+        }
+      },
+      "generation": {
+        "confidence": "medium",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/Notebook.tsx",
+            "note": "button whose text starts \"Final Results\" followed by a preview line"
+          }
+        ]
+      }
+    },
+    {
+      "id": "save_button",
+      "label": "a Save button",
+      "moment": true,
+      "anchor": {
+        "text": {
+          "equals": "Save"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/SidebarPanel.tsx",
+            "note": "saves an edited step result or an edited final result"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cancel_button",
+      "label": "a Cancel button",
+      "anchor": {
+        "text": {
+          "equals": "Cancel"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Canvas/CardCreator.tsx"
+          },
+          {
+            "kind": "repo",
+            "path": "client/src/components/Card/ForkDialog.tsx"
+          },
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/SidebarPanel.tsx"
+          }
+        ]
+      }
+    },
+    {
+      "id": "edit_response_button",
+      "label": "the edit-response control",
+      "anchor": {
+        "title": {
+          "equals": "Edit response"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/SidebarPanel.tsx"
+          }
+        ]
+      }
+    },
+    {
+      "id": "copy_code_button",
+      "label": "the Copy code control",
+      "moment": true,
+      "anchor": {
+        "title": {
+          "equals": "Copy code"
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Widgets/CodeWidget.tsx"
+          },
+          {
+            "kind": "repo",
+            "path": "client/src/components/Markdown/MarkdownRenderer.tsx"
+          }
+        ]
+      }
+    },
+    {
+      "id": "expand_collapse_all",
+      "label": "the expand-all / collapse-all control",
+      "anchor": {
+        "text": {
+          "equals": [
+            "Expand all",
+            "Collapse all"
+          ]
+        }
+      },
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Markdown/MarkdownRenderer.tsx"
+          }
+        ]
+      }
+    }
+  ],
+  "keySets": [
+    {
+      "id": "escape_key",
+      "label": "Escape — closes the step panel, the expanded card, or a step-description editor",
+      "keys": [
+        "Escape"
+      ]
+    },
+    {
+      "id": "enter_key",
+      "label": "Enter — submits the name form or commits a step description",
+      "keys": [
+        "Enter"
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "id": "r_idle",
+      "sub": "NO_ACTIVITY_RECORDED",
+      "broad": "UNCLEAR",
+      "priority": 1,
+      "when": {
+        "not": {
+          "flag": "observed"
+        }
+      },
+      "description": {
+        "join": [
+          {
+            "lit": "Nothing was recorded in the interface for "
+          },
+          {
+            "duration": true
+          },
+          {
+            "lit": "."
+          }
+        ]
+      },
+      "because": {
+        "lit": "no clicks, keys, typing or DOM changes were recorded in this stretch"
+      },
+      "confidence": "high",
+      "note": "Silence cannot distinguish reading the screen from being away from it."
+    },
+    {
+      "id": "r_reload",
+      "sub": "RELOAD_CANVAS",
+      "broad": "ACTING",
+      "priority": 5,
+      "when": {
+        "all": [
+          {
+            "flag": "discontinuity"
+          },
+          {
+            "acts": {
+              "of": [
+                "clicks",
+                "keys",
+                "typing",
+                "submits"
+              ],
+              "op": "eq",
+              "value": 0
+            }
+          }
+        ]
+      },
+      "description": {
+        "lit": "The Cocoa Canvas document was replaced and the session picked up again."
+      },
+      "because": {
+        "lit": "a document discontinuity was recorded with no clicks, keys or typing in the stretch"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "trace",
+            "seq": 42,
+            "eventKind": "frame.served",
+            "note": "the page was served a second time mid-session"
+          }
+        ]
+      }
+    },
+    {
+      "id": "r_join",
+      "sub": "JOIN_CANVAS",
+      "broad": "ACTING",
+      "priority": 10,
+      "when": {
+        "any": [
+          {
+            "controlUsed": [
+              "join_button"
+            ]
+          },
+          {
+            "all": [
+              {
+                "flag": "submitted"
+              },
+              {
+                "controlUsed": [
+                  "name_field"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "description": {
+        "lit": "Submitted a display name on the Join canvas modal."
+      },
+      "because": {
+        "lit": "the Join control was used, or the name form was submitted, in this stretch"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/UserNameModal.tsx",
+            "note": "\"Join canvas\" modal shown until a name is set"
+          },
+          {
+            "kind": "trace",
+            "seq": 20,
+            "eventKind": "ui.submit"
+          }
+        ]
+      }
+    },
+    {
+      "id": "r_name",
+      "sub": "ENTER_DISPLAY_NAME",
+      "broad": "ACTING",
+      "priority": 12,
+      "when": {
+        "controlUsed": [
+          "name_field"
+        ]
+      },
+      "description": {
+        "lit": "Worked in the display-name field of the Join canvas modal, with no Join recorded."
+      },
+      "because": {
+        "lit": "activity on the name field of the Join canvas modal was recorded and the Join control was not used"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_create_card",
+      "sub": "CREATE_CARD",
+      "broad": "ACTING",
+      "priority": 20,
+      "when": {
+        "controlUsed": [
+          "create_button"
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "any": [
+                {
+                  "flag": "call"
+                },
+                {
+                  "flag": "awaiting"
+                }
+              ]
+            },
+            "then": {
+              "lit": "Created a card from the New Task dialog; a model call ran in the same stretch."
+            }
+          }
+        ],
+        "else": {
+          "lit": "Created a card from the New Task dialog with the Create button."
+        }
+      },
+      "because": {
+        "cond": [
+          {
+            "when": {
+              "any": [
+                {
+                  "flag": "call"
+                },
+                {
+                  "flag": "awaiting"
+                }
+              ]
+            },
+            "then": {
+              "lit": "a click on Create was recorded together with a model call"
+            }
+          }
+        ],
+        "else": {
+          "lit": "a click on the Create control of the New Task dialog was recorded"
+        }
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "source",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Canvas/CardCreator.tsx",
+            "note": "handleCreate → addCard + generatePlan"
+          },
+          {
+            "kind": "trace",
+            "seq": 31,
+            "eventKind": "ui.click"
+          },
+          {
+            "kind": "trace",
+            "seq": 29,
+            "eventKind": "model.request",
+            "note": "/api/notebooks/plan in the same interaction"
+          }
+        ]
+      }
+    },
+    {
+      "id": "r_describe_task",
+      "sub": "DESCRIBE_TASK",
+      "broad": "FORMULATING",
+      "priority": 22,
+      "when": {
+        "all": [
+          {
+            "controlUsed": [
+              "task_field"
+            ]
+          },
+          {
+            "not": {
+              "controlUsed": [
+                "create_button"
+              ]
+            }
+          }
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "acts": {
+                "of": [
+                  "typing"
+                ],
+                "op": "gte",
+                "value": 1
+              }
+            },
+            "then": {
+              "lit": "Typed a task description in the New Task dialog."
+            }
+          }
+        ],
+        "else": {
+          "lit": "Worked in the task-description field of the New Task dialog."
+        }
+      },
+      "because": {
+        "cond": [
+          {
+            "when": {
+              "acts": {
+                "of": [
+                  "typing"
+                ],
+                "op": "gte",
+                "value": 1
+              }
+            },
+            "then": {
+              "lit": "field edits were recorded on the New Task task-description field with no Create recorded"
+            }
+          }
+        ],
+        "else": {
+          "lit": "the New Task task-description field was used with no Create recorded"
+        }
+      },
+      "confidence": {
+        "cond": [
+          {
+            "when": {
+              "acts": {
+                "of": [
+                  "typing"
+                ],
+                "op": "gte",
+                "value": 1
+              }
+            },
+            "then": "high"
+          }
+        ],
+        "else": "medium"
+      }
+    },
+    {
+      "id": "r_run_all",
+      "sub": "RUN_ALL",
+      "broad": "ACTING",
+      "priority": 30,
+      "when": {
+        "controlUsed": [
+          "run_all_button"
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "any": [
+                {
+                  "flag": "call"
+                },
+                {
+                  "flag": "awaiting"
+                }
+              ]
+            },
+            "then": {
+              "lit": "Started Run All on a card's notebook; a model call ran in the same stretch."
+            }
+          }
+        ],
+        "else": {
+          "lit": "Started Run All on a card's notebook."
+        }
+      },
+      "because": {
+        "lit": "a click on the Run All control of the notebook was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_stop_all",
+      "sub": "STOP_ALL",
+      "broad": "ACTING",
+      "priority": 31,
+      "when": {
+        "controlUsed": [
+          "stop_button"
+        ]
+      },
+      "description": {
+        "lit": "Stopped a running notebook with the Stop control."
+      },
+      "because": {
+        "lit": "a click on the Stop control of the notebook was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_run_step",
+      "sub": "RUN_STEP",
+      "broad": "ACTING",
+      "priority": 32,
+      "when": {
+        "controlUsed": [
+          "run_step_button"
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "any": [
+                {
+                  "flag": "call"
+                },
+                {
+                  "flag": "awaiting"
+                }
+              ]
+            },
+            "then": {
+              "lit": "Ran a step from its Run control; a model call ran in the same stretch."
+            }
+          }
+        ],
+        "else": {
+          "lit": "Ran a step from its Run control."
+        }
+      },
+      "because": {
+        "lit": "a click on a step's Run (or Re-run) control was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_submit_user_step",
+      "sub": "SUBMIT_USER_STEP",
+      "broad": "ACTING",
+      "priority": 34,
+      "when": {
+        "controlUsed": [
+          "submit_user_step"
+        ]
+      },
+      "description": {
+        "lit": "Submitted a freeform response for a user step."
+      },
+      "because": {
+        "lit": "a click on the Submit control of the user step input was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_help",
+      "sub": "HELP_ME",
+      "broad": "ACTING",
+      "priority": 36,
+      "when": {
+        "controlUsed": [
+          "help_button"
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "any": [
+                {
+                  "flag": "call"
+                },
+                {
+                  "flag": "awaiting"
+                }
+              ]
+            },
+            "then": {
+              "lit": "Asked for help on a user step with Help me; a model call ran in the same stretch."
+            }
+          }
+        ],
+        "else": {
+          "lit": "Asked for help on a user step with Help me."
+        }
+      },
+      "because": {
+        "lit": "a click on the Help me control of the user step input was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_regen_form",
+      "sub": "REGENERATE_FORM",
+      "broad": "ACTING",
+      "priority": 38,
+      "when": {
+        "controlUsed": [
+          "regenerate_form_button"
+        ]
+      },
+      "description": {
+        "lit": "Asked for the guided input form of a user step to be regenerated."
+      },
+      "because": {
+        "lit": "a click on the Regenerate form control was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_synthesize",
+      "sub": "SYNTHESIZE_FINAL_RESULTS",
+      "broad": "ACTING",
+      "priority": 40,
+      "when": {
+        "controlUsed": [
+          "synthesize_button"
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "any": [
+                {
+                  "flag": "call"
+                },
+                {
+                  "flag": "awaiting"
+                }
+              ]
+            },
+            "then": {
+              "lit": "Started synthesis of the card's final results; a model call ran in the same stretch."
+            }
+          }
+        ],
+        "else": {
+          "lit": "Started synthesis of the card's final results."
+        }
+      },
+      "because": {
+        "lit": "a click on the Synthesize (or Re-synthesize) control was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_toggle_assignment",
+      "sub": "TOGGLE_ASSIGNMENT",
+      "broad": "REVISING",
+      "priority": 42,
+      "when": {
+        "controlUsed": [
+          "assignment_toggle"
+        ]
+      },
+      "description": {
+        "lit": "Toggled a step between Agent and User assignment."
+      },
+      "because": {
+        "lit": "a click on a step's Agent/User assignment button was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_add_step",
+      "sub": "ADD_STEP",
+      "broad": "REVISING",
+      "priority": 43,
+      "when": {
+        "controlUsed": [
+          "add_step_button"
+        ]
+      },
+      "description": {
+        "lit": "Added a step to the notebook."
+      },
+      "because": {
+        "lit": "a click on the Add step control was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_remove_step",
+      "sub": "REMOVE_STEP",
+      "broad": "REVISING",
+      "priority": 44,
+      "when": {
+        "controlUsed": [
+          "remove_step_button"
+        ]
+      },
+      "description": {
+        "lit": "Removed a step from the notebook."
+      },
+      "because": {
+        "lit": "a click on a step's remove control was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_save_edit",
+      "sub": "SAVE_EDIT",
+      "broad": "REVISING",
+      "priority": 45,
+      "when": {
+        "controlUsed": [
+          "save_button"
+        ]
+      },
+      "description": {
+        "lit": "Saved edited result text with the Save control."
+      },
+      "because": {
+        "lit": "a click on a Save control in the result editor was recorded"
+      },
+      "confidence": "high",
+      "note": "The same control saves an edited step result and an edited final result; the two are not distinguished."
+    },
+    {
+      "id": "r_delete_card",
+      "sub": "DELETE_CARD",
+      "broad": "ACTING",
+      "priority": 46,
+      "when": {
+        "controlUsed": [
+          "delete_card_button"
+        ]
+      },
+      "description": {
+        "lit": "Deleted a card."
+      },
+      "because": {
+        "lit": "a click on a Delete card control was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_fork",
+      "sub": "FORK_CARD",
+      "broad": "ACTING",
+      "priority": 47,
+      "when": {
+        "any": [
+          {
+            "controlUsed": [
+              "fork_control"
+            ]
+          },
+          {
+            "controlUsed": [
+              "fork_select_all"
+            ]
+          }
+        ]
+      },
+      "description": {
+        "lit": "Used the fork controls on a card."
+      },
+      "because": {
+        "lit": "a click on a Fork control, or on the fork dialog's select-all control, was recorded"
+      },
+      "confidence": "medium",
+      "note": "Opening the Fork card dialog and confirming a fork both read as a click on a control labelled Fork, so the rule does not claim which happened."
+    },
+    {
+      "id": "r_copy_code",
+      "sub": "COPY_CODE",
+      "broad": "ACTING",
+      "priority": 48,
+      "when": {
+        "controlUsed": [
+          "copy_code_button"
+        ]
+      },
+      "description": {
+        "lit": "Copied a code block from a result."
+      },
+      "because": {
+        "lit": "a click on a Copy code control was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_write_response",
+      "sub": "WRITE_USER_RESPONSE",
+      "broad": "FORMULATING",
+      "priority": 50,
+      "when": {
+        "controlUsed": [
+          "user_response_field"
+        ]
+      },
+      "description": {
+        "cond": [
+          {
+            "when": {
+              "acts": {
+                "of": [
+                  "typing"
+                ],
+                "op": "gte",
+                "value": 1
+              }
+            },
+            "then": {
+              "join": [
+                {
+                  "lit": "Wrote a freeform response in a user step's input box over "
+                },
+                {
+                  "duration": true
+                },
+                {
+                  "lit": "."
+                }
+              ]
+            }
+          }
+        ],
+        "else": {
+          "lit": "Worked in a user step's freeform response box."
+        }
+      },
+      "because": {
+        "lit": "activity on the user step's freeform response box was recorded with no Submit in this stretch"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_awaiting",
+      "sub": "AGENT_RUNNING",
+      "broad": "WAITING",
+      "priority": 52,
+      "when": {
+        "all": [
+          {
+            "any": [
+              {
+                "flag": "awaiting"
+              },
+              {
+                "flag": "call"
+              }
+            ]
+          },
+          {
+            "acts": {
+              "of": [
+                "clicks",
+                "keys",
+                "typing",
+                "submits"
+              ],
+              "op": "eq",
+              "value": 0
+            }
+          }
+        ]
+      },
+      "description": {
+        "join": [
+          {
+            "lit": "Waited "
+          },
+          {
+            "duration": true
+          },
+          {
+            "lit": " while a generation call ran, with nothing entered in the interface."
+          }
+        ]
+      },
+      "because": {
+        "lit": "a model call was attached to the stretch and no clicks, keys or typing were recorded"
+      },
+      "confidence": "high",
+      "generation": {
+        "confidence": "high",
+        "grounding": "abstraction",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/api/client.ts",
+            "note": "plan, step, help, synthesis and input-form all call the model through /api/notebooks/*"
+          },
+          {
+            "kind": "trace",
+            "seq": 29,
+            "eventKind": "model.request"
+          }
+        ],
+        "note": "AGENT_RUNNING names what plan generation, step running, help and synthesis have in common: a server-side model call in flight. The recording cannot say which of them it was."
+      }
+    },
+    {
+      "id": "r_generating_indicator",
+      "sub": "GENERATION_IN_PROGRESS",
+      "broad": "WAITING",
+      "priority": 54,
+      "when": {
+        "all": [
+          {
+            "any": [
+              {
+                "channelSaid": "agent_working"
+              },
+              {
+                "channelSaid": "synthesis_status"
+              },
+              {
+                "channelSaid": "step_generating"
+              },
+              {
+                "channelSaid": "plan_status"
+              }
+            ]
+          },
+          {
+            "acts": {
+              "of": [
+                "clicks",
+                "keys",
+                "typing",
+                "submits"
+              ],
+              "op": "eq",
+              "value": 0
+            }
+          }
+        ]
+      },
+      "description": {
+        "lit": "An in-progress generation indicator appeared on screen with nothing entered in the interface."
+      },
+      "because": {
+        "lit": "a \"generating\" / \"synthesizing\" indicator was written to the page and no clicks, keys or typing were recorded"
+      },
+      "confidence": "medium",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "abstraction",
+        "ev": [
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/Step.tsx",
+            "note": "\"Generating...\""
+          },
+          {
+            "kind": "repo",
+            "path": "client/src/components/Notebook/SidebarPanel.tsx",
+            "note": "\"Synthesizing...\""
+          },
+          {
+            "kind": "repo",
+            "path": "client/src/components/Card/CardSummary.tsx",
+            "note": "\"Generating plan...\""
+          }
+        ],
+        "note": "Cards are synced over Yjs, so such an indicator can in principle be produced by a peer rather than by this person; the description only states that it appeared."
+      }
+    },
+    {
+      "id": "r_open_final",
+      "sub": "OPEN_FINAL_RESULTS",
+      "broad": "UNDERSTANDING",
+      "priority": 60,
+      "when": {
+        "controlUsed": [
+          "final_results_entry"
+        ]
+      },
+      "description": {
+        "lit": "Opened the Final Results panel of a card."
+      },
+      "because": {
+        "lit": "a click on the Final Results entry of the notebook was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_sections",
+      "sub": "EXPAND_SECTIONS",
+      "broad": "UNDERSTANDING",
+      "priority": 61,
+      "when": {
+        "controlUsed": [
+          "expand_collapse_all"
+        ]
+      },
+      "description": {
+        "lit": "Expanded or collapsed the sections of a rendered result."
+      },
+      "because": {
+        "lit": "a click on the expand-all / collapse-all control of the markdown renderer was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_open_card",
+      "sub": "OPEN_CARD",
+      "broad": "ACTING",
+      "priority": 62,
+      "when": {
+        "controlUsed": [
+          "open_card_button"
+        ]
+      },
+      "description": {
+        "lit": "Opened a card from the canvas into its notebook view."
+      },
+      "because": {
+        "lit": "a click on a card's Open control was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_back",
+      "sub": "BACK_TO_CANVAS",
+      "broad": "ACTING",
+      "priority": 63,
+      "when": {
+        "controlUsed": [
+          "back_to_canvas"
+        ]
+      },
+      "description": {
+        "lit": "Returned to the canvas from an expanded card."
+      },
+      "because": {
+        "lit": "a click on the Back to canvas control was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_open_user_input",
+      "sub": "OPEN_USER_STEP_INPUT",
+      "broad": "ACTING",
+      "priority": 64,
+      "when": {
+        "controlUsed": [
+          "user_step_button"
+        ]
+      },
+      "description": {
+        "lit": "Opened the input area of a user step."
+      },
+      "because": {
+        "lit": "a click on a step control titled \"User step\" was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_open_new_task",
+      "sub": "OPEN_NEW_TASK",
+      "broad": "ACTING",
+      "priority": 65,
+      "when": {
+        "controlUsed": [
+          "new_card_button"
+        ]
+      },
+      "description": {
+        "lit": "Opened the New Task dialog from the canvas."
+      },
+      "because": {
+        "lit": "a click on the new-card (+) control was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_edit_response",
+      "sub": "EDIT_RESPONSE",
+      "broad": "ACTING",
+      "priority": 66,
+      "when": {
+        "controlUsed": [
+          "edit_response_button"
+        ]
+      },
+      "description": {
+        "lit": "Opened the editor for a recorded step response."
+      },
+      "because": {
+        "lit": "a click on the edit-response control of the step panel was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_attach",
+      "sub": "ATTACH_FILES",
+      "broad": "ACTING",
+      "priority": 67,
+      "when": {
+        "controlUsed": [
+          "attach_button"
+        ]
+      },
+      "description": {
+        "lit": "Used the Attach control, which opens the file picker."
+      },
+      "because": {
+        "lit": "a click on an Attach control was recorded"
+      },
+      "confidence": "high",
+      "note": "Whether a file was chosen is not recoverable from the recording."
+    },
+    {
+      "id": "r_switch_input_mode",
+      "sub": "SWITCH_INPUT_MODE",
+      "broad": "ACTING",
+      "priority": 68,
+      "when": {
+        "controlUsed": [
+          "input_mode_toggle"
+        ]
+      },
+      "description": {
+        "lit": "Switched a user step between the guided form and freeform text."
+      },
+      "because": {
+        "lit": "a click on the guided-form / freeform toggle was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_cancel",
+      "sub": "CANCEL",
+      "broad": "ACTING",
+      "priority": 69,
+      "when": {
+        "controlUsed": [
+          "cancel_button"
+        ]
+      },
+      "description": {
+        "lit": "Dismissed a dialog or editor with Cancel."
+      },
+      "because": {
+        "lit": "a click on a Cancel control was recorded"
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "r_escape",
+      "sub": "ESCAPE_DISMISS",
+      "broad": "ACTING",
+      "priority": 70,
+      "when": {
+        "keysIn": "escape_key"
+      },
+      "description": {
+        "lit": "Pressed Escape in Cocoa Canvas."
+      },
+      "because": {
+        "lit": "an Escape key press was recorded"
+      },
+      "confidence": "high",
+      "note": "Escape closes the selected step panel, then the expanded card, and cancels a step-description editor; which of these applied is not recoverable."
+    },
+    {
+      "id": "r_text_entry",
+      "sub": "TEXT_ENTRY",
+      "broad": "FORMULATING",
+      "priority": 80,
+      "when": {
+        "all": [
+          {
+            "flag": "composing"
+          },
+          {
+            "acts": {
+              "of": [
+                "typing"
+              ],
+              "op": "gte",
+              "value": 1
+            }
+          }
+        ]
+      },
+      "description": {
+        "join": [
+          {
+            "lit": "Typed into a text field in Cocoa Canvas over "
+          },
+          {
+            "duration": true
+          },
+          {
+            "lit": ", with nothing sent."
+          }
+        ]
+      },
+      "because": {
+        "lit": "committed field edits were recorded in front of a text-entry surface and no submit was recorded"
+      },
+      "confidence": "medium",
+      "generation": {
+        "confidence": "medium",
+        "grounding": "abstraction",
+        "note": "Catches writing in fields the profile cannot anchor: the inline step-description editor (a bare input), the result editors, and inputs inside model-generated guided forms. It deliberately does not say which field."
+      }
+    }
+  ],
+  "fallback": {
+    "id": "r_fallback",
+    "sub": "UNCHARACTERISED",
+    "broad": "UNCLEAR",
+    "description": {
+      "join": [
+        {
+          "lit": "Activity in Cocoa Canvas for "
+        },
+        {
+          "duration": true
+        },
+        {
+          "lit": " that this profile does not characterise."
+        }
+      ]
+    },
+    "because": {
+      "lit": "no rule matched the controls, keys, channels or flags recorded in this stretch"
+    },
+    "confidence": "low",
+    "generation": {
+      "confidence": "high",
+      "grounding": "inference",
+      "note": "Expected to absorb canvas panning/zooming and card dragging (wheel and drag are recorded but no predicate can ask about them), clicks on step rows and on the notebook column, and interaction with model-generated guided forms."
+    }
+  }
+}

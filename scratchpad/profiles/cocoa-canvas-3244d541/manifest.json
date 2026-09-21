@@ -1,0 +1,53 @@
+{
+  "runId": "3244d541-c6a1-4a14-8d57-4a335ecc9027",
+  "repoId": "c45eed8e-758b-42d7-8e4c-1ece901f6b7a",
+  "signature": "047e7a176c4ad1d25e2375ac776881d4",
+  "parts": {
+    "policy": 1,
+    "surfaces": [
+      "/"
+    ],
+    "elements": [
+      "id:root|tag:div",
+      "tag:button",
+      "tag:button|text:create",
+      "tag:button|type:submit|text:join",
+      "tag:div",
+      "tag:form",
+      "tag:input|type:text|placeholder:your name|editable:text",
+      "tag:path",
+      "tag:textarea|placeholder:what would you like to work on?|editable:text"
+    ],
+    "providers": [
+      "api.openai.com/v1/responses"
+    ]
+  },
+  "builder": 1,
+  "capability": {
+    "version": 1,
+    "features": [
+      "regions",
+      "inputEdits",
+      "gestures",
+      "modelCalls"
+    ],
+    "missing": [
+      "appId",
+      "testid",
+      "embeddedFrames"
+    ]
+  },
+  "counts": {
+    "files": 64,
+    "filesIncluded": 35,
+    "events": 67,
+    "eventsIncluded": 67,
+    "surfaces": 1,
+    "elements": 15,
+    "bursts": 12
+  },
+  "bytes": 165622,
+  "truncated": [
+    "the source files"
+  ]
+}
