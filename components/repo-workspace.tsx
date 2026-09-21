@@ -166,21 +166,55 @@ type PreviewProps = Omit<RunControls, "onRelaunch"> & { repo: Repo; run: Sandbox
 
 function Preview({ repo, run, error, events, version, patch, controls, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenBuild, onOpenTerminal, onOpenLogs, onRunWithoutPatch }: PreviewProps) {
   const [showPatch, setShowPatch] = useState(false);
+  // Restart, as asked for rather than as confirmed.
+  //
+  // It is two server round trips — killing the sandbox, which destroys a
+  // machine and takes seconds, and then asking for a new run — and until
+  // the second one landed this pane went on drawing the state it was
+  // already in, so the press looked like it had missed. The first answer
+  // to arrive is the kill, so it flickered through "Stopped" on the way
+  // to starting, which is a state nobody asked to see.
+  //
+  // Not a second source of truth. Nothing reads it but the four values
+  // below, and the first real answer of any kind — an active run, or a
+  // failure — takes it away again.
+  const [restarting, setRestarting] = useState(false);
+  useEffect(() => {
+    if (restarting && (error || (run && isRunActive(run)))) setRestarting(false);
+  }, [restarting, error, run]);
+  // Restart and Start over are the same two steps — throw the sandbox
+  // away, then put the repository together again — differing only in
+  // whether the saved command list is replayed or ignored. The sandbox
+  // has to go first when there is one, because `prepare` declines
+  // outright while a run of the repository is still active
+  // (hooks/use-sandbox-run.ts), which is exactly the state somebody
+  // restarting from a build that is stuck is in.
+  //
+  // Start over lives here rather than in the two panes that offer it, so
+  // that the whole pane can answer at once. A button going quiet with a
+  // running application still under it is not much of an answer, and the
+  // first thing to come back is the kill, which would flash "Stopped" on
+  // the way to starting. The running preview does come down immediately,
+  // iframe and all — which is the point, since it is about to be
+  // destroyed, and it is what makes the press feel like it landed.
+  const startAgain = async (fresh: boolean) => {
+    if (restarting) return;
+    setRestarting(true);
+    if (run && (isRunActive(run) || isSandboxLive(run))) await onStop(run.id);
+    if (fresh) onPrepareFresh(); else onPrepare();
+  };
+  const restart = () => void startAgain(false);
+  const startOver = () => void startAgain(true);
   if (showPatch && patch) {
     return <PatchView patch={patch} onBack={() => setShowPatch(false)} onRunWithoutPatch={run && isRunActive(run) ? null : () => { setShowPatch(false); onRunWithoutPatch(); }} />;
   }
-  if (run && isRunUsable(run)) return <UsablePreview repo={repo} run={run} events={events} patch={patch} onShowPatch={() => setShowPatch(true)} onOpenTerminal={onOpenTerminal} onOpenLogs={onOpenLogs} onStop={onStop} onStartOver={onPrepareFresh} />;
-  if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} events={events} version={version} patch={patch} controls={controls} onShowPatch={() => setShowPatch(true)} onStop={onStop} onStartOver={onPrepareFresh} />;
-  // Restart means one thing in every state: throw this attempt away and
-  // put the repository together again. The sandbox has to go first when
-  // there is one, because `prepare` declines outright while a run of the
-  // repository is still active (hooks/use-sandbox-run.ts) — which is
-  // exactly the state somebody restarting from a build that is stuck is
-  // in.
-  const restart = async () => {
-    if (run && (isRunActive(run) || isSandboxLive(run))) await onStop(run.id);
-    onPrepare();
-  };
+  // Not while a restart has been asked for: the answer to that is the
+  // pane below, and these two would go on drawing the run it is throwing
+  // away.
+  if (!restarting) {
+  if (run && isRunUsable(run)) return <UsablePreview repo={repo} run={run} events={events} patch={patch} onShowPatch={() => setShowPatch(true)} onOpenTerminal={onOpenTerminal} onOpenLogs={onOpenLogs} onStartOver={startOver} />;
+  if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} events={events} version={version} controls={controls} onStop={onStop} onStartOver={startOver} />;
+  }
 
   // What the build is doing, rather than what state it is in.
   //
@@ -231,7 +265,9 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
   // correct, because the thing to do while a build is building is wait.
   const again = { label: "Restart", onClick: restart, primary: true, icon: <RotateCw className="size-3" /> };
   const waiting = { ...again, primary: false };
-  const [image, title, detail, action] = error
+  const [image, title, detail, action] = restarting
+    ? [CUBES.starting, `Starting ${repo.fullName}…`, "Stopping the sandbox, then putting the repository together again…", waiting]
+    : error
     ? [CUBES.failed, "Could not prepare " + repo.fullName, error, again]
     : !run
       ? [CUBES.idle, "Live preview", "Your running project will appear here.", started]
@@ -301,7 +337,9 @@ function Preview({ repo, run, error, events, version, patch, controls, onPrepare
 
 // Nothing to serve, but installed and checked: what was set up, and what
 // the person runs next, with the shell one tab over.
-function UsablePreview({ repo, run, events, patch, onShowPatch, onOpenTerminal, onOpenLogs, onStop, onStartOver }: { repo: Repo; run: SandboxRun; events: SandboxEvent[]; patch: RepoPatch | null; onShowPatch: () => void; onOpenTerminal: () => void; onOpenLogs: (step: StepId | null) => void; onStop: (runId: string) => void | Promise<void>; onStartOver: () => void }) {
+// Stopping is not offered here and is not taken: there is no running
+// application to stop, and Start over throws the sandbox away itself.
+function UsablePreview({ repo, run, events, patch, onShowPatch, onOpenTerminal, onOpenLogs, onStartOver }: { repo: Repo; run: SandboxRun; events: SandboxEvent[]; patch: RepoPatch | null; onShowPatch: () => void; onOpenTerminal: () => void; onOpenLogs: (step: StepId | null) => void; onStartOver: () => void }) {
   const usage = run.usage;
   const replayed = events.some((e) => e.data?.phase === "trail" && (e.data?.status === "own" || e.data?.status === "shared"));
   return (
@@ -312,7 +350,7 @@ function UsablePreview({ repo, run, events, patch, onShowPatch, onOpenTerminal, 
           <span className="text-xs leading-normal text-muted-foreground/70">{usage?.blocker ? usage.blocker.what : usage?.summary || "No page to show; the repository is installed and its check passed. The shell is in Setup, under Terminal."}</span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {replayed && <Button variant="ghost" size="sm" onClick={async () => { await onStop(run.id); onStartOver(); }} title="Analyze and set up from scratch, ignoring the saved command list" className="font-normal text-muted-foreground">Start over</Button>}
+          {replayed && <Button variant="ghost" size="sm" onClick={onStartOver} title="Analyze and set up from scratch, ignoring the saved command list" className="font-normal text-muted-foreground">Start over</Button>}
           {patch && <Button variant="ghost" size="sm" onClick={onShowPatch} className="font-normal text-muted-foreground">View the edits</Button>}
           <Button variant="outline" size="sm" onClick={onOpenTerminal} className="font-normal">Open the shell</Button>
         </div>
@@ -407,7 +445,14 @@ function TrailInsight({ repo }: { repo: Repo }) {
 // reload covers both. A run with several services (a frontend and its API,
 // say) gets a picker; a service that forbids framing opens in a tab instead.
 // The steps that brought it up stay one click away above the page.
-function RunningPreview({ repo, run, events, version, patch, controls, onShowPatch, onStop, onStartOver }: { repo: Repo; run: SandboxRun; events: SandboxEvent[]; version: number; patch: RepoPatch | null; controls: TraceControls; onShowPatch: () => void; onStop: (runId: string) => void | Promise<void>; onStartOver: () => void }) {
+// No patch here. A chip reading "Patched · 5 files" sat at the head of
+// the row, over the running application, saying that the pipeline had
+// edited the sandbox copy to make it run — which is true of the run, not
+// of the page under it, and the row is the controls over the page. The
+// edits are still read from the two panes that are about the run: the one
+// for a repository that came up with nothing to serve, and the one for a
+// run that failed.
+function RunningPreview({ repo, run, events, version, controls, onStop, onStartOver }: { repo: Repo; run: SandboxRun; events: SandboxEvent[]; version: number; controls: TraceControls; onStop: (runId: string) => void | Promise<void>; onStartOver: () => void }) {
   const rec = controls.recording.recordings;
   const services = useMemo<PreviewService[]>(
     () => (run.services?.length ? run.services : [{ id: "app", port: run.port ?? 0, previewUrl: run.previewUrl!, isEntry: true, embeddable: true }]),
@@ -536,11 +581,6 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
             ))}
           </div>
         )}
-        {patch && (
-          <button type="button" onClick={onShowPatch} title="The pipeline edited the sandbox copy to make it run" className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 font-sans text-amber-800 hover:bg-amber-100">
-            Patched · {patch.files.length} file{patch.files.length === 1 ? "" : "s"}
-          </button>
-        )}
         <a href={service.previewUrl} target="_blank" rel="noreferrer" className="truncate hover:text-foreground" title="Open in a new tab">{service.previewUrl}</a>
         <span role="status" className="ml-auto shrink-0 font-sans">{!service.embeddable ? "" : loading === "update" ? "Updating…" : loading === "first" ? "Loading…" : ""}</span>
         {/* Five controls, in the order they are reached for: the one
@@ -566,7 +606,7 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
         {traced && <RecordButton active={rec.active} busy={rec.busy || saving} past={controls.recording.past} onStart={() => void rec.start()} onStop={() => void stopRecording()} />}
         {traced && service.embeddable && <AnnotateControl active={picker.active} onStart={picker.start} onStop={picker.stop} />}
         {events.some((e) => e.data?.phase === "trail" && (e.data?.status === "own" || e.data?.status === "shared")) && (
-          <Button variant="ghost" size="sm" onClick={async () => { await onStop(run.id); onStartOver(); }} title="Stop, then analyze from scratch ignoring the saved command list" className="h-6 px-2 font-sans font-normal text-muted-foreground">Start over</Button>
+          <Button variant="ghost" size="sm" onClick={onStartOver} title="Stop, then analyze from scratch ignoring the saved command list" className="h-6 px-2 font-sans font-normal text-muted-foreground">Start over</Button>
         )}
         <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="h-6 px-2 font-sans font-normal text-muted-foreground">Stop</Button>
       </div>
