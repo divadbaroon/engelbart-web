@@ -42,9 +42,11 @@ export function BartPanel({ session, context, repo, selectionText, recording, on
   return (
     <section aria-label="Bart" className="flex h-full min-w-0 flex-col bg-[#f6f6f6] px-5 pt-2 pb-3">
       <div className="flex h-7 shrink-0 items-center justify-end">
-        {/* And not while the thread is still being read: an empty
-            header that grows a Clear a moment later is the same flash
-            the conversation below stopped having. */}
+        {/* And not while the thread is still being read. The
+            conversation below draws the invitation either way, so a
+            Clear appearing over it a moment later is the only thing on
+            the panel that would say the wait had ever happened — and
+            there is nothing to clear until we know there is. */}
         {session.loaded && !empty && (
           <Button variant="ghost" size="sm" onClick={() => void session.reset()} className="h-7 px-1.5 text-xs font-normal text-muted-foreground/70 hover:text-muted-foreground">Clear</Button>
         )}

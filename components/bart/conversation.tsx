@@ -29,27 +29,26 @@ export function BartConversation({ session, repo, labelRef, onOpenRef, compact =
   // first draws a long saved thread was free to reach the screen at the
   // top of the conversation and jump to the latest answer a frame later.
   useLayoutEffect(() => { bottom.current?.scrollIntoView({ block: "end" }); }, [session.messages.length, session.pending?.text.length, session.pending?.tools.length]);
-  // Three states, not two. There is nothing to show either because the
-  // thread has not come back yet or because there is genuinely nothing
-  // in it, and only the second of them is an empty state: the first is a
-  // wait. Drawn as one, opening Bart on a saved conversation put the
-  // mark and "What are you trying to understand?" on the screen for as
-  // long as the round trip took, and then replaced them with the
-  // conversation that had been there all along.
+  // Two states, not three. There is nothing to show either because the
+  // thread has not come back yet or because there is genuinely nothing in
+  // it, and both are drawn the same way: the mark and the invitation.
+  //
+  // They were split for a while, and the wait said "Loading the
+  // conversation…" instead. The argument for that was honesty — opening
+  // Bart on a saved conversation shows the invitation for the length of
+  // the round trip and then replaces it with the thread that was there
+  // all along — and the argument against is what the two actually look
+  // like. A line of grey text is a worse first frame than the panel's own
+  // face, and it is the frame every fresh repository gets, where there is
+  // no thread to come back at all. The invitation is right more often
+  // than it is wrong, so it is what is drawn while we find out.
   const idle = session.messages.length === 0 && !session.pending;
-  const loading = idle && !session.loaded;
-  const empty = idle && session.loaded;
   return (
     // The viewport's child is stretched only to centre the empty state.
     // With messages in it that height would cap the content box, so the
     // wheel finds nothing to scroll in a short window.
-    <ScrollArea className={cn("min-h-0 flex-1", (empty || loading) && "[&>[data-slot=scroll-area-viewport]>div]:h-full")}>
-      {loading ? (
-        // The wait, and nothing else on the screen to be taken back.
-        <div className={cn("flex h-full min-h-full flex-col items-center justify-center text-center", compact ? "px-4 py-6" : "px-3 py-6")}>
-          <p className="text-xs text-muted-foreground/70">Loading the conversation…</p>
-        </div>
-      ) : empty ? (
+    <ScrollArea className={cn("min-h-0 flex-1", idle && "[&>[data-slot=scroll-area-viewport]>div]:h-full")}>
+      {idle ? (
         compact ? (
           <div className="flex h-full min-h-full flex-col items-center justify-center px-4 py-6 text-center">
             <p className="max-w-[260px] text-[13px] leading-relaxed text-muted-foreground">
