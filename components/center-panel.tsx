@@ -2,38 +2,80 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { usePanelRef } from "react-resizable-panels";
-import { ArrowLeftToLine, PanelRight, X } from "lucide-react";
+import { PanelRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { MIDDLE_TABS, PANEL_TABS, TAB_LABEL, type MiddleTab, type PanelTab } from "@/lib/workspace-slots";
 
-// A tab sent to the side: shown in the right panel, where it shares the
-// tab bar with Bart, with a way back to the middle and a way to close it.
-export type SideSlot = { title: string; content: ReactNode; onToMiddle: () => void; onClose: () => void };
+// One array, so "nothing is mounted" compares equal to itself and the
+// state below settles in one more render rather than every render.
+const NONE: string[] = [];
 
 type CenterPanelProps = {
   tabs: ReactNode;
+  // The middle with a repository open: every surface, and which one is in
+  // front. Without one — a paper, the project — there is nothing to keep
+  // and `children` is rendered instead.
+  middle?: Record<MiddleTab, ReactNode> | null;
+  middleTab?: MiddleTab;
   children: ReactNode;
-  side: SideSlot | null;
-  bart: ReactNode;                              // the conversation, at full size
-  bartFocus: { key: number; surface: string };  // bumped when something asks for the Bart tab
+  panes: Record<PanelTab, ReactNode>;   // Bart, the Visualizer, Replay, Activity
+  tab: PanelTab;                        // which of them is in front
+  onTabChange: (tab: PanelTab) => void;
+  focus: number;                        // bumped when something asks for a pane; opens the panel
+  repoId: string | null;                // a different repository is a different shell
 };
+
+// Middle surfaces that wait to be asked for.
+//
+// Only Setup, and only because of the shell inside it: mounting
+// SandboxShell opens a shell in the sandbox, and opening a repository is
+// not asking for one. Unmounting it closes the stream and the server
+// kills the PTY when the stream goes
+// (app/api/runs/[runId]/terminal/route.ts) — there is no reconnect and
+// no scrollback to restore — so once it has been asked for it stays.
+const KEPT: MiddleTab[] = ["setup"];
+
+// And the rest, which are there from the moment a repository is opened.
+//
+// They used to mount when their tab was first pressed, so opening a
+// repository and pressing Code began the fetch of the file tree, and
+// pressing Live preview began loading the application's page — each of
+// them a wait that started when somebody asked to see the thing they
+// were waiting for. There is nothing to be gained by that order: the
+// README is already fetched when a repository reaches the middle
+// (components/app-shell.tsx), and the other two want the same head start.
+//
+// Mounting the preview does not turn anything on. rrweb capture is gated
+// on a recording being open (`useCapture`, components/repo-workspace.tsx)
+// and a recording is started by hand, so nothing is recorded that was
+// not recorded before. What does move earlier is the interface survey,
+// which asks what the page is once it is up — it was going to be asked
+// the moment anybody opened the tab, and it is asked once and cached.
+const EAGER: MiddleTab[] = MIDDLE_TABS.filter((t) => !KEPT.includes(t));
 
 // Stable shell for the center: tab bar slot on top, then two bordered
 // cards, the middle and the right panel, with the same gap between them
 // as beside the sidebar. The resize handle is that gap.
 //
-// The right panel holds two tabs: Bart, which is always there, and
-// whichever tab was sent over from the middle. One shows at a time, so
-// the conversation gets the whole column rather than sitting squeezed
-// under something else. It stays mounted while the project/repo context
-// changes, and the session lives above it, so switching tabs here never
-// resets what was said.
-export function CenterPanel({ tabs, children, side, bart, bartFocus }: CenterPanelProps) {
+// The right panel holds the companion tools — Bart, the Terminal,
+// Activity, the Visualizer and Replay — and holds them for good. One
+// shows at a time, but the ones behind are not unmounted, only hidden,
+// because most of them lose something real when their subtree goes: the
+// shell is killed with it (components/sandbox-shell.tsx), the Visualizer
+// would come back having forgotten its camera and its selection, and the
+// replay would come back at the start with its stream to fetch again.
+//
+// Hidden is `display: none`, which is safe for both of them and was
+// measured rather than assumed: React Flow declines to measure a
+// container that fails `checkVisibility()` and keeps the last size it
+// had, and xterm's fit addon does nothing on a box of no size, so cols,
+// rows and scrollback all survive the round trip.
+export function CenterPanel({ tabs, middle, middleTab, children, panes, tab, onTabChange, focus, repoId }: CenterPanelProps) {
   const column = usePanelRef();
   const [open, setOpen] = useState(true);
-  const [active, setActive] = useState<"bart" | "side">("bart");
-  const hasSide = !!side;
+
 
   // The panel starts open. The layout can settle collapsed after
   // hydration, so expand it once on mount rather than trusting
@@ -42,18 +84,36 @@ export function CenterPanel({ tabs, children, side, bart, bartFocus }: CenterPan
     if (column.current?.isCollapsed()) column.current.expand();
   }, [column]);
 
-  // A tab arriving on the side is what you asked to see, so it comes to
-  // the front; when it leaves, Bart has the panel to itself again.
-  useEffect(() => { setActive(hasSide ? "side" : "bart"); }, [hasSide]);
-
-  // "Open the Bart tab", from the small panel over the trace canvas.
+  // Something asked for a pane — "Open trace", "Open the terminal", a
+  // reference in one of Bart's answers. Choosing it is the caller's job;
+  // making it visible is this one's.
   useEffect(() => {
-    if (!bartFocus.key || bartFocus.surface !== "tab") return;
-    setActive("bart");
+    if (!focus) return;
     if (column.current?.isCollapsed()) column.current.expand();
-  }, [bartFocus, column]);
+  }, [focus, column]);
 
-  const showing = hasSide && active === "side" ? "side" : "bart";
+  // With no repository open there is no shell and no trace, so the panel
+  // falls back to the one pane that is always there rather than showing
+  // an empty column.
+  const showing = panes[tab] ? tab : "bart";
+
+  // A pane is mounted the first time it is shown and never unmounted
+  // until the repository changes. Not all three at once: mounting the
+  // Terminal opens a shell in the sandbox, and opening a repository is
+  // not asking for one. Keyed off what is actually shown rather than off
+  // what was asked for, so the fallback above cannot leave the panel
+  // holding a pane it is not drawing and nothing else.
+  //
+  // Nothing new is mounted while the panel is closed. A first mount
+  // inside a `hidden` subtree has no box to measure, and the terminal
+  // asks the sandbox for a shell the size it thinks it is: it would open
+  // one at xterm's default 80x24 and then have no way to correct it,
+  // because the PTY does not exist yet when the correction is due. The
+  // ones already mounted stay, which is the whole point of not swapping
+  // this section for the rail.
+  const mounted = useKept<PanelTab>(showing, open, repoId);
+  // The same rule for the middle, over the one surface that needs it.
+  const keptMiddle = useKept<MiddleTab>(middleTab && KEPT.includes(middleTab) ? middleTab : null, true, repoId);
   const toggle = () => (open ? column.current?.collapse() : column.current?.expand());
 
   return (
@@ -62,52 +122,73 @@ export function CenterPanel({ tabs, children, side, bart, bartFocus }: CenterPan
       <div className="mt-5 flex min-h-0 flex-1">
         <ResizablePanelGroup orientation="horizontal" id="engelbart-workspace">
           <ResizablePanel defaultSize="65" minSize="35">
-            <div className="h-full overflow-hidden rounded-lg border">{children}</div>
+            <div className="h-full overflow-hidden rounded-lg border">
+              {middle && middleTab ? (
+                <>
+                  {/* Every surface in its own keyed slot, which it never
+                      leaves, so moving between tabs is a class change
+                      rather than a mount. The eager ones are here from
+                      the start; Setup joins them the first time it is
+                      asked for. */}
+                  {[...EAGER, ...keptMiddle].map((t) => (
+                    <div key={t} className={t === middleTab ? "h-full" : "hidden"}>{middle[t]}</div>
+                  ))}
+                </>
+              ) : children}
+            </div>
           </ResizablePanel>
           <ResizableHandle className="w-6 bg-transparent" />
           <ResizablePanel
             panelRef={column}
             defaultSize="35"
-            minSize="25"
+            // Four tab names measure 241px and the header needs about 289
+            // with the close button and its padding; 25% of an ordinary
+            // workspace row is around 283, which is just short. 28 is the
+            // first that clears it. Measured, not guessed — it was 32 when
+            // the Terminal made five — and the row below scrolls anyway if
+            // a narrow window makes even this too little.
+            minSize="28"
             maxSize="55"
             collapsible
             collapsedSize="4"
             onResize={() => setOpen(!column.current?.isCollapsed())}
           >
+            {/* The shell is white and each tool brings its own surface.
+                Bart's is a shade of grey, because a conversation is a
+                different kind of thing from the three tools beside it:
+                the Visualizer, Replay and Activity are evidence about the
+                run, and evidence is read on paper. */}
             <div className="h-full overflow-hidden rounded-lg border bg-background">
-              {open ? (
-                <section aria-label="Bart and the tab on the side" className="flex h-full min-w-0 flex-col">
-                  <header className="flex h-9 shrink-0 items-center gap-1 border-b pr-1.5 pl-2.5">
-                    <div role="tablist" aria-label="Right panel" className="flex min-w-0 items-center gap-0.5">
-                      <PanelTab active={showing === "bart"} onSelect={() => setActive("bart")}>Bart</PanelTab>
-                      {side && <PanelTab active={showing === "side"} onSelect={() => setActive("side")}>{side.title}</PanelTab>}
-                    </div>
-                    <span className="ml-auto" />
-                    {side && showing === "side" && (
-                      <>
-                        <Button variant="ghost" size="icon" aria-label="Move to the middle" title="Move to the middle" onClick={side.onToMiddle} className="size-7 text-muted-foreground">
-                          <ArrowLeftToLine className="size-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" aria-label="Close" title="Close; the tab stays in the middle bar" onClick={side.onClose} className="size-7 text-muted-foreground">
-                          <X className="size-4" />
-                        </Button>
-                      </>
-                    )}
-                    <Button variant="ghost" size="icon" aria-label="Close the panel" title="Close the panel" onClick={toggle} className="size-7 text-muted-foreground">
-                      <PanelRight className="size-4" />
-                    </Button>
-                  </header>
-                  {/* Only the tab in front is mounted. A hidden panel
-                      measures zero, and the trace canvas reads its own
-                      size to keep the camera; it would come back to a
-                      viewport computed against nothing. Tabs that cost a
-                      reload to remount cannot be sent here at all
-                      (lib/workspace-slots). */}
-                  <div className="min-h-0 flex-1">{showing === "side" && side ? side.content : bart}</div>
-                </section>
-              ) : (
+              {/* Hidden rather than swapped out when the panel is closed,
+                  for the same reason the panes behind are: collapsing the
+                  column used to kill the shell running in it. */}
+              <section aria-label="Companion tools" className={open ? "flex h-full min-w-0 flex-col" : "hidden"}>
+                {/* px-2.5, not pl-2.5 pr-1.5: the row was inset 10px on
+                    the left and 6px on the right, so the collapse icon sat
+                    nearer its edge than the first tab sat to its own. */}
+                <header className="flex h-9 shrink-0 items-center gap-1 border-b px-2.5">
+                  {/* Only the panes there is something to show in. With
+                      no repository open there is no shell, no graph and
+                      nothing to replay, and a tab that answers a click
+                      with nothing at all is worse than no tab. */}
+                  <div role="tablist" aria-label="Right panel" className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {PANEL_TABS.filter((t) => panes[t]).map((t) => (
+                      <PanelTabButton key={t} active={showing === t} onSelect={() => onTabChange(t)}>{TAB_LABEL[t]}</PanelTabButton>
+                    ))}
+                  </div>
+                  <Button variant="ghost" size="icon" aria-label="Close the panel" title="Close the panel" onClick={toggle} className="ml-auto size-7 text-muted-foreground">
+                    <PanelRight className="size-4" />
+                  </Button>
+                </header>
+                <div className="flex min-h-0 flex-1 flex-col">
+                  {mounted.map((t) => (
+                    <div key={t} className={t === showing ? "flex min-h-0 flex-1 flex-col" : "hidden"}>{panes[t]}</div>
+                  ))}
+                </div>
+              </section>
+              {!open && (
                 <aside className="flex h-full flex-col items-center bg-[#f6f6f6] pt-4">
-                  <Button variant="ghost" size="icon" aria-label="Open the panel" title="Open Bart" onClick={toggle} className="size-7 text-muted-foreground">
+                  <Button variant="ghost" size="icon" aria-label="Open the panel" title={`Open ${TAB_LABEL[showing]}`} onClick={toggle} className="size-7 text-muted-foreground">
                     <PanelRight className="size-4" />
                   </Button>
                 </aside>
@@ -120,7 +201,24 @@ export function CenterPanel({ tabs, children, side, bart, bartFocus }: CenterPan
   );
 }
 
-function PanelTab({ active, onSelect, children }: { active: boolean; onSelect: () => void; children: ReactNode }) {
+// Which surfaces of a bar are in the tree: every one that has been shown
+// since this repository was opened, in the order they were first shown.
+// Append-only, because the point is that nothing ever leaves; reset the
+// moment the repository changes, because a different repository is a
+// different sandbox and a different shell.
+//
+// `NONE` is a module singleton so the empty list is identity-equal to
+// itself — without it the render-phase write below would fire every
+// render and never settle.
+function useKept<T extends string>(showing: T | null, active: boolean, repoId: string | null): T[] {
+  const [seen, setSeen] = useState<{ repo: string | null; tabs: string[] }>({ repo: repoId, tabs: NONE });
+  const before = seen.repo === repoId ? seen.tabs : NONE;
+  const mounted = active && showing && !before.includes(showing) ? [...before, showing] : before;
+  if (seen.repo !== repoId || mounted !== seen.tabs) setSeen({ repo: repoId, tabs: mounted });
+  return mounted as T[];
+}
+
+function PanelTabButton({ active, onSelect, children }: { active: boolean; onSelect: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
@@ -128,7 +226,7 @@ function PanelTab({ active, onSelect, children }: { active: boolean; onSelect: (
       aria-selected={active}
       onClick={onSelect}
       className={cn(
-        "min-w-0 truncate rounded-md px-2 py-1 text-[13px]",
+        "shrink-0 rounded-md px-2 py-1 text-[13px]",
         active ? "bg-background font-semibold text-foreground shadow-sm" : "font-normal text-muted-foreground hover:text-foreground",
       )}
     >

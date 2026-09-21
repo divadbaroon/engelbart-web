@@ -1,31 +1,28 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import dynamic from "next/dynamic";
-import { RotateCw } from "lucide-react";
+import { Play, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Repo } from "@/lib/repos";
-import type { Goal } from "@/lib/plan";
-import { RunLog } from "@/components/run-log";
 import { RunTimeline } from "@/components/run-timeline";
-import { formatDay } from "@/lib/run-steps";
+import { formatDay, runSteps, type StepId } from "@/lib/run-steps";
 import { getSharedTrail, type SharedTrail } from "@/app/workspace/[workspaceId]/trail-actions";
-import { Input } from "@/components/ui/input";
-import { environmentFromEvents, isRunActive, isRunCloned, isRunRunning, isRunUsable, isSandboxLive, STATUS_LABEL, terminalLines, type PreviewService, type SandboxEvent, type SandboxRun } from "@/lib/sandbox";
+import { environmentFromEvents, isRunActive, isRunCloned, isRunRunning, isRunUsable, isSandboxLive, plainError, STATUS_LABEL, type PreviewService, type SandboxEvent, type SandboxRun } from "@/lib/sandbox";
 import { Button } from "@/components/ui/button";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { CUBES, PreviewState } from "@/components/preview-state";
 import { Markdown } from "@/components/markdown";
 import { CodeBrowser, type CodeOpen } from "@/components/code-browser";
-import { NotesPad } from "@/components/notes-pad";
-import { EnvPanel } from "@/components/env-panel";
+import { SetupPanel, type SetupTab } from "@/components/setup-panel";
 import { PatchView } from "@/components/patch-view";
 import { patchFromEvents, type RepoPatch } from "@/lib/patch";
-import { BehaviorTrace, type CanvasMark, type TraceRecordings } from "@/components/trace/behavior-trace";
-import type { RunHistory } from "@/hooks/use-run-history";
+import { BehaviorTrace, type CanvasMark } from "@/components/trace/behavior-trace";
+import { ActivityPanel } from "@/components/trace/activity-panel";
+import { AnnotationsPanel } from "@/components/trace/annotations-panel";
+import { ReplayPanel, type ReplayClock, type TraceRecordings } from "@/components/trace/replay-panel";
+import type { RunScope } from "@/components/trace/run-header";
 import { RecordButton, RecordingSaved } from "@/components/trace/record-control";
-import { ReplaySurface } from "@/components/trace/replay-surface";
 import { useCapture } from "@/hooks/use-capture";
-import { REPLAYS_BUCKET, replayStoragePath, type Recording } from "@/lib/trace/recording";
+import { REPLAYS_BUCKET, replayStoragePath } from "@/lib/trace/recording";
 import { clockOffset, type StoredReplay } from "@/lib/trace/replay";
 import { createClient } from "@/lib/supabase/client";
 import { AnnotateControl } from "@/components/annotate/control";
@@ -36,39 +33,38 @@ import { useSurvey } from "@/hooks/use-survey";
 import type { Semantics } from "@/hooks/use-semantics";
 import { sayWhy } from "@/lib/annotations/probe";
 import type { Annotations } from "@/hooks/use-annotations";
-import { LiveStrip } from "@/components/trace/live-strip";
 import type { TraceView } from "@/hooks/use-trace-view";
-import { selectedStage, type Selection } from "@/lib/trace/selection";
-import type { Stage } from "@/lib/trace/timeline";
+import type { Selection } from "@/lib/trace/selection";
 
-// xterm touches the DOM as soon as it loads.
-const SandboxShell = dynamic(() => import("@/components/sandbox-shell"), { ssr: false });
-
-import { RepoTabs, TAB_LIST, TAB_TRIGGER, type RepoTab } from "@/components/repo-tabs";
-export { RepoTabs, TAB_LIST, TAB_TRIGGER, type RepoTab };
+import type { Surface } from "@/lib/workspace-slots";
+import { RepoTabs, TAB_LIST, TAB_TRIGGER, type MiddleTab } from "@/components/repo-tabs";
+export { RepoTabs, TAB_LIST, TAB_TRIGGER, type MiddleTab };
 
 // `readme` is undefined while it loads, null when the repo has none GitHub can serve.
 type RunControls = {
   onPrepare: () => void;                 // clone into a fresh sandbox and start
-  onPrepareFresh: () => void;            // the same, ignoring any saved trail
+  onRelaunch: () => void;                // start the application again in the sandbox this run is already in
+  onPrepareFresh: () => void;            // the same, ignoring any saved command list
   onLaunch: (runId: string) => void;     // start the app in an existing cloned sandbox
   onStop: (runId: string) => void | Promise<void>;   // kill the sandbox
-  onOpenEnvironment: () => void;         // switch to the Environment tab
-  onOpenTerminal: () => void;            // switch to the Terminal tab, where the shell is
+  onOpenBuild: () => void;               // show Setup's Build, where the run is put together
+  onOpenTerminal: () => void;            // show Setup's Terminal, the shell in the sandbox
+  // Show Logs, cut to what one step printed. The steps already slice the
+  // log, so this carries a filter and never a copy.
+  onOpenLogs: (step: StepId | null) => void;
   onRunWithoutPatch: () => void;         // drop the repair agent's edits and prepare again
-  onSaveHint: (hint: string) => Promise<void>;   // keep the person's line about what to run
 };
 
 type RepoContentProps = RunControls & {
+  // Which section of Setup to show, held in the shell so the Live
+  // preview's "Add the values" can ask for the Environment by name.
+  setup: { section: SetupTab; onSection: (section: SetupTab) => void; logStep: StepId | null; onLogStep: (step: StepId | null) => void };
   repo: Repo;
-  tab: RepoTab;
+  tab: Surface;
   run: SandboxRun | undefined;
   events: SandboxEvent[];
   error: string | undefined;
   readme: string | null | undefined;
-  // Notes belong to the goal selected in Plan, the same as on the project tabs.
-  notesGoal: Goal | null;
-  onNotesSaved: (goalId: string, notes: string, updatedAt: string) => void;
   // Bumped each time a file is saved into the sandbox; the preview reloads on it.
   previewVersion: number;
   onFileSaved: () => void;
@@ -79,45 +75,31 @@ type RepoContentProps = RunControls & {
   onSelect: (selection: Selection, options?: { detail?: boolean }) => void;
   onDetail: (open: boolean) => void;
   onAskBart: () => void;
-  onOpenTrace: () => void;               // switch to the Trace tab
-  onOpenPreview: () => void;             // and back to the Live preview
+  onOpenTrace: () => void;               // bring the Visualizer to the front of the right panel
   codeOpen: CodeOpen | null;             // a file a Bart answer pointed at
-  slot: "middle" | "side";               // where this content is shown
-  traceAside: boolean;                   // the trace is on the side: no "Open trace", no way back
-  scopedTrace: TraceView;                // what the Trace tab shows: the run, or the open recording's slice of it
-  recording: TraceRecordings;            // the run's recordings, the Record button's state, where the Trace tab is
-  history: RunHistory;                   // which run of this repository the Trace tab is reading
-  canvasMark: CanvasMark;                // where the Trace tab's canvas starts from, when a clean one was asked for
+  scopedTrace: TraceView;                // what Activity and the Visualizer show: the run, or the open recording's slice of it
+  recording: TraceRecordings;            // the run's recordings, and the one open in Replay
+  replayClock: ReplayClock;              // the two clocks, and where the playhead is being sent
+  scope: RunScope;                       // which run these three are reading, and how much of it
+  onOpenMoment: (stageId: string, episodeId: string) => void;   // from an Activity episode into the Visualizer
+  canvasMark: CanvasMark;                // where the Visualizer's canvas starts from, when a clean one was asked for
   annotations: Annotations;              // the notes written on this repository's interface
-  onAskAboutAnnotation: (id: string) => void;   // ask Bart about one of them
+  onAskAboutAnnotation: (id: string) => void;
+  onShowAnnotation: (id: string) => void;      // to the Live preview, at the element the note is on   // ask Bart about one of them
   semantics: Semantics;                         // what the parts of this application's interfaces are for
   traceBart: ReactNode;                  // Bart's small window, floating over the trace canvas
-  // A recording being watched back in place of the running application.
-  // Null is the ordinary case and means the middle is live.
-  replay: ReplayControls | null;
   // Where the Live preview puts its way of stopping a recording, so the
   // Stop buttons on the trace and the recordings list use the same one.
   registerStop: React.RefObject<(() => Promise<void>) | null>;
 };
 
-// Playing a recording back where the preview usually is. The recording
-// being open is what puts the workspace here; there is no second flag.
-export type ReplayControls = {
-  recording: Recording;
-  offset: number | null;                 // the sandbox clock, less this browser's
-  seekTo: { at: string; key: number } | null;
-  onMoment: (at: string) => void;
-  onBackToLive: () => void;
-};
+// The trace's selection callbacks, shared by the preview's strip and the Visualizer.
+export type TraceControls = { trace: TraceView; selection: Selection | null; onSelect: RepoContentProps["onSelect"]; onOpenTrace: () => void; onAskBart: () => void; recording: TraceRecordings; annotations: Annotations; onAskAboutAnnotation: (id: string) => void; semantics: Semantics; registerStop: RepoContentProps["registerStop"] };
 
-// The trace's selection callbacks, shared by the preview's strip and the Trace tab.
-export type TraceControls = { trace: TraceView; selection: Selection | null; onSelect: RepoContentProps["onSelect"]; onOpenTrace: () => void; traceAside: boolean; recording: TraceRecordings; annotations: Annotations; onAskAboutAnnotation: (id: string) => void; semantics: Semantics; replay: ReplayControls | null; registerStop: RepoContentProps["registerStop"] };
-
-export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, onNotesSaved, previewVersion, onFileSaved, trace, selection, detail, onSelect, onDetail, onAskBart, onOpenTrace, onOpenPreview, codeOpen, slot, traceAside, scopedTrace, recording, history, canvasMark, annotations, onAskAboutAnnotation, semantics, traceBart, replay, registerStop, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: RepoContentProps) {
+export function RepoContent({ repo, tab, run, events, error, readme, previewVersion, onFileSaved, trace, selection, detail, onSelect, onDetail, onAskBart, onOpenTrace, codeOpen, scopedTrace, recording, replayClock, scope, onOpenMoment, canvasMark, annotations, onAskAboutAnnotation, onShowAnnotation, semantics, traceBart, registerStop, onPrepare, onRelaunch, onPrepareFresh, onLaunch, onStop, onOpenBuild, onOpenTerminal, onOpenLogs, onRunWithoutPatch, setup }: RepoContentProps) {
   // The environment scan and any repair edits from this run's log if it
   // has them, else the last ones saved on the repository.
   const envReport = (run && environmentFromEvents(events, run.id)) ?? repo.envReport;
-  const lines = useMemo(() => terminalLines(events), [events]);
   const livePatch = run && patchFromEvents(events, run.id);
   const patch: RepoPatch | null = livePatch
     ? {
@@ -128,84 +110,134 @@ export function RepoContent({ repo, tab, run, events, error, readme, notesGoal, 
       }
     : repo.patch;
   if (tab === "code") return <CodeBrowser repo={repo} run={run} onSaved={onFileSaved} open={codeOpen} />;
-  if (tab === "notes") return <NotesPad goal={notesGoal} onSaved={onNotesSaved} />;
-  if (tab === "env") return <EnvPanel repo={repo} run={run} report={envReport} onPrepare={onPrepare} />;
+  if (tab === "setup") {
+    return <SetupPanel repo={repo} run={run} events={events} error={error} report={envReport} rows={trace.rows} watched={!run ? "no-run" : run.trace === "off" ? "untraced" : "traced"} section={setup.section} onSection={setup.onSection} logStep={setup.logStep} onLogStep={setup.onLogStep} onPrepare={onPrepare} onRelaunch={isSandboxLive(run) ? onRelaunch : null} />;
+  }
 
-  // The Live preview and the Trace tab are one branch on purpose. Both
-  // return the same shape -- the preview first, the canvas second -- so
-  // React keeps the iframe's subtree across the switch and the running
-  // application is never reloaded; only the wrapper's class changes.
-  // On the side the trace stands alone: the preview is in the middle.
-  if (tab === "preview" || tab === "trace") {
-    const canvas = tab === "trace" ? <BehaviorTrace repo={repo} run={run} runTrace={trace} trace={scopedTrace} selection={selection} detail={detail} onSelect={onSelect} onDetail={onDetail} onAskBart={onAskBart} slot={slot} onBack={slot === "middle" ? onOpenPreview : null} recordings={recording} history={history} notes={{ annotations, onOpen: (id) => { annotations.focusOn(id); onOpenPreview(); }, onAskBart: onAskAboutAnnotation }} semantics={semantics} canvas={canvasMark} bart={traceBart} /> : null;
-    if (tab === "trace" && slot === "side") return canvas;
-    return (
-      <>
-        <div className={tab === "trace" ? "hidden h-full" : "h-full"}>
-          <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} missing={envReport?.missing ?? []} localError={envReport?.localError ?? null} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, traceAside, recording, annotations, onAskAboutAnnotation, semantics, replay, registerStop }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenEnvironment={onOpenEnvironment} onOpenTerminal={onOpenTerminal} onRunWithoutPatch={onRunWithoutPatch} onSaveHint={onSaveHint} />
-        </div>
-        {canvas}
-      </>
-    );
+  // The three companion tools over one session: what somebody was doing,
+  // what caused what, and what the page looked like while it happened.
+  // One responsibility each, all three reading the same scoped view of
+  // the same run — none of them classifies, lays out or fetches anything
+  // the others do not see. Annotations sits beside them and is not one of
+  // them: notes are the repository's, not the run's.
+  if (tab === "annotations") {
+    return <AnnotationsPanel annotations={annotations} semantics={semantics.index} onOpen={onShowAnnotation} onAskBart={onAskAboutAnnotation} />;
+  }
+  if (tab === "activity") {
+    return <ActivityPanel run={run} trace={scopedTrace} scope={scope} onOpenMoment={onOpenMoment} />;
+  }
+  if (tab === "trace") {
+    return <BehaviorTrace repo={repo} run={run} trace={scopedTrace} selection={selection} detail={detail} onSelect={onSelect} onDetail={onDetail} onAskBart={onAskBart} scope={scope} recordings={recording} canvas={canvasMark} bart={traceBart} />;
+  }
+  if (tab === "replay") {
+    return <ReplayPanel run={run} recordings={recording} clock={replayClock} />;
+  }
+  if (tab === "preview") {
+    return <Preview repo={repo} run={run} error={error} events={events} version={previewVersion} patch={patch} controls={{ trace, selection, onSelect, onOpenTrace, onAskBart, recording, annotations, onAskAboutAnnotation, semantics, registerStop }} onPrepare={onPrepare} onPrepareFresh={onPrepareFresh} onLaunch={onLaunch} onStop={onStop} onOpenBuild={onOpenBuild} onOpenTerminal={onOpenTerminal} onOpenLogs={onOpenLogs} onRunWithoutPatch={onRunWithoutPatch} />;
   }
 
   if (tab === "readme") {
     return (
       <section aria-label="README" className="h-full overflow-y-auto">
         {readme === undefined ? (
-          <p className="p-8 text-[13px] text-muted-foreground">Loading README…</p>
+          <p className="px-10 pt-6 text-[13px] text-muted-foreground">Loading README…</p>
         ) : (
-          <Markdown source={readme ?? `# \n\nNo README could be read from GitHub. It may be missing, or the repository may be private.`} />
+          // The three strings the renderer needs to point a relative
+          // image or link at the repository it was written in, passed
+          // one by one so the memo still holds.
+          <Markdown
+            source={readme ?? `# \n\nNo README could be read from GitHub. It may be missing, or the repository may be private.`}
+            owner={repo.owner}
+            name={repo.name}
+            branch={repo.defaultBranch}
+          />
         )}
       </section>
     );
   }
 
-  // The run's log, and a shell in its sandbox once there is one to open.
-  const log = <RunLog lines={lines} error={error} empty={error ?? (run ? STATUS_LABEL[run.status] : "Open the repository to prepare it in a sandbox.")} />;
-  const body = !run || !isSandboxLive(run) ? log : (
-    <ResizablePanelGroup orientation="vertical" id={`terminal-${repo.id}`} className="h-full">
-      <ResizablePanel defaultSize="55" minSize="15">{log}</ResizablePanel>
-      <ResizableHandle className="h-px bg-border" />
-      <ResizablePanel defaultSize="45" minSize="15">
-        <SandboxShell runId={run.id} />
-      </ResizablePanel>
-    </ResizablePanelGroup>
-  );
-  if (!run) return body;
-  return (
-    <div className="flex h-full flex-col">
-      <RunTimeline run={run} events={events} open={false} className="shrink-0 border-b" />
-      <div className="min-h-0 flex-1">{body}</div>
-    </div>
-  );
+  return null;
 }
 
-type PreviewProps = RunControls & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; events: SandboxEvent[]; version: number; missing: string[]; localError: string | null; patch: RepoPatch | null; controls: TraceControls };
+// The preview never launches again in place: that is the Environment
+// tab's answer to a value saved while a run is up, and it belongs where
+// the values are.
+type PreviewProps = Omit<RunControls, "onRelaunch"> & { repo: Repo; run: SandboxRun | undefined; error: string | undefined; events: SandboxEvent[]; version: number; patch: RepoPatch | null; controls: TraceControls };
 
-function Preview({ repo, run, error, events, version, missing, localError, patch, controls, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenEnvironment, onOpenTerminal, onRunWithoutPatch, onSaveHint }: PreviewProps) {
+function Preview({ repo, run, error, events, version, patch, controls, onPrepare, onPrepareFresh, onLaunch, onStop, onOpenBuild, onOpenTerminal, onOpenLogs, onRunWithoutPatch }: PreviewProps) {
   const [showPatch, setShowPatch] = useState(false);
   if (showPatch && patch) {
     return <PatchView patch={patch} onBack={() => setShowPatch(false)} onRunWithoutPatch={run && isRunActive(run) ? null : () => { setShowPatch(false); onRunWithoutPatch(); }} />;
   }
-  if (run && isRunUsable(run)) return <UsablePreview repo={repo} run={run} events={events} patch={patch} onShowPatch={() => setShowPatch(true)} onOpenTerminal={onOpenTerminal} onStop={onStop} onStartOver={onPrepareFresh} />;
+  if (run && isRunUsable(run)) return <UsablePreview repo={repo} run={run} events={events} patch={patch} onShowPatch={() => setShowPatch(true)} onOpenTerminal={onOpenTerminal} onOpenLogs={onOpenLogs} onStop={onStop} onStartOver={onPrepareFresh} />;
   if (run && isRunRunning(run)) return <RunningPreview repo={repo} run={run} events={events} version={version} patch={patch} controls={controls} onShowPatch={() => setShowPatch(true)} onStop={onStop} onStartOver={onPrepareFresh} />;
-  // A run that is over but was traced still has its trace to open.
-  const traced = run && run.trace !== "off" && controls.trace.stages.length > 0 && !controls.traceAside;
+  // Restart means one thing in every state: throw this attempt away and
+  // put the repository together again. The sandbox has to go first when
+  // there is one, because `prepare` declines outright while a run of the
+  // repository is still active (hooks/use-sandbox-run.ts) — which is
+  // exactly the state somebody restarting from a build that is stuck is
+  // in.
+  const restart = async () => {
+    if (run && (isRunActive(run) || isSandboxLive(run))) await onStop(run.id);
+    onPrepare();
+  };
 
-  const [title, detail, action] = error
-    ? ["Could not prepare " + repo.fullName, error, { label: "Try again", onClick: onPrepare }]
+  // What the build is doing, rather than what state it is in.
+  //
+  // The line under the title used to be `STATUS_LABEL[run.status]`, so a
+  // repository coming up said "Starting kjfeng/cocoa-canvas…" and then,
+  // underneath, "Starting the application…" — the same verb twice, and
+  // nothing about the ten minutes between them. This is the same reading
+  // of the log the Build tab does (`runSteps`), cut to the one step the
+  // run is in: the step's name and the latest line it wrote. Not the
+  // list — printing the whole timeline here is what this pane had before
+  // and what the note below says was taken out on purpose.
+  //
+  // A run with nothing in its log yet has no active step, and falls back
+  // to the status label, which is what is on the screen today.
+  const step = run && isRunActive(run) ? runSteps(run, events, repo.fullName).find((s) => s.state === "active") : undefined;
+  const doing = step?.summary ? `${step.title} · ${step.summary}` : run ? STATUS_LABEL[run.status] : "";
+
+  // The headline, one sentence under it, and the thing to press. One
+  // sentence: while the run is going that sentence is its current step,
+  // so this line is the run, up to date; when it is over it is why. Where
+  // to go next is a button, not a second paragraph saying the same.
+  // Each state as data rather than as markup: the cube, the line saying
+  // where you are, the sentence saying why the pane is empty, and the
+  // thing to press. `PreviewState` draws all of them the same way, so
+  // there is one layout here and not seven.
+  //
+  // Every state carries its own cube, from the approved sheet, matched
+  // to the state the sheet drew it over: sparks while it comes up,
+  // surprised where it did not, eyes closed where it was stopped, and
+  // frowning where there is nothing to reach. A pane that is empty
+  // because something went wrong is still a pane somebody is looking at,
+  // and leaving those bare made the artwork something you only saw on
+  // the two days a repository behaved.
+  const started = { label: "Start", onClick: onPrepare, primary: true, icon: <Play className="size-3 fill-current" /> };
+  // Restart is the way out of a run that is not going to come up, so on
+  // every state that has stopped it is the one thing to do and carries
+  // the weight: a filled button, with Open Build quiet beside it.
+  //
+  // Not while it is still coming up. There the same button would be a
+  // black invitation to throw away a run that is working, so it keeps the
+  // outline and that row has no filled button on it at all — which is
+  // correct, because the thing to do while a build is building is wait.
+  const again = { label: "Restart", onClick: restart, primary: true, icon: <RotateCw className="size-3" /> };
+  const waiting = { ...again, primary: false };
+  const [image, title, detail, action] = error
+    ? [CUBES.failed, "Could not prepare " + repo.fullName, error, again]
     : !run
-      ? ["Not prepared yet", "Open the repository to clone it into a sandbox and start it.", { label: "Prepare", onClick: onPrepare }]
+      ? [CUBES.idle, "Live preview", "Your running project will appear here.", started]
       : isRunActive(run)
-        ? [run.status === "launching" ? `Starting ${repo.fullName}…` : `Preparing ${repo.fullName}…`, STATUS_LABEL[run.status] + " You can keep reading the README meanwhile.", null]
+        ? [CUBES.starting, run.status === "launching" ? `Starting ${repo.fullName}…` : `Preparing ${repo.fullName}…`, doing, waiting]
         : run.status === "no_service"
-          ? ["Nothing to serve in " + repo.fullName, run.error ?? "The pipeline found no web application of its own to run.", { label: "Analyze again", onClick: onPrepare }]
+          ? [CUBES.unavailable, "Nothing to serve in " + repo.fullName, plainError(run.error) || "The pipeline found no web application of its own to run.", again]
         : run.status === "failed"
-          ? ["Could not run " + repo.fullName, run.error ?? "The run failed. See the Terminal for details.", { label: "Try again", onClick: onPrepare }]
+          ? [CUBES.failed, "Could not run " + repo.fullName, plainError(run.error) || "The run failed. See the Terminal for details.", again]
           : isRunCloned(run)
-            ? ["Cloned into a sandbox", "The repository is on disk but the application was never started. Start it to get a preview.", { label: "Run application", onClick: () => onLaunch(run.id) }]
-            : [STATUS_LABEL[run.status], run.error ?? "Prepare the repository again to start over.", { label: "Prepare again", onClick: onPrepare }];
+            ? [CUBES.idle, "Live preview", "Your running project will appear here.", { label: "Start", onClick: () => onLaunch(run.id), primary: true, icon: <Play className="size-3 fill-current" /> }]
+            : [CUBES.stopped, STATUS_LABEL[run.status], plainError(run.error) || "Prepare the repository again to start over.", again];
 
   const patchBox = run?.status === "failed" && patch && (
     <div className="flex max-w-[420px] flex-col items-start gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
@@ -213,74 +245,53 @@ function Preview({ repo, run, error, events, version, missing, localError, patch
       <Button variant="ghost" size="sm" onClick={() => setShowPatch(true)} className="h-7 px-2 font-normal">View the changes</Button>
     </div>
   );
-  const missingBox = run?.status === "failed" && missing.length > 0 && (
-    <div className="flex max-w-[420px] flex-col items-start gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
-      <span>
-        The application started without {missing.length === 1 ? "a value it reads" : `${missing.length} values it reads`}:{" "}
-        <span className="font-mono text-foreground">{missing.join(", ")}</span>.
-      </span>
-      {localError && <span className="text-muted-foreground/80">A local Supabase was tried instead, but: {localError}</span>}
-      <Button variant="ghost" size="sm" onClick={onOpenEnvironment} className="h-7 px-2 font-normal">Add the values</Button>
-    </div>
-  );
+  // A box naming the environment values the run came up without used to
+  // stand here, with a way to the Environment tab. What it named is what
+  // the Environment tab is a list of, and it carries the count on the tab
+  // itself (components/setup-panel.tsx), so this was the same fact
+  // announced on the tab that is trying to show an application.
 
-  // A run that replayed a saved trail can be redone without it: the trail
-  // may be what is wrong, and a fresh analysis that comes up replaces it.
-  const replayed = events.some((e) => e.data?.phase === "trail" && (e.data?.status === "own" || e.data?.status === "shared"));
-  const startOver = replayed && !isRunActive(run) && (
-    <Button variant="ghost" size="sm" onClick={onPrepareFresh} title="Analyze from scratch, ignoring the saved trail" className="shrink-0 font-normal text-muted-foreground">Start over without the trail</Button>
-  );
-
-  // A line for the planner, for repositories with several applications and
-  // no declared entry point. Kept on the repository; used on the next run.
-  const hintField = !(run && isRunActive(run)) && <HintField key={repo.id} hint={repo.hint} onSave={onSaveHint} />;
   const briefBox = run && <BriefBox run={run} />;
 
-  // With a run to show, the steps take the page: where it is, what each
-  // step found, and what to do next at the top.
-  if (run) {
-    return (
-      <section aria-label="Live preview" className="flex h-full flex-col overflow-y-auto">
-        <div className="flex shrink-0 items-start justify-between gap-4 px-[22px] pt-[18px] pb-3.5">
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-[13px] text-foreground">{title}</span>
-            <span className="text-xs leading-normal text-muted-foreground/70">{detail}</span>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {startOver}
-            {traced && <Button variant="ghost" size="sm" onClick={controls.onOpenTrace} className="shrink-0 font-normal text-muted-foreground">Open trace</Button>}
-            {action && <Button variant="outline" size="sm" onClick={action.onClick} className="shrink-0 font-normal">{action.label}</Button>}
-          </div>
-        </div>
-        <RunTimeline run={run} events={events} open className="border-y" />
-        {(patchBox || missingBox || hintField || briefBox) && (
-          <div className="flex flex-col gap-3 px-[22px] py-4">
-            {briefBox}
-            {patchBox}
-            {missingBox}
-            {hintField}
-          </div>
-        )}
-      </section>
-    );
-  }
-
+  // Nothing to preview.
+  //
+  // It used to print the whole step list here — where the run got to,
+  // what each step found, how long each took — which is Setup · Build,
+  // drawn a second time on the tab that is supposed to hold the running
+  // application. Somebody who opens the Live preview is asking one
+  // question. So: what state it is in, one sentence, and three things to
+  // press. While it is building the sentence is the step it is on, which
+  // with the cube above it is the whole of what this tab knows.
   return (
-    <section aria-label="Live preview" className="flex h-full flex-col items-center justify-center gap-1.5 p-6 text-center">
-      <span className="text-[13px] text-muted-foreground">{title}</span>
-      <span className="max-w-[360px] text-xs leading-normal text-muted-foreground/70">{detail}</span>
-      {action && (
-        <Button variant="outline" size="sm" onClick={action.onClick} className="mt-3 font-normal">{action.label}</Button>
+    <PreviewState
+      image={image}
+      title={title}
+      description={detail}
+      /* The same row whatever the run is doing, building included: a
+         build that is stuck is exactly when somebody wants the way out
+         of it.
+
+         Two buttons, not three. "Ask Bart for help" was the third, and
+         Bart is a tab of its own and a button in the corner of the
+         Visualizer; a third way in, on the pane that is trying to show
+         an application, made the row a menu. What is left is the thing
+         to do and the place to see why. */
+      actions={[action, run && { label: "Open Build", onClick: onOpenBuild }]}
+    >
+      {!run && <TrailInsight repo={repo} />}
+      {(briefBox || patchBox) && (
+        <div className="mt-5 flex w-full max-w-[440px] flex-col items-start gap-3 text-left">
+          {briefBox}
+          {patchBox}
+        </div>
       )}
-      <TrailInsight repo={repo} />
-      <div className="mt-4 w-full max-w-[420px] text-left">{hintField}</div>
-    </section>
+    </PreviewState>
   );
 }
 
 // Nothing to serve, but installed and checked: what was set up, and what
 // the person runs next, with the shell one tab over.
-function UsablePreview({ repo, run, events, patch, onShowPatch, onOpenTerminal, onStop, onStartOver }: { repo: Repo; run: SandboxRun; events: SandboxEvent[]; patch: RepoPatch | null; onShowPatch: () => void; onOpenTerminal: () => void; onStop: (runId: string) => void | Promise<void>; onStartOver: () => void }) {
+function UsablePreview({ repo, run, events, patch, onShowPatch, onOpenTerminal, onOpenLogs, onStop, onStartOver }: { repo: Repo; run: SandboxRun; events: SandboxEvent[]; patch: RepoPatch | null; onShowPatch: () => void; onOpenTerminal: () => void; onOpenLogs: (step: StepId | null) => void; onStop: (runId: string) => void | Promise<void>; onStartOver: () => void }) {
   const usage = run.usage;
   const replayed = events.some((e) => e.data?.phase === "trail" && (e.data?.status === "own" || e.data?.status === "shared"));
   return (
@@ -288,15 +299,15 @@ function UsablePreview({ repo, run, events, patch, onShowPatch, onOpenTerminal, 
       <div className="flex shrink-0 items-start justify-between gap-4 px-[22px] pt-[18px] pb-3.5">
         <div className="flex min-w-0 flex-col gap-1">
           <span className="text-[13px] text-foreground">{usage?.blocker ? `Set up, but blocked by ${usage.blocker.kind === "secret" ? "a missing key" : usage.blocker.kind === "service" ? "a missing service" : usage.blocker.kind === "hardware" ? "hardware it needs" : usage.blocker.kind === "data" ? "data it needs" : "the code as published"}: ${repo.fullName}` : `Set up and ready to use: ${repo.fullName}`}</span>
-          <span className="text-xs leading-normal text-muted-foreground/70">{usage?.blocker ? usage.blocker.what : usage?.summary || "No page to show; the repository is installed and its check passed. The shell is in the Terminal tab."}</span>
+          <span className="text-xs leading-normal text-muted-foreground/70">{usage?.blocker ? usage.blocker.what : usage?.summary || "No page to show; the repository is installed and its check passed. The shell is in the Terminal, in the panel on the right."}</span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {replayed && <Button variant="ghost" size="sm" onClick={async () => { await onStop(run.id); onStartOver(); }} title="Analyze and set up from scratch, ignoring the saved trail" className="font-normal text-muted-foreground">Start over</Button>}
+          {replayed && <Button variant="ghost" size="sm" onClick={async () => { await onStop(run.id); onStartOver(); }} title="Analyze and set up from scratch, ignoring the saved command list" className="font-normal text-muted-foreground">Start over</Button>}
           {patch && <Button variant="ghost" size="sm" onClick={onShowPatch} className="font-normal text-muted-foreground">View the edits</Button>}
           <Button variant="outline" size="sm" onClick={onOpenTerminal} className="font-normal">Open the shell</Button>
         </div>
       </div>
-      <RunTimeline run={run} events={events} open={false} className="border-y" />
+      <RunTimeline run={run} events={events} repoName={repo.fullName} open={false} onViewLogs={onOpenLogs} className="border-y" />
       <div className="px-[22px] pt-4"><BriefBox run={run} /></div>
       {usage?.next ? (
         <div className="px-[22px] py-4">
@@ -322,8 +333,14 @@ function UsablePreview({ repo, run, events, patch, onShowPatch, onOpenTerminal, 
 function BriefBox({ run }: { run: SandboxRun }) {
   const brief = run.brief;
   const esc = run.escalation;
-  if (!brief && !esc) return null;
-  const required = (brief?.requires ?? []).filter((r) => !r.optional);
+  // Only when the run read the repository and wrote down what it is for.
+  // It used to open on "How this run went" whenever there was an
+  // escalation and no brief, which is a title standing in for a fact:
+  // the line you fold open a box by has to be the thing the box says,
+  // and a run that has nothing to say about itself does not get a box.
+  // What the escalation did is in the steps, dated.
+  if (!brief) return null;
+  const required = (brief.requires ?? []).filter((r) => !r.optional);
   const path = esc?.path === "repaired" ? "after the repair agent edited the copy"
     : esc?.path === "resolved" ? `after the resolver ${esc.resolver?.status === "plan" ? "corrected the plan" : "confirmed the blocker"}`
     : esc?.path === "setup" ? "set up for use by the setup agent" : "";
@@ -331,53 +348,28 @@ function BriefBox({ run }: { run: SandboxRun }) {
   return (
     <details className="max-w-[640px] rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
       <summary className="cursor-pointer text-foreground">
-        {brief ? brief.purpose.slice(0, 160) : "How this run went"}
-        {brief?.primaryApp?.path ? <span className="text-muted-foreground"> · runs <span className="font-mono">{brief.primaryApp.path}</span> ({brief.primaryApp.confidence} confidence)</span> : null}
+        {brief.purpose.slice(0, 160)}
+        {brief.primaryApp?.path ? <span className="text-muted-foreground"> · runs <span className="font-mono">{brief.primaryApp.path}</span> ({brief.primaryApp.confidence} confidence)</span> : null}
       </summary>
       <div className="mt-2 flex flex-col gap-1.5">
         {required.length > 0 && <span>Needs: {required.map((r) => `${r.name} (${r.kind}, ${r.neededFor})`).join("; ")}.</span>}
-        {brief?.traps?.length ? <span>Traps: {brief.traps.slice(0, 3).join(" · ")}</span> : null}
-        {brief?.examples?.length ? <span>Ready inputs: <span className="font-mono">{brief.examples.slice(0, 4).join(", ")}</span></span> : null}
+        {brief.traps?.length ? <span>Traps: {brief.traps.slice(0, 3).join(" · ")}</span> : null}
+        {brief.examples?.length ? <span>Ready inputs: <span className="font-mono">{brief.examples.slice(0, 4).join(", ")}</span></span> : null}
         {esc?.resolver?.hint && <span>Resolver: {esc.resolver.hint}</span>}
         {esc?.blocker && <span>Blocker ({esc.blocker.kind}): {esc.blocker.what}</span>}
         {(path || cost) && <span className="text-muted-foreground/80">{[path, cost].filter(Boolean).join(" · ")}</span>}
-        {brief && <span className="text-muted-foreground/80">The whole brief is in <span className="font-mono">.engelbart/BRIEF.md</span> in the sandbox.</span>}
+        <span className="text-muted-foreground/80">The whole brief is in <span className="font-mono">.engelbart/BRIEF.md</span> in the sandbox.</span>
       </div>
     </details>
   );
 }
 
-// One line from the person about what to run, such as "serve autogen-studio"
-// for a repository with several applications. Enter saves; empty removes.
-function HintField({ hint, onSave }: { hint: string | null; onSave: (hint: string) => Promise<void> }) {
-  const [draft, setDraft] = useState(hint ?? "");
-  const [saving, setSaving] = useState(false);
-  const dirty = draft.trim() !== (hint ?? "");
-  const save = async () => {
-    if (!dirty || saving) return;
-    setSaving(true);
-    try { await onSave(draft); } finally { setSaving(false); }
-  };
-  return (
-    <div className="flex max-w-[420px] flex-col gap-2 rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs text-muted-foreground">
-      <span>{hint ? "Hint for the planner, used on the next run:" : "Several applications and no clear entry point? Tell the planner what to run."}</span>
-      <div className="flex items-center gap-2">
-        <Input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void save(); } }}
-          placeholder="e.g. serve the autogen-studio app in python/packages/autogen-studio"
-          maxLength={500}
-          className="h-7 bg-background text-xs"
-        />
-        <Button variant="ghost" size="sm" onClick={() => void save()} disabled={!dirty || saving} className="h-7 shrink-0 px-2 font-normal">{saving ? "Saving…" : "Save"}</Button>
-      </div>
-    </div>
-  );
-}
-
-// What preparing will do, before it is done: replay this project's trail,
-// replay one from another project, or analyze from scratch.
+// What preparing will do, before it is done: replay this project's saved
+// command list, replay one from another project, or analyze from scratch.
+//
+// The row this reads is `repo.trail`: the name the database and the
+// pipeline give it. On the screen it is the command list, which is what
+// it holds — see lib/run-steps.ts.
 function TrailInsight({ repo }: { repo: Repo }) {
   const [shared, setShared] = useState<SharedTrail | null | undefined>(undefined);
   useEffect(() => {
@@ -392,8 +384,8 @@ function TrailInsight({ repo }: { repo: Repo }) {
     [`from ${when(t.at)}`, t.commit ? `at ${t.commit.slice(0, 7)}` : "", t.patchFiles ? `${t.patchFiles} patched file${t.patchFiles === 1 ? "" : "s"}` : "no edits needed"].filter(Boolean).join(", ");
 
   let text: string | null = null;
-  if (repo.trail) text = `Known how to run: ${repo.trail.shared ? "a trail first captured in another project" : "this project's trail"} ${describe(repo.trail)}. Preparing replays it, usually within a few minutes.`;
-  else if (shared) text = `Known from another project: a trail ${describe(shared)}. Preparing replays it, usually within a few minutes.`;
+  if (repo.trail) text = `Known how to run: ${repo.trail.shared ? "a command list first captured in another project" : "this project's command list"} ${describe(repo.trail)}. Preparing replays it, usually within a few minutes.`;
+  else if (shared) text = `Known from another project: a command list ${describe(shared)}. Preparing replays it, usually within a few minutes.`;
   else if (shared === null) text = "Not run anywhere yet. Preparing analyzes the repository from scratch; one with a database or missing values can take ten minutes.";
   if (!text) return null;
   return <p className="mt-4 max-w-[420px] rounded-md border bg-[#f6f6f6] px-4 py-3 text-xs leading-relaxed text-muted-foreground">{text}</p>;
@@ -508,34 +500,15 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
     const made = await notes.add({ body, anchor: picker.picked.anchor, recordingId: rec.active?.id ?? null, stageId: controls.selection?.kind === "stage" ? controls.selection.stageId : null, callId: controls.selection?.kind === "call" ? controls.selection.callId : null });
     if (made) picker.dismiss();
   };
-  // A moment chosen in the strip is selected, and the trace opens on it.
-  const pickMoment = (stage: Stage) => {
-    controls.recording.reveal(stage.stage === "call" && stage.callId ? { callId: stage.callId } : { stageId: stage.id });
-    controls.onSelect(stage.stage === "call" && stage.callId ? { kind: "call", callId: stage.callId, jump: { pane: "overview", focus: null } } : { kind: "stage", stageId: stage.id }, { detail: true });
-    controls.onOpenTrace();
-  };
-
-  // A recording open for watching puts the replay here. The live preview
-  // is hidden rather than unmounted: its iframe must keep its key and its
-  // place in the tree, or React remounts it and the running application
-  // reloads — so "Back to live" would come back to a different page than
-  // the one that was left. This is the same arrangement the Trace tab
-  // already uses one level up.
-  const replay = controls.replay;
+  // The preview is the running application and nothing else. A recording
+  // being watched back used to take this place over, which meant the
+  // artifact and the record of it could never be seen at once and the
+  // middle had a second mode nothing in the tab bar admitted to. Replay
+  // is a tool of its own now (components/trace/replay-panel.tsx), so this
+  // is always live.
   return (
-    <>
-    {replay && (
-      <ReplaySurface
-        recording={replay.recording}
-        offset={replay.offset}
-        seekTo={replay.seekTo}
-        onMoment={replay.onMoment}
-        onBackToLive={replay.onBackToLive}
-      />
-    )}
-    <section aria-label="Live preview" className={cn("h-full flex-col", replay ? "hidden" : "flex")} aria-hidden={!!replay}>
+    <section aria-label="Live preview" className="flex h-full flex-col">
       <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3.5 font-mono text-xs text-muted-foreground">
-        <span className={cn("size-1.5 rounded-full", loading && service.embeddable ? "animate-pulse bg-neutral-400" : "bg-green-500")} />
         {services.length > 1 && (
           <div role="tablist" aria-label="Service" className="flex shrink-0 items-center gap-0.5 font-sans">
             {services.map((s) => (
@@ -560,21 +533,34 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
         )}
         <a href={service.previewUrl} target="_blank" rel="noreferrer" className="truncate hover:text-foreground" title="Open in a new tab">{service.previewUrl}</a>
         <span role="status" className="ml-auto shrink-0 font-sans">{!service.embeddable ? "" : loading === "update" ? "Updating…" : loading === "first" ? "Loading…" : ""}</span>
+        {/* Five controls, in the order they are reached for: the one
+            that redraws the page, then the two that make a record of what
+            you are about to do, then the two that end the run — mildest
+            first, so Stop is at the end of the row and nothing sits
+            between it and the edge. Reload leads because it is the one
+            you press without deciding anything: it changes nothing and
+            starts nothing, where the four after it all begin something.
+
+            Two are gone. A Notes button opened a popover listing the
+            notes written on this page, which is a second way to the
+            thing the page is already showing; and a Visualizer button
+            brought a tab forward that is one click away in the panel
+            beside it. Neither did anything the surface it pointed at
+            does not do. */}
         <Button variant="ghost" size="icon" aria-label="Reload preview" title="Reload preview" disabled={!service.embeddable} onClick={reload} className="size-6 text-muted-foreground">
           <RotateCw className={cn("size-3", loading && service.embeddable && "animate-spin")} />
         </Button>
-        {events.some((e) => e.data?.phase === "trail" && (e.data?.status === "own" || e.data?.status === "shared")) && (
-          <Button variant="ghost" size="sm" onClick={async () => { await onStop(run.id); onStartOver(); }} title="Stop, then analyze from scratch ignoring the saved trail" className="h-6 px-2 font-normal text-muted-foreground">Start over</Button>
-        )}
         {/* Reading an earlier run: there is nothing to record. The
             preview is always the live run, and a recording is a window
             over the trace of the run being read. */}
         {traced && <RecordButton active={rec.active} busy={rec.busy || saving} past={controls.recording.past} onStart={() => void rec.start()} onStop={() => void stopRecording()} />}
-        {traced && service.embeddable && <AnnotateControl active={picker.active} count={notes.list.length} onStart={picker.start} onStop={picker.stop} />}
-        {traced && !controls.traceAside && <Button variant="ghost" size="sm" onClick={controls.onOpenTrace} className="h-6 px-2 font-normal text-muted-foreground">Open trace</Button>}
-        <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="h-6 px-2 font-normal text-muted-foreground">Stop</Button>
+        {traced && service.embeddable && <AnnotateControl active={picker.active} onStart={picker.start} onStop={picker.stop} />}
+        {events.some((e) => e.data?.phase === "trail" && (e.data?.status === "own" || e.data?.status === "shared")) && (
+          <Button variant="ghost" size="sm" onClick={async () => { await onStop(run.id); onStartOver(); }} title="Stop, then analyze from scratch ignoring the saved command list" className="h-6 px-2 font-sans font-normal text-muted-foreground">Start over</Button>
+        )}
+        <Button variant="ghost" size="sm" onClick={() => onStop(run.id)} className="h-6 px-2 font-sans font-normal text-muted-foreground">Stop</Button>
       </div>
-      {rec.lastStopped && <RecordingSaved recording={rec.lastStopped} stats={controls.recording.stats(rec.lastStopped)} onOpen={() => { controls.recording.open(rec.lastStopped!.id); rec.dismissStopped(); }} onDismiss={rec.dismissStopped} />}
+      {rec.lastStopped && <RecordingSaved recording={rec.lastStopped} stats={controls.recording.stats(rec.lastStopped)} onOpen={() => { controls.recording.onOpen(rec.lastStopped!.id); rec.dismissStopped(); }} onDismiss={rec.dismissStopped} />}
       {rec.error && <p role="alert" className="shrink-0 border-b px-3 py-1.5 text-xs text-destructive">{rec.error}</p>}
       {notes.error && <p role="alert" className="shrink-0 border-b px-3 py-1.5 text-xs text-destructive">{notes.error}</p>}
       {/* A document with no bridge in it, and frames inside it that could
@@ -590,7 +576,11 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
           {picker.unavailable.length} embedded frame{picker.unavailable.length === 1 ? "" : "s"} cannot be annotated ({picker.unavailable.map((f) => `${f.selectorInParent ?? f.name ?? "frame"}: ${f.reason}`).join(", ")}). The frame itself can be, from the page around it.
         </p>
       )}
-      <RunTimeline run={run} events={events} open={false} className="max-h-[60%] shrink-0 overflow-y-auto border-b" />
+      {/* No build strip here. It stood between the toolbar and the
+          application — the run's state, its URL and how long it had been
+          up — and all three are either in the row above it or in Build,
+          which is a tab. The preview is the running application and the
+          controls over it, and nothing else. */}
       {service.embeddable ? (
         <iframe ref={frame} key={`${service.id}:${reloads}`} src={service.previewUrl} title={`${repo.fullName} ${service.id} preview`} onLoad={() => setLoading(null)} className="min-h-0 w-full flex-1 bg-white" />
       ) : (
@@ -611,12 +601,10 @@ function RunningPreview({ repo, run, events, version, patch, controls, onShowPat
           onClose={() => setOpenNote(null)}
         />
       )}
-      {/* The strip is the trace being read, which is the live run unless
-          an earlier one was chosen in the Trace tab. It keeps showing
-          that run's moments either way — it just stops saying they are
-          arriving now, because they are not. */}
-      {traced && <LiveStrip trace={controls.trace} live={!controls.recording.past} selectedId={selectedStage(controls.trace.stages, controls.selection)?.id ?? null} onPick={pickMoment} onOpenTrace={controls.traceAside ? null : controls.onOpenTrace} />}
+      {/* And no trace strip under it. It named the last moment of the
+          run and offered the Visualizer, which is the tab beside this
+          one; on a run with nothing in it yet it said so, which is a row
+          of the window spent on an absence. The trace is the Visualizer. */}
     </section>
-    </>
   );
 }

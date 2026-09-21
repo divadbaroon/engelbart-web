@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { addSubgoal, findGoal, isDone, patchGoal, type Goal, type Plan } from "@/lib/plan";
-import { createGoal, updateGoal } from "@/app/workspace/[workspaceId]/actions";
-import { addRepo, dropPatch, fetchReadme, removeRepo, setRepoHint } from "@/app/workspace/[workspaceId]/repo-actions";
+import { addRepo, dropPatch, fetchReadme, removeRepo } from "@/app/workspace/[workspaceId]/repo-actions";
 import { usePanelRef } from "react-resizable-panels";
 import { isPaperTab, paperTabValue, type Paper } from "@/lib/papers";
 import { usePapers } from "@/hooks/use-papers";
@@ -16,11 +14,15 @@ import { useRecordings } from "@/hooks/use-recordings";
 import { useRunHistory } from "@/hooks/use-run-history";
 import { useAnnotations } from "@/hooks/use-annotations";
 import { useSemantics } from "@/hooks/use-semantics";
-import { clearMark, hasCanvas, recordingStats, type Recording, type TraceNav, windowOf } from "@/lib/trace/recording";
+import { clearMark, recordingStats, type Recording, windowOf } from "@/lib/trace/recording";
 import { clockOffset, stageAt } from "@/lib/trace/replay";
-import type { CanvasMark, TraceRecordings } from "@/components/trace/behavior-trace";
+import type { CanvasMark } from "@/components/trace/behavior-trace";
+import type { TraceRecordings } from "@/components/trace/replay-panel";
+import type { RunScope } from "@/components/trace/run-header";
 import { useTraceSelection } from "@/hooks/use-trace-selection";
 import { describeSelection, selectedEpisode, selectedStage } from "@/lib/trace/selection";
+import { momentKind } from "@/lib/trace/moments";
+import type { Shown } from "@/lib/activity/graph";
 import type { MessageContext, Ref } from "@/lib/bart/protocol";
 import { askPlaceholder, refLabel, toSelectionRef } from "@/lib/bart/labels";
 import { useBartSession } from "@/hooks/use-bart-session";
@@ -30,16 +32,19 @@ import type { CodeOpen } from "@/components/code-browser";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NavRail, type SidebarMode } from "@/components/nav-rail";
+import { MIN_WIDTH, NAME_FONT, sidebarWidth, widestText } from "@/lib/sidebar-width";
 import { ProjectSidebar } from "@/components/project-sidebar";
 import { CenterPanel } from "@/components/center-panel";
 import { ProjectTabs, ProjectContent } from "@/components/project-workspace";
-import { RepoTabs, RepoContent, type RepoTab } from "@/components/repo-workspace";
-import { chooseTab, closeSide, normalize, sendAside, showTab, sideToMiddle, TAB_LABEL, type Slots } from "@/lib/workspace-slots";
+import { RepoTabs, RepoContent } from "@/components/repo-workspace";
+import type { SetupTab } from "@/components/setup-panel";
+import type { StepId } from "@/lib/run-steps";
+import { isPanelTab, normalize, showTab, type MiddleTab, type PanelTab, type Slots, type Surface } from "@/lib/workspace-slots";
 
 type Center = { kind: "project" } | { kind: "repo"; id: string };
 type RepoStatus = "none" | "preparing" | "cloned" | "ready" | "failed";
 
-type AppShellProps = { projectId: string; plan: Plan; repos: Repo[]; runs: Record<string, SandboxRun>; papers: Paper[] };
+type AppShellProps = { projectId: string; repos: Repo[]; runs: Record<string, SandboxRun>; papers: Paper[] };
 
 // Where the reader was, kept in the browser per project so a refresh lands
 // on the same panel, tab and repository.
@@ -48,32 +53,52 @@ type Remembered = {
   sidebarOpen: boolean;
   center: Center;
   tab: string;
-  repoTabs: Record<string, RepoTab>;
-  sideTabs: Record<string, RepoTab>;   // the tab shown on the side, per repository
+  repoTabs: Record<string, MiddleTab>;
+  panelTabs: Record<string, PanelTab>;   // which of Bart, the Terminal and the Trace is in front, per repository
   openPaperIds: string[];
-  selectedGoalId: string | null;
 };
-const MODES: SidebarMode[] = ["plan", "github", "papers"];
+
+// Written by the version of this file in which the Terminal and the Trace
+// were middle tabs that could be sent to the side, and the Notes tab wrote
+// against a chosen goal. Read on the first load after the change so a
+// remembered layout survives it, and never written again.
+type Legacy = { sideTabs?: Record<string, string> };
+const MODES: SidebarMode[] = ["github", "papers"];
+// No paper open: the project bar has nothing selected, and the middle says
+// what there is to do instead.
+const NO_PAPER = "";
 const rememberKey = (projectId: string) => `engelbart:workspace:${projectId}`;
 
-function readRemembered(projectId: string): Partial<Remembered> | null {
+function readRemembered(projectId: string): (Partial<Remembered> & Legacy) | null {
   try {
     const raw = localStorage.getItem(rememberKey(projectId));
-    return raw ? (JSON.parse(raw) as Partial<Remembered>) : null;
+    return raw ? (JSON.parse(raw) as Partial<Remembered> & Legacy) : null;
   } catch {
     return null;
   }
 }
 
-export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRuns, papers: initialPapers }: AppShellProps) {
+export function AppShell({ projectId, repos: initialRepos, runs: initialRuns, papers: initialPapers }: AppShellProps) {
   const sidebarRef = usePanelRef();
-  const [mode, setMode] = useState<SidebarMode>("plan");
+  const [mode, setMode] = useState<SidebarMode>("github");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const [center, setCenter] = useState<Center>({ kind: "project" });
-  const [tab, setTab] = useState("preview");
-  const [repoTabs, setRepoTabs] = useState<Record<string, RepoTab>>({});
-  const [sideTabs, setSideTabs] = useState<Record<string, RepoTab>>({});
+  // The project bar holds open papers and nothing else now, so its tab is
+  // a paper or it is nothing at all. "preview" and "notes" used to be
+  // possible here and no longer are.
+  const [tab, setTab] = useState(NO_PAPER);
+  const [repoTabs, setRepoTabs] = useState<Record<string, MiddleTab>>({});
+  const [panelTabs, setPanelTabs] = useState<Record<string, PanelTab>>({});
+  // Bumped whenever something asks for one of the panel's tabs, so a
+  // closed panel opens to show what was asked for.
+  const [panelFocus, setPanelFocus] = useState(0);
+  // Which section of Setup is showing. Here rather than in the panel so
+  // that something needing one seen can say which — the Live preview's
+  // "Add the values" means the Environment, not the build steps.
+  const [setupSection, setSetupSection] = useState<SetupTab>("build");
+  // Which step's slice of the log Logs is cut to, or the whole run.
+  const [logStep, setLogStep] = useState<StepId | null>(null);
   const sandbox = useSandboxRuns(initialRuns);
 
   const papers = usePapers(projectId, initialPapers);
@@ -87,12 +112,6 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
     setRepos((rs) => rs.map((r) => (r.id === repoId ? { ...r, patch: null } : r)));
     sandbox.prepare(repoId);
   }
-  // The person's line about what to run, kept on the repository for the planner.
-  async function saveHint(repoId: string, hint: string) {
-    const result = await setRepoHint(repoId, hint);
-    if (!result.ok) return;
-    setRepos((rs) => rs.map((r) => (r.id === repoId ? { ...r, hint: result.hint } : r)));
-  }
   const [repoDraft, setRepoDraft] = useState<string | null>(null);
   const [repoAdding, setRepoAdding] = useState(false);
   const [repoError, setRepoError] = useState<string | null>(null);
@@ -101,12 +120,6 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   const [previewVersions, setPreviewVersions] = useState<Record<string, number>>({});
   const [openPaperIds, setOpenPaperIds] = useState<string[]>([]);
 
-  // The plan: goals from the database, edited in place and written back
-  // through the same functions the CLI uses.
-  const [goals, setGoals] = useState<Goal[]>(plan.goals);
-  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(plan.goals[0]?.id ?? null);
-  const [planError, setPlanError] = useState<string | null>(null);
-  const selectedGoal = selectedGoalId ? findGoal(goals, selectedGoalId) : null;
 
   // Restore the remembered position once, checking each part still exists,
   // then keep the browser's copy current. `restored` is state, set in the
@@ -122,25 +135,42 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
       if (savedCenter?.kind === "repo" && repos.some((r) => r.id === savedCenter.id)) setCenter(savedCenter);
       const openIds = (saved.openPaperIds ?? []).filter((id) => papers.papers.some((p) => p.id === id));
       setOpenPaperIds(openIds);
-      if (saved.tab && (!isPaperTab(saved.tab) || openIds.includes(saved.tab.slice("paper:".length)))) setTab(saved.tab);
-      const middles: Record<string, RepoTab> = {}, sides: Record<string, RepoTab> = {};
+      const paper = saved.tab ?? NO_PAPER;
+      if (isPaperTab(paper) && openIds.includes(paper.slice("paper:".length))) setTab(paper);
+      const middles: Record<string, MiddleTab> = {}, panels: Record<string, PanelTab> = {};
       for (const r of repos) {
-        const slots = normalize(saved.repoTabs?.[r.id], saved.sideTabs?.[r.id]);
-        if (saved.repoTabs?.[r.id] || slots.side) middles[r.id] = slots.middle;
-        if (slots.side) sides[r.id] = slots.side;
+        // The old side slot is read as the panel, which is where the only
+        // thing it ever usefully held — the trace — lives now.
+        const remembered = saved.panelTabs?.[r.id] ?? saved.sideTabs?.[r.id];
+        if (!saved.repoTabs?.[r.id] && !remembered) continue;
+        const slots = normalize(saved.repoTabs?.[r.id], remembered);
+        middles[r.id] = slots.middle;
+        panels[r.id] = slots.panel;
       }
       setRepoTabs(middles);
-      setSideTabs(sides);
-      if (saved.selectedGoalId && findGoal(plan.goals, saved.selectedGoalId)) setSelectedGoalId(saved.selectedGoalId);
+      setPanelTabs(panels);
     }
     setRestored(true);
   }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The sidebar is as wide as the longest repository name and no wider.
+  // Done here rather than as a `defaultSize` because the width depends on
+  // measuring text, which the server cannot do — rendering one number and
+  // hydrating another is a mismatch on the panel's own style attribute.
+  // It runs when the list of names changes, so adding a repository with a
+  // longer name widens the panel to fit it, and never while somebody is
+  // dragging the handle, because that does not change any name.
+  const names = repos.map((r) => r.fullName).join("\n");
+  useEffect(() => {
+    if (sidebarRef.current?.isCollapsed()) return;
+    sidebarRef.current?.resize(sidebarWidth(widestText(names ? names.split("\n") : [], NAME_FONT)));
+  }, [names]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!restored) return;
-    const state: Remembered = { mode, sidebarOpen, center, tab, repoTabs, sideTabs, openPaperIds, selectedGoalId };
+    const state: Remembered = { mode, sidebarOpen, center, tab, repoTabs, panelTabs, openPaperIds };
     try { localStorage.setItem(rememberKey(projectId), JSON.stringify(state)); } catch { /* private mode or full */ }
-  }, [restored, projectId, mode, sidebarOpen, center, tab, repoTabs, sideTabs, openPaperIds, selectedGoalId]);
+  }, [restored, projectId, mode, sidebarOpen, center, tab, repoTabs, panelTabs, openPaperIds]);
 
   // Whatever repository is in the middle needs its README and its run's
   // log, whether it got there by a click or by a restore.
@@ -160,30 +190,6 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
     openPaperIds.forEach((id) => void papers.view(id));
   }, [openPaperIds.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function toggleGoalDone(goal: Goal) {
-    const status = isDone(goal) ? "active" : "completed";
-    setPlanError(null);
-    const result = await updateGoal(goal.id, goal.updatedAt, { status });
-    if (result.ok) {
-      setGoals((gs) => patchGoal(gs, goal.id, { status, updatedAt: result.updatedAt }));
-    } else if (result.conflict && result.current) {
-      const theirs = result.current;
-      setGoals((gs) => patchGoal(gs, goal.id, theirs));
-    } else {
-      setPlanError(result.error);
-    }
-  }
-
-  async function addGoalUnder(parentId: string, title: string) {
-    setPlanError(null);
-    const result = await createGoal(projectId, title, parentId);
-    if (result.ok) setGoals((gs) => addSubgoal(gs, parentId, result.goal));
-    else setPlanError(result.error);
-  }
-
-  const noteSaved = (goalId: string, notes: string, updatedAt: string) =>
-    setGoals((gs) => patchGoal(gs, goalId, { notes, updatedAt }));
-
   // Clicking the active rail icon toggles the sidebar; any other icon switches mode and opens it.
   function select(next: SidebarMode) {
     if (next === mode && sidebarOpen) {
@@ -202,7 +208,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
 
   function closePaper(id: string) {
     setOpenPaperIds((ids) => ids.filter((x) => x !== id));
-    if (tab === paperTabValue(id)) setTab("preview");
+    if (tab === paperTabValue(id)) setTab(NO_PAPER);
   }
 
   // Opening a repo shows its README first and, if it was never run, clones
@@ -262,7 +268,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   }
 
   const repo = center.kind === "repo" ? repos.find((r) => r.id === center.id) : undefined;
-  // Which run of this repository is being read, by the Trace tab, the
+  // Which run of this repository is being read, by the Visualizer, the
   // preview's strip and Bart alike. The newest is the one the
   // workspace opens — and until now the only one it could reach, so a
   // relaunch put the session before it, with its recordings, out of sight
@@ -291,32 +297,56 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   // and the events are an output of it.
   useEffect(() => { profile.offer(trace.events); }, [trace.events, profile.offer]); // eslint-disable-line react-hooks/exhaustive-deps
   const picked = useTraceSelection(run?.id);
-  // The run's recordings, and where the Trace tab is: the whole run, the
-  // list, or one recording, which the tab shows on the same canvas from a
-  // view cut to its window. Bart is told which recording is open.
+  // The run's recordings, and which one is being watched in Replay. That
+  // one recording is also what cuts Activity and the Visualizer down to
+  // its minutes, and what Bart is told is open. It used to be one branch
+  // of a five-way nav inside the Visualizer, which meant "which tool am I
+  // looking at" and "which recording is open" were one value and could
+  // not both be true.
   const recordings = useRecordings(run);
   // The notes written on this repository's interface. They belong to the
   // repository, so they are loaded with it and outlive any one run.
   const annotations = useAnnotations(repo, run);
-  const [traceNav, setTraceNav] = useState<TraceNav>({ kind: "full" });
+  const [openRecordingId, setOpenRecordingId] = useState<string | null>(null);
   // Where the canvas starts from, when the person has asked for a clean
   // one. It is a mark on the clock and nothing else: no row is touched,
   // collection carries on, and the recordings and the notes still hold
   // everything. It belongs to the run, so it survives moving between
   // tabs and goes when the run does.
   const [clearedAt, setClearedAt] = useState<string | null>(null);
+  // Which side of the session the canvas draws. Like the clear above it
+  // this hides rather than deletes — no row is touched, collection
+  // carries on, and Activity, Replay and the export still hold both
+  // sides — and like the clear it belongs to the run, so it survives
+  // moving between tabs and goes when the run does. Not remembered
+  // across sessions for the same reason: opening a run to a graph
+  // missing half its moments, with no memory of having asked for that,
+  // is exactly the mistake the banners exist to prevent.
+  const [shown, setShown] = useState<Shown>("both");
+  // Whether the canvas keeps the newest card in frame as it arrives. On
+  // to start with, because a run in progress puts each new moment off the
+  // right edge and watching one is the reason the tab is open; off the
+  // moment you pan away, because a camera that pulls you back while you
+  // are reading an earlier card is worse than no camera at all. Beside
+  // `shown` and for the same reason: it belongs to the run, and it has to
+  // outlive the canvas being cleared, which remounts it.
+  const [follow, setFollow] = useState(true);
   // Moving to another run starts on the whole trace of it — unless the
   // move was made in order to open one of its recordings, which is what
   // `pendingRecording` carries across. Without it the recording asked for
   // would be set and then immediately cleared by this.
   const pendingRecording = useRef<string | null>(null);
   useEffect(() => {
-    setTraceNav(pendingRecording.current ? { kind: "recording", id: pendingRecording.current } : { kind: "full" });
+    setOpenRecordingId(pendingRecording.current);
     pendingRecording.current = null;
     setClearedAt(null);
+    setShown("both");
+    setFollow(true);
   }, [run?.id]);
-  const openRecording = traceNav.kind === "recording" ? recordings.list.find((r) => r.id === traceNav.id) ?? null : null;
-  useEffect(() => { if (traceNav.kind === "recording" && recordings.loaded && !openRecording) setTraceNav({ kind: "list" }); }, [traceNav.kind, recordings.loaded, openRecording]);
+  const openRecording = openRecordingId ? recordings.list.find((r) => r.id === openRecordingId) ?? null : null;
+  // Deleted, or not this run's after all: the tab goes back to the list
+  // rather than sitting on a recording that is not there.
+  useEffect(() => { if (openRecordingId && recordings.loaded && !openRecording) setOpenRecordingId(null); }, [openRecordingId, recordings.loaded, openRecording]);
   const scopedTrace = useScopedTraceView(trace, openRecording ? windowOf(openRecording) : clearedAt ? { start: clearedAt, end: null } : null);
   // The mark comes from the trace's own clock (clearMark). The selection
   // goes with it: a moment no longer on the canvas should not still be
@@ -328,16 +358,27 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
     picked.clear();
   };
   const showEverything = () => setClearedAt(null);
+  // The same rule as the clear, for the same reason: a moment no longer
+  // on the canvas should not still be what "this" refers to, and the
+  // drawer under the canvas should not be describing a card nobody can
+  // see. Asked of the stage's own kind, so a selection on a call is let
+  // go when the software's side is hidden even though the wait that
+  // replaces it leads back to the same stage — a cleared selection is
+  // recoverable, a ring on an invisible card is not.
+  const chooseShown = (next: Shown) => {
+    setShown(next);
+    const stage = selectedStage(scopedTrace.stages, picked.selection);
+    if (!stage || next === "both") return;
+    if ((momentKind(stage) === "human") !== (next === "person")) picked.clear();
+  };
   const stats = (rec: Recording) => recordingStats(trace.events, Object.values(trace.calls), rec, trace.frames);
   // A moment chosen from outside the open recording (the preview's strip, a
-  // reference in an answer) is shown in the full trace rather than ringed
-  // where it cannot be seen. From the list there is no canvas at all, so a
-  // chosen moment always brings one back — from any of the list views.
+  // reference in an answer) is shown in the whole run rather than ringed
+  // where it cannot be seen.
   const reveal = (target: { stageId?: string; callId?: string }) => {
-    if (!hasCanvas(traceNav)) { setTraceNav({ kind: "full" }); return; }
     if (!openRecording) return;
     const inside = target.stageId ? scopedTrace.stages.some((s) => s.id === target.stageId) : target.callId ? scopedTrace.callRows.has(target.callId) : true;
-    if (!inside) setTraceNav({ kind: "full" });
+    if (!inside) setOpenRecordingId(null);
   };
   // ---- the replay, and keeping it beside the trace
   //
@@ -354,8 +395,8 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   // Where a moment has asked the playhead to go. Keyed, so choosing the
   // same moment twice moves it back there rather than doing nothing.
   const [seekTo, setSeekTo] = useState<{ at: string; key: number } | null>(null);
-  const openRecordingId = openRecording?.id ?? null;
-  useEffect(() => { setSeekTo(null); }, [openRecordingId]);
+  const watching = openRecording?.id ?? null;
+  useEffect(() => { setSeekTo(null); }, [watching]);
   // The playhead names a moment. It only ever selects: it never seeks, or
   // the two would drive each other in a circle.
   const replayMoment = useCallback((at: string) => {
@@ -376,10 +417,16 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   // playhead's own selections do not come back as seeks.
   const chooseMoment: typeof picked.select = useCallback((selection, options) => {
     picked.select(selection, options);
-    if (!openRecording) return;
     const stage = selectedStage(scopedTrace.stages, selection);
+    // A moment chosen from outside — Activity, the preview's strip, a
+    // reference in one of Bart's answers — brings its side back rather
+    // than being ringed where it cannot be seen. The same rule `reveal`
+    // follows for a recording, and the reason the two controls can be
+    // left alone the rest of the time.
+    if (stage && shown !== "both" && (momentKind(stage) === "human") !== (shown === "person")) setShown("both");
+    if (!openRecording) return;
     if (stage) setSeekTo((s) => ({ at: stage.at, key: (s?.key ?? 0) + 1 }));
-  }, [picked, openRecording, scopedTrace.stages]);
+  }, [picked, openRecording, scopedTrace.stages, shown]);
 
   const bart = useBartSession(projectId);
   const [traceBartOpen, setTraceBartOpen] = useState(false);
@@ -403,19 +450,28 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   // "Ask Bart about this" from the trace: open the window over the canvas
   // and put the cursor in it. The moment is already the selection.
   const askBart = () => { setTraceBartOpen(true); bart.ask("mini"); };
-  // Where a repository's tabs are: one in the middle, at most one on the
-  // side (lib/workspace-slots). `show` is for things that need a tab seen
-  // and leave it where it is if it is already on the side.
-  const slotsOf = (id: string): Slots => ({ middle: repoTabs[id] ?? "readme", side: sideTabs[id] ?? null });
+  // Which tab is in front in each of the repository's two bars
+  // (lib/workspace-slots). `show` is for anything that needs a surface
+  // seen: it goes to the bar that owns it and leaves the other alone, and
+  // opens the right-hand panel if what it wants is in there.
+  const slotsOf = (id: string): Slots => ({ middle: repoTabs[id] ?? "readme", panel: panelTabs[id] ?? "bart" });
   const update = (id: string, f: (s: Slots) => Slots) => {
     const next = f(slotsOf(id));
     setRepoTabs((all) => ({ ...all, [id]: next.middle }));
-    setSideTabs((all) => { const n = { ...all }; if (next.side) n[id] = next.side; else delete n[id]; return n; });
+    setPanelTabs((all) => ({ ...all, [id]: next.panel }));
   };
-  const show = (id: string, t: RepoTab) => update(id, (sl) => showTab(sl, t));
-  const sideTab = repo ? sideTabs[repo.id] ?? null : null;
+  const show = (id: string, t: Surface) => {
+    update(id, (sl) => showTab(sl, t));
+    if (isPanelTab(t)) setPanelFocus((n) => n + 1);
+  };
+  // "Ask Bart" from anywhere that is not the small window over the canvas:
+  // the panel's Bart tab, opened and with the cursor in it.
+  const openBart = () => {
+    if (repo) show(repo.id, "bart"); else setPanelFocus((n) => n + 1);
+    bart.ask("tab");
+  };
   // A reference in one of Bart's answers, opened in the middle: a moment or
-  // a call in the Trace tab with the drawer on it, a file in the Code tab,
+  // a call in the Visualizer with the drawer on it, a file in the Code tab,
   // the README.
   const [codeOpen, setCodeOpen] = useState<CodeOpen | null>(null);
   const openRef = (ref: Ref) => {
@@ -481,7 +537,7 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
       onClearSelection={picked.clear}
       onOpenRef={openRef}
       labelRef={labelBartRef}
-      onOpenPanel={() => { setTraceBartOpen(false); bart.ask("tab"); }}
+      onOpenPanel={() => { setTraceBartOpen(false); openBart(); }}
     />
   );
   // How a recording is stopped, registered by the Live preview because the
@@ -489,40 +545,55 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
   // preview, nothing captured — stopping is what it always was.
   const stopWithReplay = useRef<(() => Promise<void>) | null>(null);
   const traceRecordings: TraceRecordings | null = repo ? {
-    recordings, nav: traceNav, onNav: setTraceNav, stats, reveal,
+    recordings, open: openRecording, stats, reveal,
     stop: () => { void (stopWithReplay.current ? stopWithReplay.current() : recordings.stop()); },
     // A recording of an earlier run is read against that run and no
     // other, so opening one is a move: go to the run, then open it there.
     openEarlier: (runId: string, recordingId: string) => {
-      if (runId === run?.id) { setTraceNav({ kind: "recording", id: recordingId }); return; }
+      if (runId === run?.id) { setOpenRecordingId(recordingId); show(repo.id, "replay"); return; }
       pendingRecording.current = recordingId;
       history.view(runId);
+      show(repo.id, "replay");
     },
     past: history.past,
-    // Opening a recording is what puts the workspace into replay: the
-    // middle stops being the running application and plays the recording
-    // back, and the trace moves beside it, cut to the same window. They
-    // are two records of the same minutes and belong next to each other.
-    //
-    // The preview was already pinned to the middle (lib/workspace-slots
-    // STAYS), so this is the ordinary slot algebra and not a special case:
-    // the trace is sent aside exactly as the person could have sent it.
-    open: (id) => { setTraceNav({ kind: "recording", id }); update(repo.id, (sl) => sendAside(chooseTab(sl, "preview"), "trace")); },
+    // Opening a recording plays it, and cuts Activity and the Visualizer
+    // to the same minutes. It used to also take the middle off the
+    // running application, because the replay stood where the preview
+    // did; Replay is its own tool now, so the artifact stays up beside
+    // the record of it.
+    onOpen: (id: string) => { setOpenRecordingId(id); show(repo.id, "replay"); },
+    onClose: () => setOpenRecordingId(null),
   } : null;
-  const traceCanvasMark: CanvasMark = { clearedAt, canClear: trace.events.length > 0, onClear: clearCanvas, onShowEverything: showEverything };
-  // The repository's content for a slot: the same everything, only the tab
-  // and the place differ.
-  const content = (slot: "middle" | "side", t: RepoTab) => repo && traceRecordings && (
+  const traceCanvasMark: CanvasMark = { clearedAt, canClear: trace.events.length > 0, onClear: clearCanvas, onShowEverything: showEverything, shown, onShown: chooseShown, follow, onFollow: setFollow };
+  // Which run Activity and the Visualizer are reading, and whether a
+  // recording has cut them down. One object for both, so the two tools
+  // cannot come to differ about what they are showing.
+  const runScope: RunScope = {
+    history,
+    scopedTo: openRecording,
+    onWholeRun: () => setOpenRecordingId(null),
+  };
+  // The repository's content for one surface: the same everything, only
+  // the tab differs. Which bar it is drawn in is not its business.
+  const content = (t: Surface) => repo && traceRecordings && (
     <RepoContent
-      slot={slot}
-      traceAside={sideTab === "trace"}
       scopedTrace={scopedTrace}
-      history={history}
+      scope={runScope}
       recording={traceRecordings}
+      replayClock={{ offset: replayOffset, seekTo, onMoment: replayMoment }}
+      // With the details, because that is what going to the Visualizer
+      // from a line in Activity is for: the canvas alone would ring a
+      // card and say no more than the line already did.
+      onOpenMoment={(stageId, episodeId) => { chooseMoment({ kind: "stage", stageId, ...(episodeId ? { episodeId } : {}) }, { detail: true }); show(repo.id, "trace"); }}
       canvasMark={traceCanvasMark}
       registerStop={stopWithReplay}
       annotations={annotations}
-      onAskAboutAnnotation={(id) => { setAskedAnnotation(id); bart.ask("tab"); }}
+      onAskAboutAnnotation={(id) => { setAskedAnnotation(id); openBart(); }}
+      // The same two steps a reference to a note in one of Bart's answers
+      // takes: mark it for the page to find, and bring the page forward.
+      // The Live preview is where a note lives; the list only says which
+      // ones there are.
+      onShowAnnotation={(id) => { if (repo) { annotations.focusOn(id); show(repo.id, "preview"); } }}
       semantics={semantics}
       traceBart={traceBart}
       repo={repo}
@@ -531,37 +602,26 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
       events={sandbox.events[sandbox.runs[repo.id]?.id ?? ""] ?? []}
       error={sandbox.errors[repo.id]}
       readme={readmes[repo.id]}
-      notesGoal={selectedGoal}
-      onNotesSaved={noteSaved}
       previewVersion={previewVersions[repo.id] ?? 0}
       onFileSaved={() => setPreviewVersions((v) => ({ ...v, [repo.id]: (v[repo.id] ?? 0) + 1 }))}
       trace={trace}
-      replay={repo && openRecording ? {
-        recording: openRecording,
-        offset: replayOffset,
-        seekTo,
-        onMoment: replayMoment,
-        // Back to live leaves the recording, which is the only thing that
-        // was making the middle not live. The running application was
-        // never unmounted and is underneath.
-        onBackToLive: () => setTraceNav({ kind: "list" }),
-      } : null}
       selection={picked.selection}
       detail={picked.detail}
       onSelect={chooseMoment}
       onDetail={picked.setDetail}
       onAskBart={askBart}
       onOpenTrace={() => show(repo.id, "trace")}
-      onOpenPreview={() => show(repo.id, "preview")}
+      setup={{ section: setupSection, onSection: setSetupSection, logStep, onLogStep: setLogStep }}
       codeOpen={codeOpen}
       onPrepare={() => sandbox.prepare(repo.id)}
+      onRelaunch={() => { if (run) void sandbox.relaunch(run.id, repo.id); }}
       onPrepareFresh={() => sandbox.prepare(repo.id, { fresh: true })}
       onLaunch={(runId) => sandbox.launch(runId, repo.id)}
       onStop={(runId) => sandbox.stop(runId, repo.id)}
-      onOpenEnvironment={() => show(repo.id, "env")}
-      onOpenTerminal={() => show(repo.id, "terminal")}
+      onOpenBuild={() => { setSetupSection("build"); show(repo.id, "setup"); }}
+      onOpenTerminal={() => { setSetupSection("terminal"); show(repo.id, "setup"); }}
+      onOpenLogs={(step) => { setLogStep(step); setSetupSection("logs"); show(repo.id, "setup"); }}
       onRunWithoutPatch={() => void runWithoutPatch(repo.id)}
-      onSaveHint={(hint) => saveHint(repo.id, hint)}
                 />
   );
   const openPapers = openPaperIds.map((id) => papers.papers.find((p) => p.id === id)).filter((p): p is Paper => !!p);
@@ -578,14 +638,13 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
         <ResizablePanelGroup orientation="horizontal" id="engelbart-layout" className="min-h-0 flex-1">
           <ResizablePanel
             panelRef={sidebarRef}
-            defaultSize="18" minSize="12" maxSize="30"
+            defaultSize={MIN_WIDTH} minSize={MIN_WIDTH} maxSize={520}
             collapsible collapsedSize="0"
             onResize={(size) => setSidebarOpen(size.asPercentage > 0)}
           >
             <ProjectSidebar
               mode={mode}
               onCollapse={() => sidebarRef.current?.collapse()}
-              plan={{ goals, selectedId: selectedGoalId, onSelect: setSelectedGoalId, onToggleDone: toggleGoalDone, onAddSubgoal: addGoalUnder, error: planError }}
               papers={{
                 papers: papers.papers, pending: papers.pending, activeId: activePaperId, onOpen: openPaper,
                 onUpload: papers.upload, onAddFromUrl: papers.addFromUrl, onRename: papers.rename, onDismiss: papers.dismiss,
@@ -601,30 +660,50 @@ export function AppShell({ projectId, plan, repos: initialRepos, runs: initialRu
             />
           </ResizablePanel>
           <ResizableHandle />
-          <ResizablePanel defaultSize={82} minSize={40}>
+          {/* No `defaultSize`: the sidebar's is in pixels, and a group whose
+              panels all carry a default lays them out in the ratio of those
+              defaults rather than filling the row — 82 read as 82 pixels put
+              the sidebar over half the window. Left without one, this panel
+              is handed whatever the sidebar did not take, which is what it
+              was always meant to be. */}
+          <ResizablePanel minSize={40}>
             <CenterPanel
-              bart={bartPanel}
-              bartFocus={bart.focus}
-              side={repo && sideTab ? { title: TAB_LABEL[sideTab], content: content("side", sideTab), onToMiddle: () => update(repo.id, sideToMiddle), onClose: () => update(repo.id, closeSide) } : null}
+              panes={{ bart: bartPanel, trace: content("trace"), replay: content("replay"), annotations: content("annotations"), activity: content("activity") }}
+              middle={repo ? { readme: content("readme"), code: content("code"), preview: content("preview"), setup: content("setup") } : null}
+              middleTab={repo ? repoTabs[repo.id] ?? "readme" : undefined}
+              tab={repo ? panelTabs[repo.id] ?? "bart" : "bart"}
+              onTabChange={(t) => { if (repo) setPanelTabs((all) => ({ ...all, [repo.id]: t })); }}
+              focus={panelFocus}
+              repoId={repo?.id ?? null}
               tabs={
                 repo ? (
                   <RepoTabs
-                    repo={repo}
                     tab={repoTabs[repo.id] ?? "readme"}
-                    onTabChange={(t) => update(repo.id, (sl) => chooseTab(sl, t))}
+                    onTabChange={(t) => {
+                      // Setup pressed in the bar opens on the build,
+                      // which is what the tab is opened for. Something
+                      // asking for a particular section — "Add the
+                      // values", a step's logs — sets it and comes
+                      // nowhere near here, so it is not overruled.
+                      if (t === "setup") setSetupSection("build");
+                      setRepoTabs((all) => ({ ...all, [repo.id]: t }));
+                    }}
                     run={sandbox.runs[repo.id]}
-                    onClose={() => setCenter({ kind: "project" })}
-                    sideTab={sideTab}
-                    onSendAside={(t) => update(repo.id, (sl) => sendAside(sl, t))}
                   />
                 ) : (
                   <ProjectTabs tab={tab} onTabChange={setTab} openPapers={openPapers} onClosePaper={closePaper} />
                 )
               }
             >
-              {repo ? content("middle", repoTabs[repo.id] ?? "readme") : (
-                <ProjectContent tab={tab} openPapers={openPapers} paperUrls={papers.urls} notesGoal={selectedGoal} onNotesSaved={noteSaved} />
-              )}
+              <ProjectContent
+                tab={tab}
+                openPapers={openPapers}
+                paperUrls={papers.urls}
+                hasRepos={repos.length > 0}
+                /* The same action the sidebar's "Add repository" row is:
+                   open the draft row, and show the panel it is in. */
+                onAddRepo={() => { setMode("github"); setSidebarOpen(true); setRepoError(null); setRepoDraft(""); }}
+              />
             </CenterPanel>
           </ResizablePanel>
         </ResizablePanelGroup>
