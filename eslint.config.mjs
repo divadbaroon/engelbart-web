@@ -20,6 +20,12 @@ const eslintConfig = [
   // module, and running before the application's first line is the
   // whole mechanism. require() is not a style choice there.
   { files: ["**/*.cjs"], rules: { "@typescript-eslint/no-require-imports": "off" } },
+  // `useBeforePaint` is useLayoutEffect under another name, chosen at
+  // module load so the server gets useEffect and no warning. Named here
+  // so it is still held to the dependency rule: a wrapper the linter has
+  // never heard of is a wrapper whose dependencies nobody checks, and
+  // that is a worse bargain than the warning it was avoiding.
+  { rules: { "react-hooks/exhaustive-deps": ["warn", { additionalHooks: "(useBeforePaint)" }] } },
 ];
 
 export default eslintConfig;

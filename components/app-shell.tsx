@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addRepo, dropPatch, fetchReadme, removeRepo } from "@/app/workspace/[workspaceId]/repo-actions";
 import { usePanelRef } from "react-resizable-panels";
 import { isPaperTab, paperTabValue, type Paper } from "@/lib/papers";
@@ -78,6 +78,23 @@ function readRemembered(projectId: string): (Partial<Remembered> & Legacy) | nul
   }
 }
 
+// Before the paint, not after it.
+//
+// The two effects that use this decide what the first frame should have
+// looked like: the layout somebody left the workspace in, and how wide
+// their longest repository name needs the sidebar to be. Neither can be
+// known on the server — one is in localStorage and the other needs a
+// canvas to measure text — so both are client work, and as passive
+// effects they were client work done a frame late. The workspace opened
+// on the README with a default-width sidebar and then jumped to the tab
+// and the width that were always going to win.
+//
+// A layout effect is flushed before the browser paints, so the jump has
+// nowhere to happen. On the server it falls back to useEffect, which
+// runs never — there is no paint to be early for, and React warns about
+// the other one.
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
 export function AppShell({ projectId, repos: initialRepos, runs: initialRuns, papers: initialPapers }: AppShellProps) {
   const sidebarRef = usePanelRef();
   const [mode, setMode] = useState<SidebarMode>("github");
@@ -126,7 +143,7 @@ export function AppShell({ projectId, repos: initialRepos, runs: initialRuns, pa
   // same batch as the restored values, so the first write already carries
   // them: a ref would let the write effect run first and save the defaults.
   const [restored, setRestored] = useState(false);
-  useEffect(() => {
+  useBeforePaint(() => {
     const saved = readRemembered(projectId);
     if (saved) {
       if (saved.mode && MODES.includes(saved.mode)) setMode(saved.mode);
@@ -161,7 +178,7 @@ export function AppShell({ projectId, repos: initialRepos, runs: initialRuns, pa
   // longer name widens the panel to fit it, and never while somebody is
   // dragging the handle, because that does not change any name.
   const names = repos.map((r) => r.fullName).join("\n");
-  useEffect(() => {
+  useBeforePaint(() => {
     if (sidebarRef.current?.isCollapsed()) return;
     sidebarRef.current?.resize(sidebarWidth(widestText(names ? names.split("\n") : [], NAME_FONT)));
   }, [names]); // eslint-disable-line react-hooks/exhaustive-deps
