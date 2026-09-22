@@ -50,21 +50,12 @@ for (const entry of ["pyproject.toml", "README.md", "src"]) {
 // producing a template that cannot watch an artifact's model calls.
 const trajectory = path.join(here, staged, "src/human_compact/trajectory");
 fs.copyFileSync(path.join(here, "hc/project_instrumentation.py"), path.join(trajectory, "project_instrumentation.py"));
-// Two patches, for two different reasons. The first is the capability
-// door: without it a run cannot watch what the application asks a model.
-// The second asks hc's own planner calls for the CLI's JSON envelope and
-// puts what they cost on the turn they belong to, so a run's cost is the
-// whole run's and not only the supervisor's half of it. Both fail the
-// build rather than the first run: a template that silently lost either
-// produces a record that is wrong rather than missing.
-for (const name of ["hc/project_run.patch", "hc/agent_cost.patch"]) {
-  try {
-    execFileSync("patch", ["-p0", "--no-backup-if-mismatch", "-i", path.join(here, name)], { cwd: trajectory, stdio: "pipe" });
-  } catch (err) {
-    console.error(`sandbox/${name} no longer applies to ${hc}. hc has moved; reconcile the patch before building.`);
-    console.error(String(err.stdout ?? "") + String(err.stderr ?? ""));
-    process.exit(1);
-  }
+try {
+  execFileSync("patch", ["-p0", "--no-backup-if-mismatch", "-i", path.join(here, "hc/project_run.patch")], { cwd: trajectory, stdio: "pipe" });
+} catch (err) {
+  console.error(`sandbox/hc/project_run.patch no longer applies to ${hc}. hc has moved; reconcile the patch before building.`);
+  console.error(String(err.stdout ?? "") + String(err.stderr ?? ""));
+  process.exit(1);
 }
 
 // The pipeline looks for the Supabase CLI under its own home before
@@ -98,10 +89,6 @@ function runner({ docker }) {
     .copy(staged, "/opt/hc", { user: "root" })
     .runCmd("python3 -m pip install --no-cache-dir /opt/hc", { user: "root" })
     .copy("hc_run.py", "/opt/engelbart/hc_run.py", { user: "root" })
-    // Started by the runner the moment the clone lands, a minute before
-    // the wrapper exists; the wrapper then imports it to join what it
-    // started. One file, three readers.
-    .copy("prestart.py", "/opt/engelbart/prestart.py", { user: "root" })
     .copy("proxy.mjs", "/opt/engelbart/proxy.mjs", { user: "root" })
     // The behavior trace: the model gateway the application's model client
     // is pointed at, and the sandbox-only edits some artifacts need for that.
@@ -112,7 +99,7 @@ function runner({ docker }) {
     .copy("visit.mjs", "/opt/engelbart/visit.mjs", { user: "root" })
     .runCmd("cd /opt/engelbart && npm init -y >/dev/null 2>&1 && npm install --no-audit --no-fund playwright@1 && PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright npx playwright install --with-deps chromium && chmod -R a+rX /opt/ms-playwright /opt/engelbart && apt-get clean && rm -rf /var/lib/apt/lists/*", { user: "root" })
     // Fail the build, not the first run, if anything is missing.
-    .runCmd(`node --version && claude --version && railpack --version && bun --version && pnpm --version && uv --version && python3 -c 'import human_compact.trajectory.project_run' && node /opt/engelbart/visit.mjs about:blank 100 | grep -q '"error":null' && ENGELBART_TRACE_TOKEN=check ENGELBART_MODEL_GATEWAY_PORT=0 timeout 10 node /opt/engelbart/trace/model-gateway.mjs 2>/dev/null | head -1 | grep -q '"kind":"gateway.listening"' && ENGELBART_PREVIEW_BIND=127.0.0.1 timeout 10 node /opt/engelbart/trace/preview-gateway.mjs 43199:1 2>/dev/null | head -1 | grep -q '"gateway":"preview"' && node --require /opt/engelbart/trace/preload.cjs -e 'process.exit(process.env.ENGELBART_MODEL_CAPTURE?1:0)' && mkdir -p /tmp/pre && printf '{}' >/tmp/pre/package-lock.json && python3 /opt/engelbart/prestart.py /tmp/pre | grep -q '"started": true' && python3 /opt/engelbart/prestart.py --wait /tmp/pre >/dev/null; python3 /opt/engelbart/prestart.py --status /tmp/pre | grep -q '"status"' && test -x /tmp/pre/.engelbart/install-cancel.sh && printf '{}' >/tmp/pre/pnpm-lock.yaml && python3 /opt/engelbart/prestart.py /tmp/pre | grep -q 'more than one lockfile' && rm -rf /tmp/pre && python3 -c 'import inspect,json;from human_compact.trajectory import project_run as R,project_instrumentation as I;assert "instrumentation" in inspect.signature(R.start).parameters;assert I.wanted({"modelCapture":True})=={"modelCapture"};from human_compact.trajectory import providers as P;assert P._unwrap(json.dumps({"result":"ok","total_cost_usd":0.5}))=="ok" and P.LAST_CALL["cost"]==0.5;assert P._unwrap("plain")=="plain"'${docker ? " && docker --version && docker compose version && supabase --version" : ""}`);
+    .runCmd(`node --version && claude --version && railpack --version && bun --version && pnpm --version && uv --version && python3 -c 'import human_compact.trajectory.project_run' && node /opt/engelbart/visit.mjs about:blank 100 | grep -q '"error":null' && ENGELBART_TRACE_TOKEN=check ENGELBART_MODEL_GATEWAY_PORT=0 timeout 10 node /opt/engelbart/trace/model-gateway.mjs 2>/dev/null | head -1 | grep -q '"kind":"gateway.listening"' && ENGELBART_PREVIEW_BIND=127.0.0.1 timeout 10 node /opt/engelbart/trace/preview-gateway.mjs 43199:1 2>/dev/null | head -1 | grep -q '"gateway":"preview"' && node --require /opt/engelbart/trace/preload.cjs -e 'process.exit(process.env.ENGELBART_MODEL_CAPTURE?1:0)' && python3 -c 'import inspect;from human_compact.trajectory import project_run as R,project_instrumentation as I;assert "instrumentation" in inspect.signature(R.start).parameters;assert I.wanted({"modelCapture":True})=={"modelCapture"}'${docker ? " && docker --version && docker compose version && supabase --version" : ""}`);
 }
 
 // Both templates get the largest sandbox E2B allows. A front-end production

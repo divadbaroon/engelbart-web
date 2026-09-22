@@ -37,7 +37,7 @@ export type RunBrief = {
 // cost.
 export type AgentCost = { rung: string; model: string | null; cost: number | null; turns: number | null; seconds: number | null };
 export type RunEscalation = {
-  path: "direct" | "repaired" | "resolved" | "setup" | "recovered";
+  path: "direct" | "repaired" | "resolved" | "setup";
   resolver?: { status: string; hint?: string; blocker?: RunBlocker; evidence?: string[] } | null;
   blocker?: RunBlocker | null;
   cost: { total: number; items: AgentCost[] };
@@ -62,8 +62,6 @@ export type SandboxRun = {
   template: string;
   commit: string | null;   // what the clone checked out
   fresh: boolean;          // asked to ignore any saved trail
-  variant: string | null;  // how this run may recover from a failed launch; null is the default ladder
-  headStart: boolean | null;   // whether the dependency install began with the clone; null is the default yes
   trace: TraceCapture;     // whether the run is traced, and whether content is kept
   status: RunStatus;
   workdir: string | null;
@@ -96,8 +94,6 @@ export type RunRow = {
   template: string;
   commit_sha: string | null;
   fresh?: boolean;
-  variant?: string | null;
-  head_start?: boolean | null;
   trace?: TraceCapture | null;
   status: RunStatus;
   workdir: string | null;
@@ -123,11 +119,11 @@ export type EventRow = {
   data: Record<string, unknown> | null;
 };
 
-export const RUN_COLUMNS = "id, repo_id, sandbox_id, template, commit_sha, status, workdir, error_kind, error, port, preview_url, services, usage, brief, escalation, started_at, finished_at, fresh, variant, head_start, trace";
+export const RUN_COLUMNS = "id, repo_id, sandbox_id, template, commit_sha, status, workdir, error_kind, error, port, preview_url, services, usage, brief, escalation, started_at, finished_at, fresh, trace";
 export const EVENT_COLUMNS = "id, run_id, seq, at, kind, text, data";
 
 export const toRun = (r: RunRow): SandboxRun => ({
-  id: r.id, repoId: r.repo_id, sandboxId: r.sandbox_id, template: r.template, commit: r.commit_sha, fresh: r.fresh === true, variant: r.variant ?? null, headStart: r.head_start ?? null, trace: r.trace ?? "off", status: r.status, workdir: r.workdir,
+  id: r.id, repoId: r.repo_id, sandboxId: r.sandbox_id, template: r.template, commit: r.commit_sha, fresh: r.fresh === true, trace: r.trace ?? "off", status: r.status, workdir: r.workdir,
   errorKind: r.error_kind, error: r.error, port: r.port, previewUrl: r.preview_url, services: r.services, usage: r.usage ?? null, brief: r.brief ?? null, escalation: r.escalation ?? null, startedAt: r.started_at, finishedAt: r.finished_at,
 });
 

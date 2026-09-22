@@ -10,7 +10,6 @@ missing environment values are skipped.
 import json
 import os
 import re
-import shlex
 import shutil
 import signal
 import subprocess
@@ -50,36 +49,6 @@ REPAIR_BUDGET = float(setting("HC_REPAIR_BUDGET_USD", "6"))
 SETUP_BUDGET = float(setting("HC_SETUP_BUDGET_USD", "8"))
 COSTS = []   # every agent call this run: rung, model, cost, turns, seconds
 
-# How this run recovers when the pipeline cannot start the repository.
-#
-# "ladder" is the four rungs above, each a separate call that reads a
-# summary of the one before it. "session" is one agent session that keeps
-# everything it learned across the whole recovery — it diagnoses, edits,
-# installs, starts things to see what happens, and answers with a launch
-# description the pipeline then performs. Anything unrecognised is the
-# ladder, so a sandbox built before this existed still runs.
-#
-# The budget is for the session as a whole rather than per call: a
-# conversation that keeps its context makes several calls where the ladder
-# made one each, and a per-call cap would simply be multiplied by the
-# rounds. What is left of it is passed to each turn.
-RECOVERY = "session" if setting("HC_RECOVERY", "ladder") == "session" else "ladder"
-RECOVERY_MODEL = setting("HC_RECOVERY_MODEL", "opus")
-RECOVERY_EFFORT = setting("HC_RECOVERY_EFFORT", "high")
-RECOVERY_BUDGET = float(setting("HC_RECOVERY_BUDGET_USD", "12"))
-RECOVERY_ROUNDS = int(setting("HC_RECOVERY_ROUNDS", "3"))
-# When the runner stops watching, as seconds since the epoch, handed in by
-# lib/runtime/e2b.ts. Nothing here invents one: unset means the caller has
-# no deadline to keep (a test, a local drive) and every timeout below is
-# its own fixed one, exactly as it was.
-DEADLINE_AT = float(setting("HC_DEADLINE_AT", "0")) or None
-SAVE_RESERVE_S = 120    # held back from every bound, so there is time to write down what was done
-MIN_ROUND_S = 180       # a round shorter than this cannot read a repository, let alone fix one
-# Fast mode is a Claude Code setting rather than a flag, so it is passed
-# as one. Off unless asked for: it is the thing being compared, not a
-# default, and it prices tokens differently.
-RECOVERY_FAST = setting("HC_RECOVERY_FAST", "") in ("1", "true", "yes", "on")
-
 # --- The behavior trace. When the worker runs a model gateway for the run,
 # the repository's registered sandbox-only instrumentation is applied and
 # the application is handed the gateway's URL under the names the
@@ -103,18 +72,11 @@ PRELOAD = os.environ.get("ENGELBART_PRELOAD") or "/opt/engelbart/trace/preload.c
 CAPTURE_MARKER = "ENGELBART_MODEL_CAPTURE"
 
 
-def agent(rung, prompt, model, budget, tools=None, max_turns=1, timeout=600, cwd=None, schema=None, system=None,
-          session=None, resume=False, effort=None, fast=False):
+def agent(rung, prompt, model, budget, tools=None, max_turns=1, timeout=600, cwd=None, schema=None, system=None):
     """One claude -p call. Returns (answer, info): the agent's final JSON
     object, from structured output when a schema was given, else from its
     last message; and what the call cost. A failed call answers {} and
-    info["error"] says why.
-
-    With `session` the call is part of a named conversation: the first one
-    creates it, and `resume` continues it with everything it already knows
-    — what it read, what it edited, what it watched fail. The id is ours
-    and made up front, so nothing has to be parsed back out of the
-    output to continue."""
+    info["error"] says why."""
     # A structured answer takes the CLI a turn of its own on top of the reply.
     if schema:
         max_turns = max(max_turns, 3)
@@ -124,27 +86,12 @@ def agent(rung, prompt, model, budget, tools=None, max_turns=1, timeout=600, cwd
     command = ["claude", "-p", "--output-format", "json", "--model", model,
                "--max-budget-usd", f"{budget:g}", "--max-turns", str(max_turns)]
     command += ["--allowedTools", *tools] if tools else ["--tools", ""]
-    if session:
-        command += ["--resume", session] if resume else ["--session-id", session]
-    if effort:
-        command += ["--effort", effort]
-    if fast:
-        command += ["--settings", json.dumps({"fastMode": True})]
     if schema:
         command += ["--json-schema", json.dumps(schema)]
     if system:
         command += ["--system-prompt", system]
-    timeout = bounded(timeout)
-    if timeout <= 0:
-        # Not started rather than started and killed: an agent that is
-        # interrupted has still spent the money and left the repository
-        # half-edited, and neither shows up as anything but a timeout.
-        return {}, {"rung": rung, "model": model, "cost": None, "turns": None, "seconds": 0,
-                    "error": "there was no time left in this run to start it"}
     env = {k: v for k, v in os.environ.items() if k not in ("HC_RECIPE_FILE", "HC_ENV_FILE", "HC_BRIEF_FILE", "ENGELBART_MODEL_GATEWAY_URL")}
     env["PIP_NO_CACHE_DIR"] = "1"
-    if tools and "Bash" in tools:
-        env.update(agent_values())
     info = {"rung": rung, "model": model, "cost": None, "turns": None, "seconds": None, "error": None}
     started = time.time()
     answer = {}
@@ -175,89 +122,6 @@ def agent(rung, prompt, model, budget, tools=None, max_turns=1, timeout=600, cwd
     return answer or {}, info
 
 
-# Names that steer the agent itself rather than the application: which
-# account it authenticates as, which endpoint it talks to, how the
-# pipeline is configured. Held back whether or not this sandbox happens
-# to set them, because "unset" is not "free to take": an application's
-# ANTHROPIC_BASE_URL landing in an unset slot would send the runner's own
-# key to the application's endpoint, which is worse than the collision
-# that made us look. Prefixes, so a variable added to the CLI next month
-# is covered the day it appears.
-AGENT_CONTROLS = ("ANTHROPIC_", "CLAUDE_", "AWS_BEARER_TOKEN", "AWS_REGION", "VERTEX_", "GOOGLE_APPLICATION_CREDENTIALS",
-                  "HC_", "ENGELBART_", "NODE_OPTIONS")
-APP_ENV_FILE = Path.home() / ".engelbart-app-env.sh"   # outside the repository, so it cannot reach a patch or a commit
-
-
-def time_left(reserve=SAVE_RESERVE_S):
-    """How long this run has, minus what is kept back to save its work.
-
-    The reserve is the point. A round cut off by the deadline loses
-    everything it did — no check, no diff, no recipe — where a round that
-    stops two minutes early leaves a repository someone can use. None
-    means no deadline was handed in and nothing should be bounded."""
-    if not DEADLINE_AT:
-        return None
-    return DEADLINE_AT - time.time() - reserve
-
-
-def bounded(seconds, reserve=SAVE_RESERVE_S):
-    """A timeout that cannot outlive the run it belongs to."""
-    left = time_left(reserve)
-    return seconds if left is None else max(0, min(int(seconds), int(left)))
-
-
-def agent_values():
-    """The person's values, minus every name that belongs to the agent.
-
-    The rule is the exact inverse of the one in start_service, and right
-    in both places for the same reason: there the process IS the
-    application, so the person's values win; here the process is the
-    agent, and a repository that saved its own ANTHROPIC_API_KEY would
-    otherwise spend someone else's money or fail to authenticate with no
-    sign of why.
-
-    What is left out is not lost: write_app_env leaves a wrapper that
-    runs any command under the whole set, so a build or a test can face
-    the application's configuration without the agent adopting it."""
-    return {k: v for k, v in SAVED_ENV.items()
-            if k not in os.environ and not k.startswith(AGENT_CONTROLS)}
-
-
-def write_app_env(root):
-    """The application's environment, as a command rather than as this
-    process's own.
-
-    The values go to a file only this user can read, outside the
-    repository so that no patch, commit or archive can carry them, and
-    the wrapper beside them is what an agent runs:
-
-        bash .engelbart/with-app-env.sh npm run build
-
-    A file on disk is a deliberate step past load_env's "removed once
-    read", and the reason is that the alternative is worse: either the
-    agent holds credentials that redirect its own tooling, or it tests
-    the repository under a configuration the repository never runs
-    under and reports the result as if it meant something.
-
-    Always written, and always rewritten. A saved setup.sh from an
-    earlier run may put the wrapper in front of its build, so taking the
-    wrapper away when the last value is deleted would break the replay
-    of work that has nothing to do with that value. The values file is
-    emptied instead of removed, because it is what holds the secret and
-    an empty file is the honest statement that there is nothing to
-    apply."""
-    wrapper = Path(root) / SETUP_DIR / "with-app-env.sh"
-    APP_ENV_FILE.write_text("".join(f"export {k}={shlex.quote(v)}\n" for k, v in sorted(SAVED_ENV.items())))
-    APP_ENV_FILE.chmod(0o600)
-    wrapper.write_text("#!/bin/sh\n"
-                       "# Run a command with the values the person supplied for this\n"
-                       "# repository. Written by the runner.\n"
-                       f'[ -f "{APP_ENV_FILE}" ] && . "{APP_ENV_FILE}"\n'
-                       'exec "$@"\n')
-    wrapper.chmod(0o755)
-    return str(wrapper)
-
-
 def cost_fields(info):
     return {"model": info.get("model"), "cost": info.get("cost"), "turns": info.get("turns")}
 
@@ -272,23 +136,13 @@ def fail(message, step=None, **detail):
     sys.exit(1)
 
 
-def rescue(repo, reason, blocker=None, blocked=False):
-    """However this run is allowed to recover. One seam for the two ways,
-    so that every ending — nothing to serve, a blocker outside the
-    sandbox, a launch that would not come up — reaches whichever one the
-    run was queued with, and neither has an ending the other lacks."""
-    if RECOVERY == "session":
-        return recover(repo, reason, blocker, blocked=blocked)
-    return setup_for_use(repo, reason, blocker=blocker, blocked=blocked)
-
-
 def conclude(reason, step):
     """The repository has nothing to serve: a library, a dataset, a tool.
     That is an answer, not a failure. What follows is setting it up so the
     next thing a person does is run what its paper describes."""
     reason = str(reason or "The repository has no web application of its own to run")[:2000]
     emit(phase="conclusion", status="no_service", step=step, reason=reason)
-    if rescue(REPO, reason):
+    if setup_for_use(REPO, reason):
         stay_alive()
     fail("Nothing to serve, and the repository could not be set up for use: " + (LAST_CHECK or "the check did not pass"), step="setup", outcome="no_service")
 
@@ -300,7 +154,7 @@ def blocked(reason, blocker, step):
     the first line of what to do next."""
     reason = str(reason or "The application could not be started")[:2000]
     emit(phase="conclusion", status="blocked", step=step, reason=reason, blocker=blocker)
-    if rescue(REPO, reason, blocker=blocker, blocked=True):
+    if setup_for_use(REPO, reason, blocker=blocker, blocked=True):
         stay_alive()
     fail("Blocked, and the repository could not be set up for use either: " + (LAST_CHECK or "the check did not pass"), step="setup", outcome="blocked", blocker=blocker)
 
@@ -310,35 +164,6 @@ def no_service(PR, run_id):
         return PR.view(run_id).get("status") == "no_service"
     except Exception:  # noqa: BLE001
         return False
-
-
-# Which of hc's own model calls have already been put on the record. A
-# turn is observed twice — once when it starts, once when it ends — and the
-# stage is polled besides, so the same call arrives many times and only the
-# finished one carries what it cost.
-HC_SEEN = set()
-
-
-def note_hc_costs(trace, rung):
-    """Put hc's own planning on the run's cost record, beside the
-    supervisor's.
-
-    The pipeline's planner and its setup diagnoser are model calls this
-    run pays for, and until the CLI was asked for its JSON envelope
-    (sandbox/hc/agent_cost.patch) nothing knew what they came to. They are
-    reported as their own rungs so that a total can still be split back
-    into what the supervisor spent and what the pipeline did."""
-    for call in (trace or {}).get("calls") or []:
-        if call.get("cost") is None or not call.get("finishedAt"):
-            continue
-        key = (rung, call.get("startedAt"), call.get("finishedAt"))
-        if key in HC_SEEN:
-            continue
-        HC_SEEN.add(key)
-        item = {"rung": rung, "model": call.get("model"), "cost": call.get("cost"),
-                "turns": call.get("turns"), "seconds": call.get("durationSeconds")}
-        COSTS.append(item)
-        emit(phase="cost", **item, total=round(sum(c["cost"] or 0 for c in COSTS), 4), error=None)
 
 
 def agent_summary(trace):
@@ -390,18 +215,6 @@ def main():
     os.environ.setdefault("HUMAN_COMPACT_HOME", str(Path.home() / ".human-compact"))
     if not os.environ.get("ANTHROPIC_API_KEY"):
         fail("ANTHROPIC_API_KEY is not set in the sandbox")
-    # The install the runner started when the clone landed, if there was
-    # one to start. Said once, here, so the Build tab shows it as a step
-    # of this run rather than as something that happened off-screen.
-    # Read here rather than where the plan is handed its values: three of
-    # the ways a run can end usable reach the setup rung from pipeline(),
-    # before run() exists, and until now every one of them started the
-    # repository with none of what the person saved for it.
-    SAVED_ENV.update(load_env())
-    found = INSTALL.state(repo)
-    if found.get("status") != "none":
-        emit(phase="install", status=found.get("status"), command=" ".join(found.get("command") or []),
-             lock=found.get("lock"), pid=found.get("pid"), log=found.get("log"), adopted=True)
     instrument(repo)
 
     from human_compact.trajectory import (project_analysis as PA, project_components as PC,
@@ -413,12 +226,8 @@ def main():
     if recipe and recipe.get("kind") == "setup":
         # The saved way to set this repository up for use, without the agent.
         emit(phase="recipe", status="replaying", kind="setup", saved=recipe.get("savedAt"))
-        if not recipe.get("startUrl") and recipe.get("complete") is not False:
-            # Last time the ending was usable; say again why. Not for an
-            # unfinished one: announcing "nothing to serve" for a saved
-            # setup that simply ran out of time would be telling a person
-            # the repository has no application, which is the opposite of
-            # what the last run found.
+        if not recipe.get("startUrl"):
+            # Last time the setup rung's ending was usable; say again why.
             saved_blocker = recipe.get("blocker") if isinstance(recipe.get("blocker"), dict) else None
             emit(phase="conclusion", status="blocked" if saved_blocker else "no_service", step="trail",
                  reason=str(recipe.get("reason") or "Nothing to serve, as saved")[:2000], blocker=saved_blocker)
@@ -436,26 +245,7 @@ def main():
         stop_leftovers(PR, run_id)
 
     run_id, cwd = pipeline(PA, PC, PO, repo)
-    join_install()
     outcome = run(PR, PE, PS, run_id, cwd, repo)
-    if RECOVERY == "session":
-        # One session owns everything below this line. Nothing about the
-        # clone, the plan or the saved trail changed to get here; what
-        # changes is that the repair agent that may not run what it wrote,
-        # the resolver with no tools, and the setup agent starting cold are
-        # one conversation that remembers all three.
-        if outcome != "ready":
-            if no_service(PR, run_id):
-                conclude(PR.view(run_id).get("reason"), step="run")
-            failure = failure_of(PR, run_id)
-            LAST_ESCALATION.update(stage=failure.get("stage"), output=str(failure.get("output") or "")[-4000:],
-                                   plan=plan_of(PR, run_id))
-            stop_leftovers(PR, run_id)
-            if rescue(repo, failure.get("reason") or outcome):
-                stay_alive()
-            fail("The recovery session could not get this repository running: " + str(LAST_CHECK or outcome),
-                 step="setup", outcome="blocked")
-        supervise(PR, run_id)
     # Last resort: let a tightly scoped agent edit this throwaway copy of the
     # repository, then run the pipeline again. Every edit is reported as a diff.
     attempt = 0
@@ -477,7 +267,6 @@ def main():
             emit(phase="run", status="accepted", reason="the repair agent found nothing to change; keeping the application as it came up")
         reset_local_supabase(PS, cwd)
         run_id, cwd = pipeline(PA, PC, PO, repo)
-        join_install()
         outcome = run(PR, PE, PS, run_id, cwd, repo)
     while outcome != "ready":
         if no_service(PR, run_id):
@@ -498,7 +287,6 @@ def main():
         stop_leftovers(PR, run_id)
         escalate(step="run", status=state.get("status"), reason=reason or outcome, stage=stage, output=output, plan=plan_of(PR, run_id))
         run_id, cwd = pipeline(PA, PC, PO, repo)
-        join_install()
         outcome = run(PR, PE, PS, run_id, cwd, repo)
         last_failure = None
     supervise(PR, run_id)
@@ -750,7 +538,6 @@ def pipeline(PA, PC, PO, repo):
         last = None
         while True:
             view = PO.view(order_id)
-            note_hc_costs(view.get("agentTrace"), "hc.order")
             key = (view.get("status"), view.get("progress"))
             if key != last:
                 emit(phase="order", status=view.get("status"), progress=view.get("progress"),
@@ -953,8 +740,7 @@ def run(PR, PE, PS, run_id, cwd, root):
     gives up (the reason). On ready the recipe is emitted for saving."""
     global LAST_LOCAL_ERROR, LAST_MISSING, LAST_APP_ERROR
     dirs = plan_directories(PR, run_id, cwd, root)
-    provided, ignored = hand_over(PE, dirs, {**SAVED_ENV, **TRACE_ENV})
-    LAST_PROVIDED[:] = sorted(provided)
+    provided, ignored = hand_over(PE, dirs, {**load_env(), **TRACE_ENV})
     local, local_error = local_supabase(PS, PE, cwd, root)
     skips = environment(PE, dirs, provided, ignored, local, local_error)
     LAST_LOCAL_ERROR = local_error
@@ -968,8 +754,6 @@ def run(PR, PE, PS, run_id, cwd, root):
         state = PR.view(run_id)
         logs.update(state.get("stages", []))
         attempts = state.get("attempts", [])
-        for hc_attempt in attempts:
-            note_hc_costs(hc_attempt.get("agentTrace"), "hc.setup")
         key = (state.get("status"), state.get("stage"), state.get("reason"), len(attempts))
         if key != last:
             emit(phase="run", status=state.get("status"), stage=state.get("stage"), reason=state.get("reason"),
@@ -988,7 +772,9 @@ def run(PR, PE, PS, run_id, cwd, root):
             if not ACCEPT_APP_ERRORS:
                 time.sleep(2)
                 report = visit(state["url"])
-                emit_visit(report)
+                emit(phase="visit", status=report.get("status"), title=report.get("title"), text=(report.get("text") or "")[:300],
+                     consoleErrors=len(report.get("consoleErrors") or []), failedRequests=len(report.get("failedRequests") or []),
+                     error=report.get("error"))
                 time.sleep(2)
                 state = PR.view(run_id)
                 logs.update(state.get("stages", []))
@@ -1060,48 +846,14 @@ def app_error(state):
     return None
 
 
-VISIT_TIMEOUT_S = 60
-# Whether the last browser check actually read the page. None until one
-# has been made, which is not the same as False: "nobody looked" and
-# "somebody looked and could not read it" are different facts about a run.
-LAST_VERIFIED = None
-
-
 def visit(url):
-    """Load the page in the sandbox's headless browser, as a person would.
-
-    Bounded like everything else that blocks: this is the last check
-    before a run is called ready, and a browser still loading when the
-    deadline arrives turns a finished run into a killed one."""
-    span = bounded(VISIT_TIMEOUT_S, reserve=10)
-    if span <= 0:
-        return {"error": "there was no time left in this run to open the page"}
+    """Load the page in the sandbox's headless browser, as a person would."""
     try:
-        wait_ms = min(VISIT_WAIT_MS, max(1000, (span - 5) * 1000))
-        proc = subprocess.run(["node", VISIT, url, str(wait_ms)], capture_output=True, text=True, timeout=span)
+        proc = subprocess.run(["node", VISIT, url, str(VISIT_WAIT_MS)], capture_output=True, text=True, timeout=60)
         lines = [l for l in proc.stdout.splitlines() if l.startswith("{")]
-        report = json.loads(lines[-1]) if lines else {"error": (proc.stderr or "no report")[-300:]}
+        return json.loads(lines[-1]) if lines else {"error": (proc.stderr or "no report")[-300:]}
     except Exception as exc:  # noqa: BLE001
-        report = {"error": str(exc)[:300]}
-    return report
-
-
-def emit_visit(report, **extra):
-    """The browser check, in one shape, from whichever path made it.
-
-    The native path, the setup rung and the recovery session all open the
-    page and all used to say so slightly differently, which meant a run's
-    record could only be read if you already knew which path made it.
-    Whether anyone actually managed to read the page is the same question
-    in all three, and this is the one place that answers it — from the
-    report rather than from whoever made it, so the record and the
-    decisions taken from it cannot disagree."""
-    global LAST_VERIFIED
-    LAST_VERIFIED = not report.get("error")
-    emit(phase="visit", status=report.get("status"), title=report.get("title"), text=(report.get("text") or "")[:300],
-         consoleErrors=len(report.get("consoleErrors") or []), failedRequests=len(report.get("failedRequests") or []),
-         error=report.get("error"), verified=bool(LAST_VERIFIED),
-         unverified=None if LAST_VERIFIED else str(report.get("error") or "the page was not opened")[:300], **extra)
+        return {"error": str(exc)[:300]}
 
 
 def page_error(report, state):
@@ -1231,9 +983,9 @@ def parse_answer(stdout):
 
 def capture_diff(repo):
     """Every edit in the working tree against the clone, new files included."""
-    subprocess.run(["git", "add", "-A", "-N", "--", ".", NOT_THE_REPOSITORY], cwd=repo, capture_output=True)
-    files = subprocess.run(["git", "diff", "--name-only", "--", ".", NOT_THE_REPOSITORY], cwd=repo, capture_output=True, text=True).stdout.split()
-    diff = subprocess.run(["git", "diff", "--no-color", "--binary", "--", ".", NOT_THE_REPOSITORY], cwd=repo, capture_output=True, text=True, errors="replace").stdout
+    subprocess.run(["git", "add", "-A", "-N", "."], cwd=repo, capture_output=True)
+    files = subprocess.run(["git", "diff", "--name-only"], cwd=repo, capture_output=True, text=True).stdout.split()
+    diff = subprocess.run(["git", "diff", "--no-color", "--binary"], cwd=repo, capture_output=True, text=True, errors="replace").stdout
     truncated = len(diff.encode("utf-8")) > MAX_DIFF_BYTES
     if truncated:
         diff = diff.encode("utf-8")[:MAX_DIFF_BYTES].decode("utf-8", errors="ignore")
@@ -1491,25 +1243,6 @@ def brief_hint():
     return str(BRIEF.get("hintForPlanner") or "")[:600]
 
 
-def install_hint():
-    """What the planner should know about the install that is already
-    going. Not a guarantee — hc plans its own steps — but the planner has
-    no other way to learn that these dependencies are in hand, and a plan
-    that installs them again discards everything the head start did and
-    pays for it twice."""
-    if not REPO:
-        return ""
-    now = INSTALL.state(REPO)
-    command = " ".join(now.get("command") or [])
-    when = {"running": "is ALREADY INSTALLING this repository's dependencies and will have finished before any step of your plan runs",
-            "done": "has ALREADY INSTALLED this repository's dependencies"}.get(now.get("status"))
-    if not when:
-        return ""
-    return (f"`{command}` {when}. Do not plan that install again; plan what comes after it. If you plan one anyway, use the "
-            "package manager's non-destructive install rather than its clean one (`npm install`, not `npm ci`), so it finds "
-            "the work already done instead of deleting it and starting over.")
-
-
 def apply_hint():
     """What hc's planner and repair agent see as the hint: the person's own
     line, then the brief's, then the resolver's correction, which wins."""
@@ -1521,9 +1254,6 @@ def apply_hint():
         lines.append("Repository brief" + (f" (confidence {confidence})" if confidence else "") + ": " + brief_hint())
     if RESOLVER_HINT:
         lines.append("Correction after a failed attempt, which takes precedence: " + RESOLVER_HINT)
-    already = install_hint()
-    if already:
-        lines.append(already)
     os.environ["HC_PROJECT_HINT"] = "\n".join(lines)[:2000]
 
 
@@ -1720,14 +1450,6 @@ def escalate(step, status, reason, stage=None, output="", plan=None, commands=No
     LAST_ESCALATION.update(stage=stage, output=str(output or "")[-4000:], plan=plan)
     if secret_only(status, reason):
         blocked(reason, {"kind": "secret", "what": str(reason)[:500], "names": list(LAST_MISSING)}, step)
-    if RECOVERY == "session":
-        # The planner gave up before the run ever started, so main()'s
-        # session branch is not reached from here. Hand it over anyway,
-        # rather than through the tool-less resolver this arm exists to
-        # replace: correcting a plan by reading the repository is the
-        # session's own work, and asking a model with no tools to guess
-        # first spends money to make the arms less different.
-        blocked(reason, {"kind": "unknown", "what": str(reason)[:500]}, step)
     if ESCALATIONS == 0:
         ESCALATIONS += 1
         verdict = resolve(step, status, reason, stage, output, plan, commands)
@@ -1756,21 +1478,7 @@ def escalate(step, status, reason, stage=None, output="", plan=None, commands=No
 
 REPO = None
 LAST_CHECK = None
-# The values the person supplied for this repository. hc applies them to
-# the steps of its own plan; anything the runner starts itself — the
-# setup rung's start.sh and check.sh, the recovery session's launch —
-# inherits this process's environment and would otherwise start without
-# them, which is the difference between a run that is up and a run that
-# works. Never emitted, never in a prompt: only the names travel.
-SAVED_ENV = {}
 SETUP_DIR = ".engelbart"
-# The harness's own folder is not part of the repository's edits. It is
-# recreated from the recipe's own fields on a replay — the scripts, the
-# ignore file, the install's bookkeeping — and a patch that also carries
-# them fails to apply against the folder the replay has just written
-# ("already exists in working directory"), which loses the replay and
-# with it the entire point of saving a recipe.
-NOT_THE_REPOSITORY = ":(exclude).engelbart/"
 SETUP_TIMEOUT_S = 30 * 60
 CHECK_TIMEOUT_S = 5 * 60
 SETUP_ATTEMPTS = 2
@@ -1974,7 +1682,7 @@ def start_app(root, url, attempt=None):
         emit(phase="capability", capability="modelCapture", stage="start.sh", state="unsupported_launcher", detail=detail)
         report_capability((os.environ.get("ENGELBART_MODEL_GATEWAY_URL") or "").rstrip("/"), "unsupported_launcher", detail)
     with open(log, "w", encoding="utf-8") as handle:
-        proc = subprocess.Popen(["bash", str(Path(root) / SETUP_DIR / "start.sh")], cwd=root, env=dict(os.environ, PIP_NO_CACHE_DIR="1", **SAVED_ENV),
+        proc = subprocess.Popen(["bash", str(Path(root) / SETUP_DIR / "start.sh")], cwd=root, env=dict(os.environ, PIP_NO_CACHE_DIR="1"),
                                 stdout=handle, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)
     deadline = time.time() + SETUP_START_TIMEOUT_S
     while time.time() < deadline:
@@ -1994,7 +1702,9 @@ def start_app(root, url, attempt=None):
         return False
     time.sleep(2)
     report = visit(url)
-    emit_visit(report, attempt=attempt)
+    emit(phase="visit", status=report.get("status"), title=report.get("title"), text=(report.get("text") or "")[:300],
+         consoleErrors=len(report.get("consoleErrors") or []), failedRequests=len(report.get("failedRequests") or []),
+         error=report.get("error"))
     time.sleep(2)
     tail = log_tail(log)
     text = report.get("text") or ""
@@ -2021,28 +1731,12 @@ def go_live(url):
     emit(phase="ready", url=url, host=parts.hostname, port=parts.port, pid=APP["proc"].pid, services=[service])
 
 
-def as_text(raw):
-    """What a killed process printed, as text.
-
-    subprocess hands TimeoutExpired its raw bytes even when the call
-    asked for text, so the only place this matters is the one place that
-    is already going badly: a script that printed something and then ran
-    out of time. Concatenating that with a string raises, and the
-    TypeError replaces the timeout as the thing that went wrong."""
-    if isinstance(raw, (bytes, bytearray)):
-        return bytes(raw).decode("utf-8", errors="replace")
-    return raw or ""
-
-
 def run_script(script, cwd, timeout):
-    timeout = bounded(timeout)
-    if timeout <= 0:
-        return False, f"there was no time left in this run to run {Path(script).name}"
-    env = dict(os.environ, PIP_NO_CACHE_DIR="1", **SAVED_ENV)
+    env = dict(os.environ, PIP_NO_CACHE_DIR="1")
     try:
         proc = subprocess.run(["bash", str(script)], cwd=cwd, env=env, capture_output=True, text=True, errors="replace", timeout=timeout)
     except subprocess.TimeoutExpired as exc:
-        return False, (as_text(exc.stdout) + "\n" + as_text(exc.stderr) + f"\n(stopped after {timeout} s)").strip()
+        return False, ((exc.stdout or "") + "\n" + (exc.stderr or "") + f"\n(stopped after {timeout} s)").strip()
     return proc.returncode == 0, ((proc.stdout or "") + "\n" + (proc.stderr or "")).strip()
 
 
@@ -2064,7 +1758,6 @@ def setup_for_use(repo, reason, recipe=None, blocker=None, blocked=False):
     folder.mkdir(exist_ok=True)
     (folder / ".gitignore").write_text(SETUP_IGNORE)
     write_brief_files(root)
-    write_app_env(root)
     if PATCH and PATCH.get("diff"):
         (folder / "REPAIR.diff").write_text(PATCH["diff"], encoding="utf-8")
     if recipe:
@@ -2088,34 +1781,11 @@ def setup_for_use(repo, reason, recipe=None, blocker=None, blocked=False):
         if not ok:
             LAST_CHECK = output[-500:]
             return False
-        saved = [x for x in (recipe.get("services") or []) if isinstance(x, dict)]
-        if saved:
-            # A recovery recipe names launchers rather than a script, so
-            # replaying it goes through the same instrumented start the
-            # session's own launch did. This is the reason the shape is
-            # worth having: a saved shell script could never be watched.
-            if not start_services(root, saved):
-                return False
-            go_live_services()
-            return True
         if recipe.get("startUrl"):
             if not start_app(root, recipe["startUrl"]):
                 return False
             go_live(APP["url"])
             return True
-        if recipe.get("complete") is False:
-            # Setup that was saved because a session ran out of rounds,
-            # budget or time, not because the repository was finished
-            # with. Its setup.sh and check.sh have just run, so the
-            # dependencies are installed and the tree is as the session
-            # left it — which is a head start for this run, not a result
-            # to report. Saying no here is what sends the run on to try
-            # the application again instead of showing a person an
-            # unstarted application as ready.
-            LAST_CHECK = "the saved setup was unfinished: the application was never started"
-            emit(phase="recipe", status="incomplete", reason=LAST_CHECK,
-                 summary=recipe.get("summary"), check=recipe.get("checkSummary"))
-            return False
         emit(phase="usable", summary=recipe.get("summary"), next=(recipe.get("next") or "")[:4000], check=recipe.get("checkSummary"), output=output[-1500:], blocker=recipe.get("blocker"))
         return True
 
@@ -2187,702 +1857,6 @@ def setup_for_use(repo, reason, recipe=None, blocker=None, blocked=False):
     return False
 
 
-# --- Recovery as one session.
-#
-# The other way out of a failed launch. Where the ladder above is four
-# calls that each read a summary of the last — a repair agent that may not
-# run what it wrote, a resolver with no tools at all and six hundred
-# characters to say what it saw, then a setup agent starting from a cold
-# page — this is one session that keeps everything it learned: what it
-# read, what it edited, what it watched fail, and why its last idea did
-# not work. It is chosen per run, so the two can be measured against each
-# other on the same repositories rather than on two different days.
-#
-# What does NOT change is the seam this product is built on. The session
-# may start whatever it likes to see what happens, and must stop it; the
-# launch that counts is performed here. That is not distrust. The preload
-# that watches an application's model calls can only be put into a process
-# at the moment it is created, so whoever creates the process decides
-# whether the run is watched at all. The setup rung above starts a shell
-# script an agent wrote and therefore cannot watch anything — it says so
-# and goes on unwatched. This rung is the fix for that: the session hands
-# back a launcher and its arguments rather than a script, so what is
-# started is a named program, and a named program can be instrumented.
-
-RECOVERY_TOOLS = ["Read", "Grep", "Glob", "LS", "Edit", "MultiEdit", "Write", "Bash"]
-RECOVERY_TIMEOUT_S = 25 * 60        # one turn of the session
-RECOVERY_START_TIMEOUT_S = 10 * 60  # how long the services it named get to answer
-SIDECARS = []            # the services the launch description named besides the entry
-LAST_PROVIDED = []       # the NAMES of the values handed to the run; never their values
-RAILPACK = None          # what railpack made of the repository, read once
-
-# The launch description: what the session hands back instead of a start
-# script. Every field is here so that the pipeline can start the thing
-# itself — a launcher and its argv rather than a command line, because a
-# command line has to be parsed by a shell and a shell is not a program
-# that can be watched.
-LAUNCH_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "summary": {"type": "string", "description": "One line on what was wrong and what you did about it."},
-        "verified": {"type": "string", "description": "What you actually checked, and what you saw."},
-        "changed": {"type": "array", "items": {"type": "string"}, "description": "Repository files you edited, if any."},
-        "check": {"type": "string", "description": "What .engelbart/check.sh proves."},
-        "next": {"type": "string", "description": "One paragraph for the researcher: the first thing they run and why."},
-        "services": {
-            "type": "array",
-            "description": "Every process the runner must start, in the order they must start. Exactly one is the entry.",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "Short name, e.g. web or api."},
-                    "launcher": {"type": "string", "description": "The program to execute: npm, node, next, vite, python3, or a path such as .engelbart/venv/bin/python. Not a shell."},
-                    "args": {"type": "array", "items": {"type": "string"}, "description": "Its arguments, already split; no shell quoting, no && and no pipes."},
-                    "cwd": {"type": "string", "description": "Directory to run it in, relative to the repository root. '.' for the root."},
-                    "env": {"type": "object", "additionalProperties": {"type": "string"}, "description": "Extra environment this process needs and that is not already set, such as PORT or a host. Do not put supplied values here, and do not name them: everything supplied for this run is already in the environment of whatever the runner starts."},
-                    "port": {"type": "integer", "description": "The loopback port it listens on."},
-                    "path": {"type": "string", "description": "The path a person opens, e.g. / or /app."},
-                    "isEntry": {"type": "boolean", "description": "True for the one service a person opens. Exactly one."},
-                    "readyWithin": {"type": "integer", "description": "Seconds it needs before it answers."},
-                },
-                "required": ["name", "launcher", "args", "cwd", "port", "isEntry"],
-            },
-        },
-        "nothingToServe": {
-            "type": "boolean",
-            "description": "True only when this repository has no application of its own to open: a library, a command line tool, a dataset, a notebook. Then services is empty, and what you installed and proved with check.sh is the whole answer. False for anything a person opens in a browser, even if you could not get it up.",
-        },
-        "blocker": {
-            "type": "object",
-            "description": "Only when something outside this sandbox genuinely prevents starting. Then there are no services.",
-            "properties": {
-                "kind": {"type": "string", "enum": list(HARD_BLOCKERS)},
-                "what": {"type": "string", "description": "Exactly what is missing and how the person supplies it."},
-            },
-            "required": ["kind", "what"],
-        },
-    },
-    "required": ["summary", "nothingToServe"],
-}
-
-
-def railpack_plan(root):
-    """What railpack makes of the repository. Read once, best effort: it
-    is a hint for the session, not a decision, and it costs a second."""
-    global RAILPACK
-    if RAILPACK is not None:
-        return RAILPACK
-    RAILPACK = ""
-    try:
-        proc = subprocess.run(["railpack", "plan", str(root)], capture_output=True, text=True, errors="replace", timeout=90)
-        if proc.returncode == 0 and proc.stdout.strip():
-            RAILPACK = proc.stdout.strip()[:4000]
-    except Exception:  # noqa: BLE001
-        RAILPACK = ""
-    return RAILPACK
-
-
-def open_ports(count=6, first=4100):
-    """Ports nothing is listening on, for the session to choose from. A
-    suggestion: it is free to name any port, and free_port() clears
-    whatever is on the one it names before the service starts."""
-    free = []
-    for port in range(first, first + 400):
-        if len(free) >= count:
-            break
-        try:
-            import socket
-            with socket.socket() as probe:
-                probe.settimeout(0.2)
-                if probe.connect_ex(("127.0.0.1", port)) != 0:
-                    free.append(port)
-        except Exception:  # noqa: BLE001
-            break
-    return free
-
-
-def service_cwd(root, raw):
-    """A service's directory, kept inside the repository. A launch
-    description that points outside it is a launch description we do not
-    perform."""
-    root = Path(root).resolve()
-    where = (root / str(raw or ".").lstrip("/")).resolve()
-    if where != root and not where.is_relative_to(root):
-        raise ValueError(f"the service directory {raw} is outside the repository")
-    if not where.is_dir():
-        raise ValueError(f"the service directory {raw} does not exist")
-    return str(where)
-
-
-def start_service(root, service, capabilities, gateway):
-    """Start one named service, instrumented where that is possible.
-
-    The whole point of the structured launch description is these four
-    lines: because the session named a launcher and its arguments instead
-    of writing a shell script, hc can be asked whether a Node preload
-    reaches it, and the answer is yes for npm, next, vite and the rest of
-    its list. The state is said out loud either way — an unwatched run has
-    to be a stated fact rather than an empty trace."""
-    name = str(service.get("name") or "app")
-    launcher = str(service.get("launcher") or "").strip()
-    args = [str(a) for a in (service.get("args") or [])]
-    if not launcher or "/" in launcher and not Path(root, launcher).exists() and not Path(launcher).exists():
-        raise ValueError(f"service {name} names no launcher this sandbox has")
-    where = service_cwd(root, service.get("cwd"))
-    port = int(service.get("port") or 0)
-    if port <= 0:
-        raise ValueError(f"service {name} names no port")
-    env = dict(os.environ, PIP_NO_CACHE_DIR="1")
-    env.update({str(k): str(v) for k, v in (service.get("env") or {}).items() if isinstance(k, str)})
-    # Last, so they cannot be overwritten. A launch description that names
-    # a supplied variable rather than setting it — "OPENAI_API_KEY":
-    # "OPENAI_API_KEY", which is what asking for a reference invites —
-    # would otherwise replace the value with its own name and the
-    # application would start and not work.
-    env.update(SAVED_ENV)
-    argv = [launcher, *args]
-
-    extra, state, detail = {}, "unavailable", "not requested for this run"
-    if capabilities:
-        try:
-            from human_compact.trajectory import project_instrumentation as INST
-            extra, state, detail = INST.resolve(capabilities, str(root), argv=argv, env=env)
-        except Exception as exc:  # noqa: BLE001
-            extra, state, detail = {}, "instrumentation_failed", f"the capability could not be resolved: {exc}"[:400]
-    env.update(extra)
-    emit(phase="capability", capability="modelCapture", stage="start." + name, state=state, detail=str(detail)[:400])
-    report_capability(gateway, state, str(detail))
-
-    free_port(port)
-    log = Path(root) / SETUP_DIR / f"{name}.log"
-    log.parent.mkdir(exist_ok=True)
-    emit(phase="start", status="starting", service=name, port=port, launcher=launcher, args=args[:12], capture=state)
-    handle = open(log, "w", encoding="utf-8")
-    proc = subprocess.Popen(argv, cwd=where, env=env, stdout=handle, stderr=subprocess.STDOUT,
-                            stdin=subprocess.DEVNULL, start_new_session=True)
-    return {"name": name, "proc": proc, "log": log, "port": port,
-            "path": str(service.get("path") or "/"), "url": f"http://127.0.0.1:{port}{str(service.get('path') or '/')}",
-            "isEntry": bool(service.get("isEntry")), "capture": state}
-
-
-def start_services(root, services):
-    """Start everything the launch description named and wait for the
-    entry to answer. The others are started first and not probed: an API
-    may well answer 404 at its root and still be exactly right."""
-    global APP, LAST_CHECK
-    named = [s for s in services if isinstance(s, dict)]
-    entry = next((s for s in named if s.get("isEntry")), named[0] if named else None)
-    if not entry:
-        LAST_CHECK = "the session named no service to start"
-        emit(phase="start", status="failed", reason=LAST_CHECK)
-        return False
-    req = {"modelCapture": True} if os.environ.get("HC_NODE_PRELOAD") else request_capture(str(root))
-    capabilities = set()
-    if req:
-        try:
-            from human_compact.trajectory import project_instrumentation as INST
-            capabilities = INST.wanted(req)
-        except Exception:  # noqa: BLE001
-            capabilities = set()
-
-    started = []
-    try:
-        for service in [s for s in named if s is not entry] + [entry]:
-            started.append(start_service(root, service, capabilities, (os.environ.get("ENGELBART_MODEL_GATEWAY_URL") or "").rstrip("/")))
-    except (ValueError, OSError) as exc:
-        LAST_CHECK = f"the launch description could not be performed: {exc}"
-        emit(phase="start", status="failed", reason=LAST_CHECK)
-        for s in started:
-            stop_app(s["proc"])
-        return False
-
-    APP = next(s for s in started if s["isEntry"] or s is started[-1])
-    SIDECARS[:] = [s for s in started if s is not APP]
-    wait = max(int(entry.get("readyWithin") or 0), 0) or RECOVERY_START_TIMEOUT_S
-    # A reserve of nothing: this is the last thing a successful run does,
-    # and the recipe is written from what is already in hand.
-    deadline = time.time() + bounded(min(wait if wait > 60 else RECOVERY_START_TIMEOUT_S, RECOVERY_START_TIMEOUT_S), reserve=15)
-    while time.time() < deadline:
-        dead = next((s for s in started if s["proc"].poll() is not None), None)
-        if dead:
-            tail = log_tail(dead["log"])
-            LAST_CHECK = f"{dead['name']} exited with {dead['proc'].returncode} before the application answered: " + tail[-300:]
-            emit(phase="start", status="failed", service=dead["name"], reason=LAST_CHECK[:600], output=tail)
-            for s in started:
-                stop_app(s["proc"])
-            APP, SIDECARS[:] = None, []
-            return False
-        if answers(APP["url"]):
-            break
-        time.sleep(START_POLL_S)
-    else:
-        tail = log_tail(APP["log"])
-        LAST_CHECK = f"the application did not answer at {APP['url']} within {RECOVERY_START_TIMEOUT_S // 60} minutes: " + tail[-300:]
-        emit(phase="start", status="failed", reason=LAST_CHECK[:600], output=tail)
-        for s in started:
-            stop_app(s["proc"])
-        APP, SIDECARS[:] = None, []
-        return False
-
-    # Answering is not working. The page is opened as a person would open
-    # it, because an application that crashed on an import still serves a
-    # 200 with the crash written on it.
-    report = visit(APP["url"])
-    # Answering on a port is not the same as working, and a page nobody
-    # managed to read is not the same as a page that was read and was
-    # fine. The run still goes live — it is up, and a person can use it —
-    # but nothing here may call it verified, and the recipe it saves says
-    # so rather than promising the next run that this was checked.
-    emit_visit(report)
-    time.sleep(2)
-    tail = log_tail(APP["log"])
-    text = report.get("text") or ""
-    hit = next((m for m in PAGE_ERROR_MARKERS if m in text), None) or next((m for m in APP_ERROR_MARKERS if m in tail), None)
-    dead = next((s for s in started if s["proc"].poll() is not None), None)
-    if dead or hit:
-        LAST_CHECK = (f"{dead['name']} answered once and then exited with {dead['proc'].returncode}: " + log_tail(dead["log"])[-300:]) if dead \
-            else f"the application answers at {APP['url']}, but shows an error ({hit})"
-        emit(phase="start", status="failed", reason=str(LAST_CHECK)[:600],
-             output=f"Page text:\n{text[:2500]}\n\nServer output:\n{tail}")
-        for s in started:
-            stop_app(s["proc"])
-        APP, SIDECARS[:] = None, []
-        return False
-    emit(phase="start", status="answering", url=APP["url"], services=[s["name"] for s in started],
-         capture=[{"service": s["name"], "state": s["capture"]} for s in started])
-    return True
-
-
-def go_live_services():
-    """Announce every service the launch description brought up, in the
-    shape the run loop's ready event has: the entry first, each with the
-    loopback port the proxy will put a public one in front of."""
-    live = [APP, *SIDECARS]
-    services = [{"id": s["name"], "host": "127.0.0.1", "port": s["port"], "url": s["url"],
-                 "isEntry": bool(s is APP), "embeddable": True} for s in live]
-    emit(phase="ready", url=APP["url"], host="127.0.0.1", port=APP["port"], pid=APP["proc"].pid, services=services)
-
-
-# --- What the session is told.
-#
-# The task is fixed; the state under it is this run's. Nothing in the
-# state is a value: the environment is named, never quoted, because the
-# session has a shell and a shell's history is not somewhere a secret
-# should be.
-
-RECOVERY_TASK = """Get this repository working as its authors intended inside the existing
-sandbox, so the user can try it.
-
-The context below describes the repository, previous setup attempts,
-current processes, dependency installation, and available environment
-variables. Continue from that state and preserve successful work.
-
-Read the documentation and configuration needed to understand startup.
-Execute commands, inspect failures, edit files, configure services,
-and test your changes until the application works.
-
-Work efficiently: take the shortest reliable path, reuse completed
-installs and checks, and investigate what is needed for the next
-decision. Prefer focused verification over broad, unrelated testing.
-
-A dependency install may already be running. Inspect the repository
-while it runs. Before changing dependency files, switching runtimes,
-or starting another install in the same directory, use the provided
-install controls to wait for it or cancel it.
-
-Use supplied environment variables without exposing their values.
-Preserve the application's intended functionality. Do not replace
-required behavior with mocks or dummy credentials to make startup
-appear successful. If a required credential, service, dataset, or
-device is unavailable, identify the specific blocker.
-
-You may start application processes to test your work. Verify actual
-usability: for a web app, open the page, inspect errors, and exercise
-a representative interaction; for a CLI or library, run a documented
-example or relevant check.
-
-The runner owns the final application launch so it can apply
-instrumentation, supervise processes, and expose the preview.
-Return a repeatable launch description using the supplied schema:
-working directories, executables and arguments, required services,
-ports, environment-variable references, and any preparation needed.
-Stop temporary application processes you started before handing
-control back to the runner.
-
-If the runner reports a launch or verification failure, continue
-diagnosing and fixing it in this same session.
-
-Resolve ordinary setup failures yourself. Provide brief, factual
-progress updates. Finish with what you verified, what you changed,
-the launch description, and any remaining limitations or blockers."""
-
-
-def recovery_context(repo, reason, blocker=None):
-    """The sandbox as it actually is, under the task."""
-    lines = ["", "--- The sandbox ---", "",
-             f"The repository is at {repo}. This is a disposable Linux sandbox: Debian, Python 3.11 at "
-             "/usr/local/bin/python3, uv for other Python versions, Node 22 with npm, pnpm and bun. "
-             "You may install packages and download small, documented assets. Do not use sudo, and write only "
-             f"inside the repository. Nothing here reaches GitHub: this copy is thrown away and every change you make is shown to the person as a diff.",
-             "", f"The automated pipeline already tried to start it and could not: {reason}"]
-    if blocker:
-        lines.append(f"A review read that failure as {blocker.get('kind', 'unknown')}: {blocker.get('what', '')}. "
-                     "That is a reading, not a verdict; if you can start the application, do.")
-    if PERSON_HINT:
-        lines.append(f"The person's hint about what to run: {PERSON_HINT}")
-    if BRIEF:
-        lines.append(f"What is known about the repository (the whole brief is at {SETUP_DIR}/BRIEF.md): {brief_hint()}")
-    tried_lines = tried()
-    if tried_lines:
-        lines += ["", "--- What has been tried ---", "", *tried_lines]
-
-    state = install_state()
-    if state:
-        lines += ["", "--- Dependency installation ---", "", state]
-
-    plan = railpack_plan(repo)
-    if plan:
-        lines += ["", "--- What railpack makes of it ---", "",
-                  "A build plan inferred from the repository's files. It is a starting point, not an instruction; "
-                  "the pipeline already tried something like it.", "", plan]
-
-    env_lines = []
-    if LAST_PROVIDED:
-        given = agent_values()
-        held = sorted(k for k in SAVED_ENV if k not in given)
-        mine = [k for k in LAST_PROVIDED if k not in held]
-        if mine:
-            env_lines.append("Values supplied for this run. They are in your own environment and in the environment of "
-                             "anything the runner starts, so a build or a test you run here faces what the application "
-                             "will. Use them by name; never print one, and never write one into a file: " + ", ".join(mine))
-        if held:
-            # Saying so rather than letting it be discovered: a session
-            # that tests with this shell's value and reports the
-            # application working would be reporting on a configuration
-            # the application never runs under.
-            env_lines.append("Also supplied, but under names this sandbox uses for its own tools: " + ", ".join(held)
-                             + ". Your own shell deliberately holds the runner's value for these, not the repository's.")
-        env_lines.append(f"To run anything under the repository's whole environment — a build, a test, a one-off check — "
-                         f"put `bash {SETUP_DIR}/with-app-env.sh` in front of it: "
-                         f"`bash {SETUP_DIR}/with-app-env.sh npm run build`. The services the runner finally starts get all "
-                         "of it without the wrapper.")
-    if LAST_MISSING:
-        env_lines.append("Named by the repository but not available here, and not obtainable: " + ", ".join(LAST_MISSING) + ". "
-                         "If one of these is genuinely required to start, that is a blocker — say so rather than inventing a value for it.")
-    if env_lines:
-        lines += ["", "--- Environment ---", "", *env_lines]
-
-    ports = open_ports()
-    if ports:
-        lines += ["", "--- Ports ---", "",
-                  "Nothing is listening on " + ", ".join(str(p) for p in ports) + ". The runner clears whatever holds a "
-                  "port before starting the service that names it, so pick one and say it in the launch description."]
-
-    lines += ["", "--- The launch description ---", "",
-              "Answer with the supplied schema. `services` is what the runner starts, in order, exactly one with "
-              "isEntry true. Each names a `launcher` (a program: npm, node, next, vite, python3, or a path such as "
-              f"{SETUP_DIR}/venv/bin/python) and `args` already split — not a shell line, and not a script: the runner "
-              "executes the program directly so that it can be instrumented, and a bash wrapper cannot be. If starting "
-              "needs preparation that must happen first (a build, a migration, a seed), do it now rather than describing "
-              "it, and leave it repeatable in " + SETUP_DIR + "/setup.sh.",
-              "",
-              f"Also leave {SETUP_DIR}/setup.sh (idempotent, runs from a fresh clone), {SETUP_DIR}/check.sh (exits 0 only "
-              f"when the setup works, under two minutes) and {SETUP_DIR}/NEXT.md (for the researcher: what this repository "
-              "is, and the exact commands to run next). The runner runs check.sh before it starts anything."]
-    return "\n".join(lines)
-
-
-def recovery_retry(outcome, round_number):
-    """What the session is told when the launch it described did not
-    work. The session still has everything it learned; this is the one
-    thing it could not see, because the runner did the starting."""
-    return "\n".join([
-        f"The runner performed your launch description and it did not come up (attempt {round_number}).",
-        "",
-        str(outcome or "the application did not answer")[:3000],
-        "",
-        f"The service logs are at {SETUP_DIR}/<name>.log. Diagnose and fix this, then answer with a corrected launch "
-        "description in the same schema. Everything you installed and edited is still in place — build on it. "
-        "You may start processes again to test, and must stop them before you answer.",
-    ])
-
-
-def recover(repo, reason, blocker=None, blocked=False):
-    """One session, from the failed launch to a running application.
-
-    Returns True when the application is up (and announced) or the
-    repository is usable with a blocker written down. The session is
-    resumed rather than restarted between rounds, so the third attempt
-    still knows what the first one read."""
-    global LAST_CHECK
-    root = str(Path(repo).resolve())
-    folder = Path(root) / SETUP_DIR
-    folder.mkdir(exist_ok=True)
-    (folder / ".gitignore").write_text(SETUP_IGNORE)
-    write_brief_files(root)
-    write_app_env(root)
-    if PATCH and PATCH.get("diff"):
-        (folder / "REPAIR.diff").write_text(PATCH["diff"], encoding="utf-8")
-
-    session = str(uuid.uuid4())
-    spent = 0.0
-    prompt = RECOVERY_TASK + "\n" + recovery_context(repo, reason, blocker)
-    answer, last_output, checked, stopped = {}, "", None, "rounds"
-    # Held outside the loop, because the ending below is written from
-    # whatever the last round left — including a round that was cut off
-    # before it could answer, and a loop that never got to run one.
-    diff, files, truncated, patch = "", [], False, None
-    for round_number in range(1, RECOVERY_ROUNDS + 1):
-        left = RECOVERY_BUDGET - spent
-        if left <= 0.25:
-            stopped = "budget"
-            emit(phase="recovery", status="exhausted", round=round_number, spent=round(spent, 4))
-            break
-        # How long a round may actually take, which is the smaller of its
-        # own ceiling and what is left of the run. Stopping here rather
-        # than starting a round the deadline will cut in half is the whole
-        # reason the wrapper is told when the deadline is: a round that is
-        # killed leaves no check, no diff and no recipe, and a repository
-        # someone could have used comes back as a failure.
-        span = bounded(RECOVERY_TIMEOUT_S)
-        if span < MIN_ROUND_S:
-            stopped = "time"
-            emit(phase="recovery", status="out_of_time", round=round_number,
-                 seconds=max(0, int(time_left() or 0)), reserve=SAVE_RESERVE_S)
-            break
-        emit(phase="recovery", status="starting", round=round_number, model=RECOVERY_MODEL,
-             effort=RECOVERY_EFFORT, fast=RECOVERY_FAST, budget=round(left, 4), seconds=span, session=session[:8])
-        answer, info = agent("recovery", prompt, RECOVERY_MODEL, left, tools=RECOVERY_TOOLS, max_turns=250,
-                             timeout=span, cwd=root, schema=LAUNCH_SCHEMA,
-                             session=session, resume=round_number > 1, effort=RECOVERY_EFFORT, fast=RECOVERY_FAST)
-        spent += info.get("cost") or 0
-        # Before anything is decided about the answer, because a session
-        # that ran out of time or died mid-turn still edited the files it
-        # edited, and those edits are the expensive part. Reading the
-        # working tree costs a second, which is what the reserve is for.
-        diff, files, truncated = capture_diff(repo)
-        patch = {"summary": answer.get("summary") or "The recovery session prepared the repository.", "reason": "",
-                 "files": files, "diff": diff, "truncated": truncated, "attempt": round_number}
-        if info["error"] and not answer:
-            if diff.strip():
-                emit(phase="patch", status="applied", **{**patch, "interrupted": True,
-                     "summary": "What the recovery session had changed when it was cut off."})
-            emit(phase="recovery", status="failed", round=round_number, reason="the session " + info["error"],
-                 changed=len(files), **cost_fields(info))
-            break
-        emit(phase="recovery", status="answered", round=round_number, summary=answer.get("summary"),
-             verified=answer.get("verified"), services=len(answer.get("services") or []), **cost_fields(info))
-        if diff.strip():
-            emit(phase="patch", status="applied", **patch)
-
-        checked = None
-        if (folder / "check.sh").exists():
-            ok, output = run_script(folder / "check.sh", root, CHECK_TIMEOUT_S)
-            emit(phase="check", status="ok" if ok else "failed", round=round_number, output=output[-1500:])
-            checked = ok
-            if not ok:
-                last_output = "The check script you left did not pass:\n" + output[-2500:]
-                prompt = recovery_retry(last_output, round_number)
-                continue
-
-        services = [s for s in (answer.get("services") or []) if isinstance(s, dict)]
-        said = answer.get("blocker") if isinstance(answer.get("blocker"), dict) else None
-        if not services:
-            if not checked:
-                # Every ending below says the repository is usable, and
-                # nothing was started to show that it is. The check is the
-                # only evidence there would be, so its absence is a round
-                # that did not finish rather than a run that is done. The
-                # setup rung has always worked this way.
-                last_output = ("You returned no services, so the only evidence this repository is usable is the check you "
-                               f"left, and there is no {SETUP_DIR}/check.sh. Write one that exits 0 only when the setup "
-                               "genuinely works, run it yourself until it passes, and answer again.")
-                prompt = recovery_retry(last_output, round_number)
-                continue
-            if answer.get("nothingToServe") is True and not app_expected(blocked):
-                # A library, a tool, a dataset. There was never an
-                # application to start, so installed with a check that
-                # passes is the whole ending and not a consolation: the
-                # session read the repository and says so, the brief
-                # agrees, and check.sh proved it. Without this the only
-                # ending such a repository could reach was running out of
-                # rounds and being reported as an application that did
-                # not start.
-                recipe = recovery_recipe(root, answer, None, patch, diff, truncated, reason)
-                emit(phase="recipe", status="captured", recipe=recipe)
-                emit(phase="usable", summary=answer.get("summary"), next=read_setup_file(root, "NEXT.md")[:4000],
-                     check=answer.get("check"))
-                return True
-            if said and said.get("kind") in HARD_BLOCKERS:
-                # Nothing in this sandbox can supply what it says is
-                # missing, so installed-and-checked with the blocker
-                # written down is the ending, exactly as it is for the
-                # setup rung. Whether the brief expected an application
-                # changes nothing here: the session looked at the
-                # repository, and the brief only read it.
-                recipe = recovery_recipe(root, answer, None, patch, diff, truncated, reason)
-                recipe["blocker"] = {"kind": said["kind"], "what": str(said.get("what") or "")[:500]}
-                emit(phase="recipe", status="captured", recipe=recipe)
-                emit(phase="usable", summary=answer.get("summary"), next=read_setup_file(root, "NEXT.md")[:4000],
-                     check=answer.get("check"), blocker=recipe["blocker"])
-                return True
-            last_output = ("You returned no services, no blocker outside this sandbox's reach, and not a repository with "
-                           "nothing to serve. One of the three has to be true. Either describe how to start the application, "
-                           "or name what is genuinely missing as one of: " + ", ".join(HARD_BLOCKERS) + ", or say plainly "
-                           "that this repository has no application of its own and leave a check that proves what it does have.")
-            prompt = recovery_retry(last_output, round_number)
-            continue
-
-        if start_services(root, services):
-            recipe = recovery_recipe(root, answer, services, patch, diff, truncated, reason,
-                                     complete=bool(LAST_VERIFIED))
-            emit(phase="recipe", status="captured", recipe=recipe)
-            go_live_services()
-            return True
-        prompt = recovery_retry(LAST_CHECK, round_number)
-
-    # Out of rounds, budget or time. Installed with a check that passed is
-    # still worth having; a check that failed, or none at all, is not —
-    # calling that usable puts a run in front of a person as ready when
-    # nothing about it was ever proved.
-    if answer and checked:
-        why = {"time": "The run reached its deadline before the application started",
-               "budget": "The recovery session spent its budget before the application started"}.get(
-                   stopped, "The application did not start")
-        blocker = {"kind": "unknown", "what": (why + ": " + str(LAST_CHECK or ""))[:500]}
-        # With the patch, not without it. Everything this session changed
-        # is in there, and a recipe that carries the scripts but not the
-        # edits replays into a fresh clone and rebuilds nothing: the
-        # setup runs against the code as it was cloned, which is the code
-        # that did not work.
-        recipe = recovery_recipe(root, answer, None, patch, diff, truncated, reason, complete=False)
-        recipe["blocker"] = blocker
-        emit(phase="recipe", status="captured", recipe=recipe)
-        emit(phase="usable", summary=answer.get("summary"), next=read_setup_file(root, "NEXT.md")[:4000],
-             check=answer.get("check"), blocker=blocker)
-        return True
-    return False
-
-
-def recovery_recipe(root, answer, services, patch, diff, truncated, reason, complete=True):
-    """What is saved so the next run of this commit skips all of this.
-
-    The same shape the setup rung saves, plus the launch description,
-    because that is the thing worth having: a replay can start the
-    services directly and be watched, where replaying a shell script
-    never could."""
-    recipe = {"version": 1, "kind": "setup", "reason": reason, "summary": answer.get("summary"),
-              "checkSummary": answer.get("check"), "setup": read_setup_file(root, "setup.sh"),
-              "check": read_setup_file(root, "check.sh"), "next": read_setup_file(root, "NEXT.md"),
-              "patch": patch if patch and diff.strip() and not truncated else None,
-              "recovery": {"verified": answer.get("verified"), "changed": answer.get("changed") or []},
-              # Whether this is a finished answer: the pipeline performed
-              # the launch and the application answered, or there was
-              # never an application to start, or nothing in this sandbox
-              # could supply what is missing. False is setup work saved
-              # because the session ran out of rounds, budget or time —
-              # worth replaying as a head start, never as a result. The
-              # session's own "verified" above is its account of what it
-              # tried; this is the runner's.
-              "complete": complete,
-              "savedAt": time.time()}
-    if services:
-        recipe["services"] = services
-        entry = next((s for s in services if s.get("isEntry")), services[0])
-        recipe["startUrl"] = f"http://127.0.0.1:{entry.get('port')}{str(entry.get('path') or '/')}"
-    return recipe
-
-
-# --- The dependency install that started before any of this.
-#
-# The runner starts it the moment the clone lands (sandbox/prestart.py,
-# run from lib/runtime/e2b.ts before the gateways are even up), so by the
-# time this process exists there is either an install already running or a
-# recorded reason there is not. Nothing here starts one on its own: two
-# programs that can both start an install is the thing the lock exists to
-# prevent, and the cheapest way to hold a lock correctly is to have one
-# writer.
-#
-# What this file does is join it. The overlap is with reading — the brief,
-# the discovery, the planner — and it ends before anything else installs,
-# which is why there is no protocol for two installers sharing a
-# directory. There are never two.
-
-import prestart as INSTALL
-
-INSTALL_JOINED = False
-
-
-def install_state():
-    """What to tell the recovery session about the head start, including
-    the controls it should use rather than a second install of its own."""
-    now = INSTALL.state(REPO) if REPO else {"status": "none"}
-    status = now.get("status")
-    if status == "none":
-        return ""
-    where = f"{SETUP_DIR}/"
-    command = " ".join(now.get("command") or [])
-    controls = (f"Ask after it: `bash {where}install-status.sh` (one JSON line). "
-                f"Wait for it: `bash {where}install-wait.sh` (blocks, exits with its status). "
-                f"Stop it: `bash {where}install-cancel.sh` (stops it and releases the lock).")
-    if status == "running":
-        return "\n".join([
-            f"`{command}` was started from {now.get('lock')} the moment this repository was cloned, and is STILL RUNNING "
-            f"as pid {now.get('pid')} ({now.get('seconds')}s so far). Its output is at {now.get('log')}.",
-            controls,
-            f"While it runs, do not start another install in that directory and do not edit the dependency manifest or "
-            f"lockfile. A second install cannot start while it holds {where}install.lock, so it would fail rather than "
-            f"race you. If you need to change either, run install-cancel.sh first; if you need its result before you "
-            f"decide anything, run install-wait.sh. Read the repository in the meantime.",
-        ])
-    said = {"done": "finished successfully", "failed": f"FAILED with exit {now.get('exitCode')}",
-            "cancelled": "was cancelled", "lost": "stopped without recording a status",
-            "timeout": "is still going"}.get(status, status)
-    after = {"done": "Its dependencies are installed; do not install them again unless you change what they are.",
-             "failed": "Read the log before deciding anything — that failure is likely the thing to fix.",
-             "cancelled": "Nothing holds the lock; install what you need yourself.",
-             "lost": "Nothing holds the lock. Treat the install as not done."}.get(status, "")
-    return "\n".join([
-        f"`{command}` was started from {now.get('lock')} when this repository was cloned and {said} after "
-        f"{now.get('seconds')}s. Its output is at {now.get('log')}.",
-        after, controls,
-    ])
-
-
-def join_install(where="the pipeline"):
-    """Wait for the head start before anything else installs.
-
-    Called before every path that runs the plan. The overlap this exists
-    to allow is with analysis; the moment something is going to write to
-    node_modules or a virtualenv, one installer has to be the only one."""
-    global INSTALL_JOINED
-    if INSTALL_JOINED or not REPO:
-        return
-    now = INSTALL.state(REPO)
-    if now.get("status") == "none":
-        INSTALL_JOINED = True
-        return
-    INSTALL_JOINED = True
-    if now.get("status") == "running":
-        emit(phase="install", status="waiting", pid=now.get("pid"),
-             reason=f"{where} is about to install; waiting for the head start that began with the clone")
-    began = time.time()
-    done = INSTALL.wait(REPO)
-    waited = round(time.time() - began, 1)
-    if done.get("status") == "timeout":
-        # Waiting has a limit; installing beside it does not have a safe
-        # one. The pipeline is about to write to the same node_modules or
-        # the same virtualenv, so the head start stops here rather than
-        # becoming a second writer with the lock still in its hand.
-        done = INSTALL.cancel(REPO) or done
-        emit(phase="install", status="cancelled", reason=f"it was still running after {INSTALL.WAIT_TIMEOUT_S // 60} minutes and {where} needs the directory",
-             command=" ".join(done.get("command") or []), seconds=done.get("seconds"), waited=waited)
-        return
-    emit(phase="install", status=done.get("status"), command=" ".join(done.get("command") or []),
-         lock=done.get("lock"), exitCode=done.get("exitCode"), seconds=done.get("seconds"), waited=waited,
-         output=log_tail(done.get("log"), 1200) if done.get("log") else "")
-
-
 def stay_alive():
     """Stay as the sandbox's process while the person uses it, and watch
     the application when the setup rung started one."""
@@ -2891,13 +1865,6 @@ def stay_alive():
         if APP and APP["proc"].poll() is not None:
             emit(phase="exited", status="exited", reason=f"the application stopped (exit {APP['proc'].returncode}): " + log_tail(APP["log"], 600))
             sys.exit(1)
-        # A service beside the entry going down is not the end of the run —
-        # the page may still answer — but it is never nothing, and a trace
-        # with an API missing from the middle of it should say why.
-        for side in [s for s in SIDECARS if s["proc"].poll() is not None and not s.get("reported")]:
-            side["reported"] = True
-            emit(phase="exited", status="service", service=side["name"],
-                 reason=f"{side['name']} stopped (exit {side['proc'].returncode}): " + log_tail(side["log"], 400))
 
 
 def supervise(PR, run_id):
