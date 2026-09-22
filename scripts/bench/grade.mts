@@ -38,7 +38,9 @@ Grade rules:
 - outcome no_service means the pipeline concluded there is nothing to serve but could not set the repository up for use (its check failed); for a non-web kind that is partial at best.
 - outcome expired means the application was live and answered (see preview and liveAt); the pass then stopped it, or the sandbox reached its one-hour lifetime. Grade it as live.
 - A usable outcome with a blocker (see blocker) means the repository has an application that could not be started here for a reason outside the sandbox: kind secret (an API key), service (a database or external server), hardware, or data. The repository was installed and checked, and next opens with what the person must supply. For kind system that is a pass when the blocker is genuinely required by the paper's system and named exactly; cause none. A blocker of kind upstream means the code is broken as published: fail, cause repository. A blocker that a careful person could have removed without secrets (an example file that exists, a documented install step) is a fail, cause agent.
-- path says how the run got there: direct, repaired (the repair agent edited the copy), resolved (the resolver corrected the plan or confirmed the blocker), setup (the setup agent installed it). cost is what its agent calls spent in dollars. Neither changes the grade; mention an unusual cost in wentWrong.
+- path says how the run got there: direct, repaired (the repair agent edited the copy), resolved (the resolver corrected the plan or confirmed the blocker), setup (the setup agent installed it), recovered (one continuing agent session did all three). cost is what its agent calls spent in dollars. Neither changes the grade; mention an unusual cost in wentWrong.
+- Two arms of the benchmark are being compared, and variant says which one this run was: ladder for the four separate rungs, session for the one continuing session. It is recorded so the two can be told apart afterwards. It must not change how you grade. Do not reward a run for the way it recovered, do not treat recovered as better or worse than setup, and do not mention the variant in wentWrong or reason unless the record shows the way it recovered actually caused what happened.
+- browserVerified says whether the page was actually opened and read. True is a page somebody looked at. False means the run is up but the look did not finish, with browserVerificationIncomplete saying why; treat that as weaker evidence than a page that was read, and say so in wentWrong rather than assuming the page was fine. Null means no browser check was recorded at all — it is the absence of evidence, not evidence of absence, so do not hold it against a run and do not treat it as a pass either.
 - Judge only the record. Do not assume things the record does not show.
 
 Then say where the first real failure came from. Read the failures in order and the output of the failing stage; the first failure is usually the cause and the later ones follow from it. Pick exactly one:
@@ -61,7 +63,11 @@ function view(r: BenchRecord) {
     runner: r.docker ? "docker" : "standard", localSupabase: r.localSupabase, trail: r.trail, replayHeld: r.replayHeld,
     missingValues: r.missing, localValues: r.local.length,
     repairAttempts: r.repairAttempts, patch: r.patch ? { files: r.patch.files, summary: r.patch.summary } : null,
-    path: r.path, costUsd: r.cost, brief: r.brief, resolver: r.resolver, blocker: r.blocker,
+    path: r.path, variant: r.variant, costUsd: r.cost, brief: r.brief, resolver: r.resolver, blocker: r.blocker,
+    // Whether the page was actually opened and read. False is a run that
+    // is up but unchecked; null is a run with no browser check on the
+    // record at all. Neither is the same as a page that was read.
+    browserVerified: r.verified, browserVerificationIncomplete: r.unverified,
     steps: r.steps.map((s) => ({ step: s.id, state: s.state, seconds: s.ms ? Math.round(s.ms / 1000) : null, summary: s.summary })),
     preview: r.http ? { status: r.http.status, title: r.http.title } : null,
     commandsRun: r.stages, failures: r.failures, outputOfFailingStage: r.output,
