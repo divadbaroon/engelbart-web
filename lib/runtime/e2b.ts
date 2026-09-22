@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { Sandbox, CommandExitError } from "e2b";
+import { asVariant } from "@/lib/runtime/types";
 import type { LaunchOptions, LaunchOutcome, LaunchRecipe, Recorder, Runtime } from "@/lib/runtime/types";
 import type { AgentCost, PreviewService, RunBlocker, RunBrief, RunEscalation } from "@/lib/sandbox";
 import { toEnvReport } from "@/lib/environment";
@@ -27,6 +28,10 @@ const LAUNCH_DEADLINE_MS = 45 * 60_000;
 const LADDER_DEADLINE_MS = 56 * 60_000;
 const DEADLINE_TICK_MS = 10_000;
 const WRAPPER = "/opt/engelbart/hc_run.py";
+// Detects the repository's one unambiguous install and starts it detached,
+// then exits. It never waits for the install itself.
+const PRESTART = "/opt/engelbart/prestart.py";
+const PRESTART_TIMEOUT_MS = 30_000;
 const PROXY = "/opt/engelbart/proxy.mjs";
 const PROXY_PORT = 43110;   // the first public port; each service gets the next one, and their own ports stay loopback-only
 const RECIPE_FILE = "/home/user/.engelbart-recipe.json";
@@ -87,6 +92,39 @@ export async function stopLaunch(sandboxId: string, ports: number[]): Promise<vo
 
 const errorKind = (err: unknown) => (err instanceof Error ? err.constructor.name : "Error");
 const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+// Start the repository's own dependency install the moment there is a
+// clone to install from, and adopt-or-report whatever comes back.
+//
+// The detection, the lock and the controls are all in the sandbox
+// (sandbox/prestart.py), because they have to be readable by three
+// different things at three different times: this call, the wrapper a
+// minute later, and an agent with a shell after that. Holding any of it
+// here would mean the other two could not see it.
+//
+// Best effort in the strict sense — a run whose head start never began is
+// a run that installs slightly later, which is exactly what every run did
+// before this existed.
+async function beginInstall(sandbox: Sandbox, workdir: string, record: Recorder, skip: string | null) {
+  if (skip) {
+    record.event("status", `the dependency install waits for the pipeline to ask for it: ${skip}`, { phase: "install", status: "skipped", reason: skip });
+    return;
+  }
+  try {
+    const out = await sandbox.commands.run(`python3 ${PRESTART} ${shellQuote(workdir)}`, { timeoutMs: PRESTART_TIMEOUT_MS });
+    const said = JSON.parse(out.stdout.trim().split("\n").at(-1) ?? "{}") as { started?: boolean; reason?: string; command?: string[]; pid?: number; lock?: string };
+    if (said.started) {
+      record.event("status", `installing dependencies while the rest of the run starts: ${(said.command ?? []).join(" ")}`, { phase: "install", status: "starting", command: (said.command ?? []).join(" "), lock: said.lock, pid: said.pid });
+    } else {
+      // Why not is worth a line: "more than one lockfile" is a fact about
+      // the repository, and a person reading the Build tab should not have
+      // to guess whether the head start was skipped or simply forgotten.
+      record.event("status", `no dependency install was started before the pipeline: ${said.reason ?? "nothing to install"}`, { phase: "install", status: "skipped", reason: said.reason });
+    }
+  } catch (err) {
+    record.event("status", `the dependency head start could not be run (${errorMessage(err)}); the pipeline installs as usual`, { phase: "install", status: "skipped", reason: errorMessage(err) });
+  }
+}
 
 // Sample CPU, memory and disk into the event log. Best effort: metrics lag
 // creation by a few seconds and may be empty.
@@ -170,6 +208,19 @@ export const e2bRuntime: Runtime = {
       return fail(record, errorKind(err), `The sandbox is no longer available (${errorMessage(err)}). Prepare the repository again.`);
     }
     await record.status("launching");
+    // Before anything else in this function: the dependency install the
+    // repository already named. Everything below — Docker, two gateways,
+    // the wrapper's own start-up — is between thirty seconds and a minute
+    // the install would otherwise spend waiting to begin.
+    //
+    // Not when a saved recipe is going to be replayed. That recipe
+    // installed this repository once already, its own way, and a head
+    // start guessing from a lockfile would at best duplicate the work and
+    // at worst resolve a different dependency graph underneath it.
+    await beginInstall(sandbox, run.workdir, record,
+      options.recipe ? "a saved trail will be replayed, so the repository is installed the way it worked last time"
+      : options.headStart === false ? "this run is the arm of the benchmark that measures what the head start is worth"
+      : null);
     if (run.template === DOCKER_TEMPLATE) await startDocker(sandbox, record);
 
     // A saved recipe rides in as a file; the wrapper replays it first.
@@ -245,7 +296,7 @@ export const e2bRuntime: Runtime = {
         if (ev.phase === "instrument" && trace) {
           trace.collector.note("wrapper", `instrument.${String(ev.status ?? "unknown")}`, Object.fromEntries(Object.entries(ev).filter(([k]) => k !== "phase")));
         }
-        if (ev.phase === "resolve" || ev.phase === "setup" || ev.phase === "start" || ev.phase === "conclusion" || (ev.phase === "order" && ev.status === "gave_up") || (ev.phase === "patch" && ev.status === "starting")) extendForLadder();
+        if (ev.phase === "resolve" || ev.phase === "setup" || ev.phase === "recovery" || ev.phase === "start" || ev.phase === "conclusion" || (ev.phase === "order" && ev.status === "gave_up") || (ev.phase === "patch" && ev.status === "starting")) extendForLadder();
         if (ev.phase === "recipe") {
           if (ev.status === "captured" && ev.recipe && typeof ev.recipe === "object") recipe = ev.recipe as LaunchRecipe;
           if (ev.status === "failed") recipeFailed = true;
@@ -261,6 +312,10 @@ export const e2bRuntime: Runtime = {
           if (ev.status === "blocked") escalation.blocker = (ev.blocker as RunBlocker | undefined) ?? null;
         } else if (ev.phase === "conclusion") {
           if (ev.blocker && typeof ev.blocker === "object") escalation.blocker = ev.blocker as RunBlocker;
+        } else if (ev.phase === "recovery" && ev.status === "starting") {
+          // One session owns the whole recovery, so its path is its own
+          // name rather than the rung it happens to be doing at the time.
+          escalation.path = "recovered";
         } else if (ev.phase === "setup" && ev.status === "starting") {
           escalation.path = "setup";
         } else if (ev.phase === "environment") {
@@ -331,7 +386,20 @@ export const e2bRuntime: Runtime = {
           ...(handedBrief ? { HC_BRIEF_FILE: BRIEF_FILE } : {}),
           // Which model each agent rung runs on and how much a call may
           // spend; the wrapper has defaults for each.
-          ...Object.fromEntries(Object.entries(process.env).filter(([k]) => /^HC_(BRIEF|RESOLVER|REPAIR|SETUP|SETUP_RETRY)_(MODEL|BUDGET_USD)$/.test(k)).map(([k, v]) => [k, v ?? ""])),
+          ...Object.fromEntries(Object.entries(process.env).filter(([k]) => /^HC_(BRIEF|RESOLVER|REPAIR|SETUP|SETUP_RETRY|RECOVERY)_(MODEL|BUDGET_USD|EFFORT|FAST|ROUNDS)$/.test(k)).map(([k, v]) => [k, v ?? ""])),
+          // How this run may recover from a launch that did not work. It
+          // comes off the run row rather than the runner's environment, so
+          // that two ways of recovering can be measured against each other
+          // on the same repositories in one pass instead of on two days.
+          HC_RECOVERY: asVariant(options.variant),
+          // When this run stops being watched, as seconds since the epoch.
+          // The ladder's deadline rather than the direct one, because any
+          // phase that would still be running by then has already moved it
+          // out; it is also the earlier of the two ends, the sandbox's own
+          // lifetime being longer. Without it the wrapper can only bound
+          // its agents by a fixed timeout and find out it was cut off by
+          // being cut off, which loses whatever the last one had done.
+          HC_DEADLINE_AT: String(Math.floor((launchStart + LADDER_DEADLINE_MS) / 1000)),
           ...(options.hint ? { HC_PROJECT_HINT: options.hint.slice(0, 500) } : {}),
           ...(handedEnv ? { HC_ENV_FILE: ENV_FILE } : {}),
           // With a gateway up, the wrapper applies the repository's registered
@@ -737,7 +805,7 @@ function describe(ev: WrapperEvent, record: Recorder) {
       return;
     case "start":
       record.event("status", ev.status === "starting" ? `setup: starting the application, waiting for ${ev.url ?? "it"}`
-        : ev.status === "answering" ? `setup: the application answers at ${ev.url ?? ""}`
+        : ev.status === "answering" ? `setup: the application answers at ${ev.url ?? ""}${ev.verified === false ? ` — browser verification incomplete: ${ev.unverified ?? "the page was not opened"}` : ""}`
         : ev.status === "leftover" ? `setup: stopping what the agent left on port ${ev.port ?? "?"}`
         : `setup: the application did not start: ${ev.reason ?? ""}`, ev);
       return;

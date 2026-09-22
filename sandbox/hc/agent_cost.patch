@@ -1,0 +1,86 @@
+--- providers.py	2026-09-22 01:25:45
++++ providers.py	2026-09-22 01:25:45
+@@ -172,12 +172,46 @@
+     return env
+ 
+ 
++# What the last CLI call cost. Engelbart's addition, and the reason the
++# command above asks for the JSON envelope at all: without it the CLI
++# answers in plain text and a run has no way to know what its own planning
++# spent, so the only model calls anyone could account for were the
++# supervisor's. The newest figure is kept here for project_agent_trace to
++# put on the turn it belongs to; it is never read from more than one
++# thread, because a turn is one subprocess at a time.
++LAST_CALL = {}
++
++
++def _unwrap(stdout):
++    """The model's answer out of the CLI's JSON envelope, with what the
++    call cost kept aside.
++
++    Every caller downstream of this reads the answer with
++    _last_json_object, which picks the JSON object that ends last — and
++    with an envelope around it, that object is the envelope. So asking for
++    the envelope and not unwrapping it would not merely add a field, it
++    would quietly hand the planner its own receipt instead of its plan.
++    Anything that is not an envelope is passed through untouched."""
++    global LAST_CALL
++    LAST_CALL = {}
++    try:
++        envelope = json.loads(stdout)
++    except (ValueError, TypeError):
++        return stdout
++    if not isinstance(envelope, dict) or "result" not in envelope:
++        return stdout
++    LAST_CALL = {"cost": envelope.get("total_cost_usd"), "turns": envelope.get("num_turns"),
++                 "usage": envelope.get("usage") if isinstance(envelope.get("usage"), dict) else None}
++    result = envelope.get("result")
++    return result if isinstance(result, str) else stdout
++
++
+ class ClaudeCLI(Base):
+     kind = "claude"
+     def _run(self, prompt, *, structured=False, plain=False, read=None,
+              search="", web=False, parse=None, probe=""):
+         command = ["claude", "-p", "--safe-mode", "--model", self.model,
+-                   "--no-session-persistence"]
++                   "--no-session-persistence", "--output-format", "json"]
+         deadline = self.timeout or CLAUDE_TIMEOUT_SECONDS
+         if probe:
+             # The answer is what happens when something runs, so the call
+@@ -286,10 +320,11 @@
+                 "stdout": r.stdout, "stderr": r.stderr, "returncode": r.returncode})
+             if r.returncode != 0:
+                 raise ProviderError(f"claude CLI failed: {r.stderr.strip()[:200]}")
+-            if parse is None:
+-                return r.stdout
++            text = _unwrap(r.stdout)
++            if parse is None:
++                return text
+             try:
+-                parsed = parse(r.stdout)
++                parsed = parse(text)
+             except json.JSONDecodeError as e:
+                 op.snapshot("model_parsed_response", None)
+                 raise ProviderError(
+--- project_agent_trace.py	2026-09-22 01:25:45
++++ project_agent_trace.py	2026-09-22 01:25:45
+@@ -28,7 +28,18 @@
+         raw=engine.generate_probing(prompt,where=probe) if probe else engine.generate_plain(prompt,planning=True)
+         event.update(status='done',phase='Model response received',response=redact(raw)[:24000],responseTruncated=len(raw)>24000)
+         try:
++            # Engelbart's addition: what this turn cost, so a supervisor can
++            # account for the pipeline's own model use and not only its own.
++            # Only for the CLI provider, which is the only one that reports
++            # a figure; anything else would be the last call's, not this one's.
+             from . import providers
++            if event['provider']=='claude':
++                spend=getattr(providers,'LAST_CALL',None) or {}
++                for key in ('cost','turns','usage'):
++                    if spend.get(key) is not None:event[key]=spend[key]
++        except (ImportError,AttributeError,TypeError):pass
++        try:
++            from . import providers
+             result=providers._last_json_object(raw)
+             if result.get('status') in ('read_more','plan','needs_input','unsupported'):
+                 event['outcome']=result['status']
