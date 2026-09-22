@@ -13,7 +13,7 @@ let seq = 0;
 const at = (n: number) => new Date(Date.UTC(2026, 8, 21, 12, 0, n)).toISOString();
 const ev = (kind: SandboxEvent["kind"], text: string, data: Record<string, unknown> | null = null): SandboxEvent => {
   seq += 1;
-  return { id: `e${seq}`, runId: "r1", seq, at: at(seq), kind, text, data };
+  return { id: seq, runId: "r1", seq, at: at(seq), kind, text, data };
 };
 
 const run = (patch: Partial<SandboxRun> = {}): SandboxRun => ({
@@ -157,6 +157,89 @@ describe("the log, sliced by step", () => {
     const steps = byId(runSteps(run(), cameUp()));
     assert.ok(steps.start.events.some((e) => e.text.includes("added 402 packages")));
     assert.ok(!steps.plan.events.some((e) => e.text.includes("added 402 packages")));
+  });
+});
+
+describe("an application that is up but was never looked at", () => {
+  // The page is what settles whether an application works: one that
+  // crashed on an import still answers a 200 with the crash written on
+  // it. So a run whose browser check did not finish is up and available
+  // — nothing is stopped, the preview stays — but the run must not read
+  // as though the page had been opened and was fine.
+  //
+  // Three paths reach that point and end differently: the native one at
+  // `ready`, the setup rung and the recovery session at `start:
+  // answering`. All three open the page in between, so all three are
+  // read off the same visit event.
+  const look = (visit: Record<string, unknown> | null) => (visit ? [ev("status", "visited", { phase: "visit", ...visit })] : []);
+  const native = (visit: Record<string, unknown> | null): SandboxEvent[] => {
+    seq = 0;
+    return [
+      ev("status", "creating", { template: "base" }),
+      ev("status", "cloned", { commit: "abcdef1234" }),
+      ev("status", "plan", { phase: "plan", source: "railpack", summary: "next dev" }),
+      ev("command", "npm run dev", { stage: "start" }),
+      ...look(visit),
+      ev("status", "ready", { phase: "ready", services: ["web"] }),
+    ];
+  };
+  const answered = (visit: Record<string, unknown> | null, rung: "setup" | "recovery"): SandboxEvent[] => {
+    seq = 0;
+    return [
+      ev("status", "creating", { template: "base" }),
+      ev("status", "cloned", { commit: "abcdef1234" }),
+      ...(rung === "setup"
+        ? [ev("status", "setup", { phase: "setup", status: "done", summary: "installed" })]
+        : [ev("status", "recovery", { phase: "recovery", status: "answered", summary: "fixed the port" })]),
+      ev("status", "starting", { phase: "start", status: "starting", url: "http://127.0.0.1:3000/" }),
+      ...look(visit),
+      ev("status", "answering", { phase: "start", status: "answering", url: "http://127.0.0.1:3000/" }),
+      ev("status", "ready", { phase: "ready", services: ["web"] }),
+    ];
+  };
+  const NOT_READ = { verified: false, unverified: "there was no time left in this run to open the page" };
+  const READ = { verified: true, unverified: null, title: "Welcome", status: 200 };
+  const live = run({ status: "running", previewUrl: "https://example.test" });
+  const paths: [string, (v: Record<string, unknown> | null) => SandboxEvent[]][] = [
+    ["the native path", native],
+    ["the setup rung", (v) => answered(v, "setup")],
+    ["the recovery session", (v) => answered(v, "recovery")],
+  ];
+
+  for (const [name, log] of paths) {
+    it(`says so, and warns, on ${name}`, () => {
+      const steps = byId(runSteps(live, log(NOT_READ)));
+      // The native path has no answering line to hang it off, so it is a
+      // sentence of its own there and a clause after the URL elsewhere.
+      assert.match(steps.health.summary, /browser verification incomplete: there was no time left/i);
+      assert.equal(steps.health.state, "warned");
+      // And where a person looks first, without taking the run down.
+      assert.match(steps.live.summary, /Live at https:\/\/example\.test/);
+      assert.match(steps.live.summary, /browser verification incomplete/i);
+      assert.equal(steps.live.state, "warned");
+    });
+
+    it(`reads differently when the page was read, on ${name}`, () => {
+      const steps = byId(runSteps(live, log(READ)));
+      assert.doesNotMatch(steps.health.summary, /verification/);
+      assert.equal(steps.health.state, "done");
+      assert.doesNotMatch(steps.live.summary, /verification/);
+      assert.equal(steps.live.state, "done");
+    });
+
+    it(`says nothing either way when no check was recorded, on ${name}`, () => {
+      // An older sandbox, or a path that did not open the page at all.
+      // Absence of evidence, so the run reads as it always did.
+      const steps = byId(runSteps(live, log(null)));
+      assert.doesNotMatch(steps.health.summary, /verification/);
+      assert.doesNotMatch(steps.live.summary, /verification/);
+      assert.notEqual(steps.live.state, "warned");
+    });
+  }
+
+  it("names the answering URL as well, when there is one", () => {
+    const steps = byId(runSteps(live, answered(NOT_READ, "recovery")));
+    assert.match(steps.health.summary, /answers at http:\/\/127\.0\.0\.1:3000\/ — browser verification incomplete/);
   });
 });
 

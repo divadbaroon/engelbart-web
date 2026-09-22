@@ -371,6 +371,15 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined, re
     const concluded = last("health", (e) => e.data?.phase === "conclusion");
     const check = last("health", (e) => e.data?.phase === "check");
     const visited = last("health", (e) => e.data?.phase === "visit");
+    // Answering on a port and working are different claims, and opening
+    // the page is what settles the second one. Read off the visit event
+    // rather than off whatever each path emits at the end, because the
+    // native path, the setup rung and the recovery session all end
+    // differently and all three make this same check. Absent means no
+    // check was recorded, which is not the same as one that failed.
+    const unread = visited && data(visited).verified === false
+      ? String(data(visited).unverified ?? "the page was not opened")
+      : null;
     const err = last("health", (e) => e.kind === "error");
     const d = data(patch);
     const files = Array.isArray(d.files) ? d.files.length : 0;
@@ -381,7 +390,10 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined, re
     const blocker = (rd.blocker ?? data(concluded).blocker) as { kind?: string; what?: string } | undefined;
     const started = last("health", (e) => e.data?.phase === "start");
     if (started && data(started).status === "failed") { steps.health.summary = `The application did not start: ${String(data(started).reason ?? "").slice(0, 160)}`; steps.health.flag = "warned"; }
-    else if (started && data(started).status === "answering") steps.health.summary = `The application answers at ${String(data(started).url ?? "")}`;
+    else if (started && data(started).status === "answering") {
+      steps.health.summary = `The application answers at ${String(data(started).url ?? "")}${unread ? ` — browser verification incomplete: ${unread.slice(0, 160)}` : ""}`;
+      if (unread) steps.health.flag = "warned";
+    }
     else if (check) { steps.health.summary = data(check).status === "ok" ? "The check passed" : `The check failed: ${String(data(check).reason ?? data(check).output ?? "").slice(-160)}`; if (data(check).status !== "ok") steps.health.flag = "warned"; }
     else if (concluded && data(concluded).status === "blocked") { steps.health.summary = `Blocked${blocker?.kind ? ` (${blocker.kind})` : ""}: ${String(blocker?.what ?? data(concluded).reason ?? "").slice(0, 200)}`; steps.health.flag = "warned"; }
     else if (concluded) steps.health.summary = `Nothing to serve: ${String(data(concluded).reason ?? "").slice(0, 200)}`;
@@ -398,6 +410,7 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined, re
     else if (need) steps.health.summary = `Not answering: ${String(data(need).reason ?? "").slice(0, 160)}`;
     else if (unhealthy) steps.health.summary = `Opened the page: ${String(data(unhealthy).reason ?? "").slice(0, 160)}`;
     else if (err) steps.health.summary = err.text.slice(0, 160);
+    else if (unread) { steps.health.summary = `Browser verification incomplete: ${unread.slice(0, 160)}`; steps.health.flag = "warned"; }
     else if (visited) steps.health.summary = `Opened the page in a browser${data(visited).title ? ` (${String(data(visited).title).slice(0, 60)})` : ""}`;
     else if (steps.health.events.length) steps.health.summary = "Checking…";
   }
@@ -417,6 +430,7 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined, re
     const shared = last("live", (e) => e.data?.phase === "trail" && e.data?.status === "shared");
     const exited = last("live", (e) => e.data?.phase === "exited" || e.data?.phase === "error");
     const usable = last("live", (e) => e.data?.phase === "usable");
+    const looked = last("health", (e) => e.data?.phase === "visit");
     const ub = (data(usable).blocker ?? run?.usage?.blocker) as { kind?: string; what?: string } | null | undefined;
     const parts = [
       isOver(run) ? "" :
@@ -425,6 +439,10 @@ function summarize(steps: Record<StepId, Draft>, run: SandboxRun | undefined, re
       services > 1 ? count(services, "service") : "",
       shared ? "command list saved and shared" : captured ? "command list saved" : "",
     ].filter(Boolean);
+    if (looked && data(looked).verified === false) {
+      parts.push(`browser verification incomplete: ${String(data(looked).unverified ?? "the page was not opened").slice(0, 120)}`);
+      steps.live.flag = "warned";
+    }
     if (exited) { parts.push(`stopped: ${String(data(exited).reason ?? exited.text).slice(0, 120)}`); steps.live.flag = "warned"; }
     if (run?.status === "killed") { parts.push("stopped"); }
     steps.live.summary = parts.join(" · ");
