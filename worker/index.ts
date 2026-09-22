@@ -20,6 +20,7 @@ import os from "node:os";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Sandbox } from "e2b";
 import { getRuntime, type LaunchRecipe, type Recorder, type Runtime } from "@/lib/runtime";
+import { asVariant } from "@/lib/runtime/types";
 import { createRecorder } from "@/lib/runtime/recorder";
 import { createCollector, type Collector } from "@/lib/trace/collector";
 import { REPO_COLUMNS, toRepo, type RepoRow } from "@/lib/repos";
@@ -141,7 +142,7 @@ class Worker {
         let patch: RepoPatch | null = null;
         const brief = launchable.fresh ? null : await this.pickBrief(repo.id, launchable.commit);
         const launched = await this.runtime.launch(repo, launchable, record, {
-          recipe: replaying, env, hint: repo.hint, brief,
+          recipe: replaying, env, hint: repo.hint, brief, variant: asVariant(launchable.variant), headStart: launchable.headStart,
           trace: collector && launchable.trace !== "off" ? { capture: launchable.trace, collector } : null,
           onEnvironment: (report) => void this.saveEnvReport(repo.id, report),
           // A patch made in this run has no origin; one replayed from a recipe does.

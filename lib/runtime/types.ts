@@ -70,7 +70,26 @@ export type LaunchOptions = {
   // with their content ("full") or only its shape ("metadata"), written by
   // the collector. Null means no gateway and no instrumentation.
   trace?: { capture: ContentCapture; collector: Collector } | null;
+  // How this run may recover when the pipeline cannot start the
+  // repository. It reaches the wrapper as one environment variable and
+  // changes nothing else: the clone, the plan, the saved recipe and the
+  // launch the pipeline performs are the same either way.
+  variant?: RunVariant | null;
+  // Whether the dependency install was allowed to begin with the clone.
+  // Null and true are the same thing; false is the arm that measures what
+  // the head start is actually worth.
+  headStart?: boolean | null;
 };
+
+// "ladder" is the four rungs the run has always climbed — a repair agent,
+// then a resolver, then a setup agent — each a separate call reading a
+// summary of the one before. "session" is one agent session that keeps its
+// context across the whole recovery and answers with a launch description
+// the pipeline executes. Anything else is treated as "ladder", so an old
+// sandbox meeting a new name still runs.
+export type RunVariant = "ladder" | "session";
+export const RUN_VARIANTS: RunVariant[] = ["ladder", "session"];
+export const asVariant = (v: unknown): RunVariant => (v === "session" ? "session" : "ladder");
 
 export type Runtime = {
   // Bring the repository into a fresh sandbox and leave it ready for the next step.
